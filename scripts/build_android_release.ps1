@@ -9,6 +9,7 @@ param(
     [string]$GitSha,
     [string]$BuildId,
     [string]$BuildTimeUtc,
+    [string]$MapboxPublicAccessToken = $env:MAPBOX_PUBLIC_ACCESS_TOKEN,
     [switch]$SkipBuild,
     [switch]$Overwrite
 )
@@ -97,6 +98,17 @@ try {
         "--dart-define=MYCHU_BUILD_ID=$BuildId",
         "--dart-define=MYCHU_BUILD_TIME_UTC=$BuildTimeUtc"
     )
+    if (-not $SkipBuild) {
+        $MapboxPublicAccessToken = if ($null -eq $MapboxPublicAccessToken) {
+            ''
+        } else {
+            $MapboxPublicAccessToken.Trim()
+        }
+        if (-not $MapboxPublicAccessToken.StartsWith('pk.') -or $MapboxPublicAccessToken.Length -le 3) {
+            throw 'Set MAPBOX_PUBLIC_ACCESS_TOKEN to a Mapbox public pk.* token before building.'
+        }
+        $buildArguments += "--dart-define=MAPBOX_PUBLIC_ACCESS_TOKEN=$MapboxPublicAccessToken"
+    }
     if (-not [string]::IsNullOrWhiteSpace($BuildNumber)) {
         $buildArguments += "--build-number=$BuildNumber"
     }

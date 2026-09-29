@@ -5,10 +5,11 @@ import "../map_engine.dart";
 
 /// Mapbox runtime configuration.
 ///
-/// The app uses a Mapbox Public Token by default. Public `pk.*` tokens are
-/// intended for client applications; Secret `sk.*` tokens must never be used
-/// here. The production token and Studio Style are intentionally fixed in the
-/// app. Constructor values are retained only for SDK-free tests.
+/// Supply the Mapbox Public Token through the
+/// `MAPBOX_PUBLIC_ACCESS_TOKEN` Dart compile-time define. Public `pk.*` tokens
+/// are intended for client applications; Secret `sk.*` tokens must never be
+/// used here. The Studio Style is fixed in the app. Constructor values are
+/// retained only for SDK-free tests.
 class MapboxMapConfig {
   static const String mapboxAccessToken = MapboxCloudConfig.accessToken;
   static const String mapLanguage = "zh-Hans";

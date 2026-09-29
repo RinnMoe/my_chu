@@ -3,8 +3,9 @@
 /// so SDK-independent capabilities can use the hosted semantic catalog without
 /// importing renderer types.
 class MapboxCloudConfig {
-  static const String accessToken =
-      "pk.eyJ1IjoicmlubnJpbm4iLCJhIjoiY210MTRybmtsMGE1NDJ5cXR1dWZ4cDF0aCJ9.QLf13ylMhUBqcKy-oKWA5w";
+  static const String accessToken = String.fromEnvironment(
+    "MAPBOX_PUBLIC_ACCESS_TOKEN",
+  );
   static const String styleUri =
       "mapbox://styles/rinnrinn/cmt1es0c1001k01sk4p2g2uf4";
 
@@ -31,7 +32,9 @@ class MapboxCloudConfig {
     final identity = styleIdentity;
     final resolvedToken = (token ?? accessToken).trim();
     if (!resolvedToken.startsWith("pk.")) {
-      throw const FormatException("Mapbox semantic reads require a public pk.* token");
+      throw const FormatException(
+        "Mapbox semantic reads require a public pk.* token",
+      );
     }
     return Uri.https(
       "api.mapbox.com",

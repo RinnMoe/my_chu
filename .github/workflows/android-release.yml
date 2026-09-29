@@ -3,21 +3,28 @@ name: Android Release APK
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to build, such as 1.0.0 or v1.0.0'
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: android-release-${{ github.event.release.tag_name }}
+  group: android-release-${{ github.event.release.tag_name || github.event.inputs.tag }}
   cancel-in-progress: false
 
 jobs:
   build-and-upload:
-    if: ${{ github.event.release.prerelease == false }}
+    if: ${{ github.event_name == 'release' || github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     # Add these as secrets on the android-release environment:
     # ANDROID_RELEASE_KEYSTORE_BASE64, ANDROID_RELEASE_STORE_PASSWORD,
     # ANDROID_RELEASE_KEY_ALIAS, ANDROID_RELEASE_KEY_PASSWORD, MAPBOX_DOWNLOADS_TOKEN
+    # Add MAPBOX_PUBLIC_ACCESS_TOKEN as an Actions variable on this environment.
     environment: android-release
     permissions:
       contents: write
@@ -25,7 +32,7 @@ jobs:
       - name: Check out the release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.event.release.tag_name || github.event.inputs.tag }}
           persist-credentials: false
 
       - name: Set up Java
@@ -44,7 +51,7 @@ jobs:
       - name: Check tag and app version
         shell: bash
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
         run: |
           set -euo pipefail
           app_version="$(sed -n 's/^version: *//p' pubspec.yaml | head -n 1)"
@@ -52,6 +59,19 @@ jobs:
           tag_version="${RELEASE_TAG#v}"
           if [[ ! "$tag_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || "$tag_version" != "$app_version" ]]; then
             echo "::error::Release tag must match pubspec.yaml version (optionally prefixed with v)."
+            exit 1
+          fi
+
+      - name: Verify target Release exists
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          is_draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft')"
+          if [[ "$is_draft" != "false" ]]; then
+            echo "::error::The target GitHub Release must be published before building."
             exit 1
           fi
 
@@ -116,12 +136,18 @@ jobs:
         shell: bash
         env:
           MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
+          MAPBOX_PUBLIC_ACCESS_TOKEN: ${{ vars.MAPBOX_PUBLIC_ACCESS_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
           GIT_SHA: ${{ github.sha }}
           RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
           if [[ -z "$MAPBOX_DOWNLOADS_TOKEN" ]]; then
             echo "::error::Configure MAPBOX_DOWNLOADS_TOKEN in the android-release environment."
+            exit 1
+          fi
+          if [[ "$MAPBOX_PUBLIC_ACCESS_TOKEN" != pk.* || "${#MAPBOX_PUBLIC_ACCESS_TOKEN}" -le 3 ]]; then
+            echo "::error::Configure MAPBOX_PUBLIC_ACCESS_TOKEN as an Actions variable with a Mapbox public pk.* token."
             exit 1
           fi
           export MYCHU_BUILD_CHANNEL=official
@@ -137,8 +163,11 @@ jobs:
             echo "::error::The validated release APK was not produced."
             exit 1
           fi
-          echo "apk_path=$apk_path" >> "$GITHUB_OUTPUT"
-          sha256sum "$apk_path" >> "$GITHUB_STEP_SUMMARY"
+          release_version="${RELEASE_TAG#v}"
+          release_apk_path="$RUNNER_TEMP/MyCHU-${release_version}-release.apk"
+          cp -- "$apk_path" "$release_apk_path"
+          echo "apk_path=$release_apk_path" >> "$GITHUB_OUTPUT"
+          sha256sum "$release_apk_path" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove signing files
         if: always()
@@ -148,6 +177,6 @@ jobs:
       - name: Upload APK to the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
           APK_PATH: ${{ steps.build.outputs.apk_path }}
         run: gh release upload "$RELEASE_TAG" "$APK_PATH" --clobber
