@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Release defaults to denying cleartext traffic. Keep the legacy HTTP
+         exceptions below exact-host only; never widen this to chd.edu.cn. -->
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- EAMS still serves the legacy HTTP entry point. -->
+        <domain includeSubdomains="false">bkjw.chd.edu.cn</domain>
+    </domain-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- OPAC currently serves its public SPA over the legacy HTTP entry. -->
+        <domain includeSubdomains="false">opac.chd.edu.cn</domain>
+    </domain-config>
+</network-security-config>

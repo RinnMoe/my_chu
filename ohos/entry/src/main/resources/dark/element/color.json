@@ -1,0 +1,20 @@
+{
+  "color": [
+    {
+      "name": "widget_surface",
+      "value": "#2B2930"
+    },
+    {
+      "name": "widget_on_surface",
+      "value": "#E6E1E5"
+    },
+    {
+      "name": "widget_on_surface_variant",
+      "value": "#CAC4D0"
+    },
+    {
+      "name": "widget_primary",
+      "value": "#D0BCFF"
+    }
+  ]
+}

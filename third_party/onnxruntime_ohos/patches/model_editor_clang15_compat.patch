@@ -1,0 +1,26 @@
+diff --git a/onnxruntime/core/session/model_editor_c_api.cc b/onnxruntime/core/session/model_editor_c_api.cc
+index bb1cb1e..76b192e 100644
+--- a/onnxruntime/core/session/model_editor_c_api.cc
++++ b/onnxruntime/core/session/model_editor_c_api.cc
+@@ -329,7 +329,9 @@ ORT_API_STATUS_IMPL(OrtModelEditorAPI::AddInitializerToGraph, _Inout_ OrtGraph*
+
+   // Duplicate-pointer check: set::insert returns {iterator, inserted=false} when the pointer is
+   // already owned. If insert throws bad_alloc, no state has changed and the caller still owns `tensor`.
+-  auto [ptr_it, ptr_inserted] = graph->initializer_ptrs.insert(tensor);
++  const auto ptr_insert = graph->initializer_ptrs.insert(tensor);
++  auto ptr_it = ptr_insert.first;
++  const bool ptr_inserted = ptr_insert.second;
+   if (!ptr_inserted) {
+     return OrtApis::CreateStatus(ORT_INVALID_ARGUMENT,
+                                  "This OrtValue pointer has already been added to the graph. "
+@@ -381,7 +383,9 @@ ORT_API_STATUS_IMPL(OrtModelEditorAPI::AddNodeToGraph, _Inout_ OrtGraph* ort_gra
+
+   // Combined duplicate-pointer check + insert via the set's return value. If insert throws bad_alloc,
+   // no state is changed and the caller still owns `ort_node`.
+-  auto [ptr_it, ptr_inserted] = graph->node_ptrs.insert(node);
++  const auto ptr_insert = graph->node_ptrs.insert(node);
++  auto ptr_it = ptr_insert.first;
++  const bool ptr_inserted = ptr_insert.second;
+   if (!ptr_inserted) {
+     return OrtApis::CreateStatus(ORT_INVALID_ARGUMENT,
+                                  "This OrtNode pointer has already been added to the graph. "

@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "defaults": {
+    "show_labels": true,
+    "show_outside_labels": false
+  },
+  "campuses": {
+    "yanta": {
+      "overrides": [
+        {
+          "id": "osm:way:1409909484",
+          "name": "第一教学楼（资源学院）",
+          "place_id": "yanta.osm.way.1409909484",
+          "priority": 80,
+          "visible": true
+        },
+        {
+          "id": "osm:way:1409909630",
+          "name": "第二教学楼（地测学院）",
+          "place_id": "yanta.osm.way.1409909630",
+          "priority": 80,
+          "visible": true
+        },
+        {
+          "id": "osm:way:1409909073",
+          "name": "图书馆",
+          "place_id": "yanta.osm.way.1409909073",
+          "priority": 75,
+          "visible": true
+        },
+        {
+          "id": "osm:way:1409909587",
+          "name": "第五教学楼",
+          "coordinate": [108.9586952, 34.2275264],
+          "category": "building",
+          "scope": "inside",
+          "priority": 75,
+          "visible": true
+        },
+        {
+          "id": "osm:way:1409909730",
+          "name": "第四教学楼",
+          "coordinate": [108.9587024, 34.2263656],
+          "category": "building",
+          "scope": "inside",
+          "priority": 75,
+          "visible": true
+        },
+        {
+          "id": "custom:yanta:sports-field",
+          "name": "运动场",
+          "coordinate": [108.95735506, 34.22711154],
+          "category": "sport",
+          "scope": "inside",
+          "priority": 78,
+          "visible": true
+        },
+        {
+          "id": "custom:yanta:public-bath",
+          "name": "浴室",
+          "coordinate": [108.95568296, 34.22636966],
+          "category": "poi",
+          "scope": "inside",
+          "priority": 65,
+          "visible": true
+        }
+      ]
+    },
+    "weishui": {
+      "overrides": [
+        {
+          "id": "osm:node:2616055865",
+          "name": "物业服务中心",
+          "coordinate": [108.8940543, 34.371321],
+          "category": "poi",
+          "scope": "inside",
+          "priority": 68,
+          "visible": true
+        },
+        {
+          "id": "osm:way:255892580",
+          "name": "小食堂",
+          "coordinate": [108.894188, 34.371433],
+          "category": "building",
+          "scope": "inside",
+          "priority": 70,
+          "visible": true
+        },
+        {
+          "id": "osm:way:1110912808",
+          "name": "汽车结构实验室",
+          "coordinate": [108.899739, 34.374334],
+          "category": "building",
+          "scope": "inside",
+          "priority": 72,
+          "visible": true
+        },
+        {
+          "id": "osm:way:1110912811",
+          "name": "筑机可靠性实验室",
+          "coordinate": [108.901774, 34.374721],
+          "category": "building",
+          "scope": "inside",
+          "priority": 72,
+          "visible": true
+        },
+        {
+          "id": "osm:way:1017311830",
+          "name": "交通运输及智能装配创新平台",
+          "coordinate": [108.899299, 34.37421],
+          "category": "building",
+          "scope": "inside",
+          "priority": 72,
+          "visible": true
+        },
+        {
+          "id": "osm:way:1200833708",
+          "name": "报告厅",
+          "coordinate": [108.898855, 34.372152],
+          "category": "building",
+          "scope": "inside",
+          "priority": 70,
+          "visible": true
+        },
+        {
+          "id": "osm:way:1205663665",
+          "name": "中心广场",
+          "coordinate": [108.899994, 34.371811],
+          "category": "place",
+          "scope": "inside",
+          "priority": 64,
+          "visible": true
+        },
+        {
+          "id": "osm:way:393548972",
+          "name": "长安文化艺术中心",
+          "coordinate": [108.906206, 34.371357],
+          "category": "building",
+          "scope": "inside",
+          "priority": 72,
+          "visible": true
+        },
+        {
+          "id": "osm:way:1194050484",
+          "name": "荷球场",
+          "coordinate": [108.907603, 34.375421],
+          "category": "sport",
+          "scope": "inside",
+          "priority": 62,
+          "visible": true
+        },
+        {
+          "id": "osm:way:255892166",
+          "name": "健身场",
+          "coordinate": [108.907606, 34.374778],
+          "category": "sport",
+          "scope": "inside",
+          "priority": 62,
+          "visible": true
+        }
+      ]
+    }
+  }
+}

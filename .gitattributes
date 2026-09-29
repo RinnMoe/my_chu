@@ -1,0 +1,3 @@
+# 地图离线资产由生成管线产出，manifest 中记录了生成时的字节大小与 SHA-256。
+# 禁止 Git 在检出时做行尾转换，保证资产字节级一致（否则 style/manifest 校验会失败）。
+assets/maps/** -text

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "buildingId": "WM2",
+  "campusId": "weishui",
+  "buildingPlaceId": "weishui.osm.way.440689410",
+  "parentBuildingPlaceId": "weishui.mingyuan",
+  "displayName": "明远教学楼B区",
+  "floors": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "defaultFloor": 1,
+  "bounds": {
+    "west": 108.8974287,
+    "south": 34.3697415,
+    "east": 108.8986022,
+    "north": 34.3703702
+  },
+  "recommendedCamera": {
+    "minZoomOutdoor": 15,
+    "maxZoomOutdoor": 19,
+    "minZoomIndoor": 18,
+    "maxZoomIndoor": 22,
+    "autoEnterZoom": 18,
+    "autoExitZoom": 17.5,
+    "pitch": 0,
+    "rotationEnabled": false
+  },
+  "runtimeGeometry": {
+    "bundledGeoJson": "mapbox/wm2_indoor_runtime.geojson",
+    "interactionGeoJson": "mapbox/wm2_indoor_interaction.geojson",
+    "futureMapboxTilesetCompatible": true
+  },
+  "sourceFloorplans": [
+    "source/mingyuan_b_floors_1-3_reference.jpg",
+    "source/mingyuan_b_floors_4-5_reference.jpg"
+  ],
+  "georeference": {
+    "transformId": "wm2-visual-redraw-20260927",
+    "status": "verified",
+    "qa": "qa/georeference_fit.json",
+    "method": "clean orthogonal redraw registered to the WM2 semantic WGS84 footprint in one building-aligned metric frame"
+  },
+  "roomCount": 28,
+  "supportSpaceCount": 19,
+  "featureCount": 104,
+  "publicationVerified": true
+}

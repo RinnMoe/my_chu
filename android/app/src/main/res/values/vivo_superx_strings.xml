@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vivo_superx_channel_name">vivo 原子通知 Demo</string>
+    <string name="vivo_superx_channel_description">本地演示 vivo 原子通知</string>
+</resources>

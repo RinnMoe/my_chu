@@ -1,0 +1,24 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "MyCHU HarmonyOS module"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "MyCHU main window"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "MyCHU"
+    },
+    {
+      "name": "DesktopWidgetFormAbility_desc",
+      "value": "Provides a desktop schedule card"
+    },
+    {
+      "name": "location_permission_reason",
+      "value": "Used to show your current location when you request it on the map."
+    }
+  ]
+}

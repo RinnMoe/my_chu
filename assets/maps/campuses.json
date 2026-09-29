@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 2,
+  "campuses": [
+    {
+      "campus_id": "weishui",
+      "official_group": "north_campus",
+      "display_name": "渭水校区",
+      "aliases": [
+        "渭水校区",
+        "长安大学渭水校区",
+        "长安大学北校区"
+      ],
+      "address": "西安市未央区长大南路356号",
+      "enabled": true,
+      "places_path": "assets/maps/weishui/places.json",
+      "boundary_path": "assets/maps/weishui/boundary.geojson",
+      "bounds": {
+        "west": 108.884055,
+        "south": 34.364480,
+        "east": 108.911033,
+        "north": 34.378761
+      },
+      "initial_center": [
+        108.89754,
+        34.37162
+      ],
+      "initial_zoom": 16,
+      "min_zoom": 15,
+      "max_zoom": 19,
+      "context_padding": 0.005,
+      "sort_order": 0,
+      "default_place_id": null,
+      "coordinate_system": "WGS84",
+      "boundary_osm_type": "way",
+      "boundary_osm_id": "271773865"
+    },
+    {
+      "campus_id": "beiyuan",
+      "official_group": "south_campus",
+      "display_name": "校本部",
+      "aliases": [
+        "校本部",
+        "校本部北院",
+        "长安大学校本部北院",
+        "南校区北院教学区"
+      ],
+      "address": "西安市南二环路中段",
+      "enabled": true,
+      "places_path": "assets/maps/beiyuan/places.json",
+      "boundary_path": "assets/maps/beiyuan/boundary.geojson",
+      "bounds": {
+        "west": 108.948131,
+        "south": 34.230973,
+        "east": 108.957620,
+        "north": 34.237930
+      },
+      "initial_center": [
+        108.95288,
+        34.23445
+      ],
+      "initial_zoom": 17,
+      "min_zoom": 15,
+      "max_zoom": 19,
+      "context_padding": 0.005,
+      "sort_order": 1,
+      "default_place_id": null,
+      "coordinate_system": "WGS84",
+      "boundary_osm_type": "way",
+      "boundary_osm_id": "379492031"
+    },
+    {
+      "campus_id": "yanta",
+      "official_group": "south_campus",
+      "display_name": "雁塔校区",
+      "aliases": [
+        "雁塔校区",
+        "长安大学雁塔校区",
+        "校本部东院",
+        "长安大学校本部东院"
+      ],
+      "address": "西安市雁塔路南段126号",
+      "enabled": true,
+      "places_path": "assets/maps/yanta/places.json",
+      "boundary_path": "assets/maps/yanta/boundary.geojson",
+      "bounds": {
+        "west": 108.953715,
+        "south": 34.225318,
+        "east": 108.960016,
+        "north": 34.228952
+      },
+      "initial_center": [
+        108.95687,
+        34.22714
+      ],
+      "initial_zoom": 17.3,
+      "min_zoom": 15,
+      "max_zoom": 19,
+      "context_padding": 0.005,
+      "sort_order": 2,
+      "default_place_id": null,
+      "coordinate_system": "WGS84",
+      "boundary_osm_type": "way",
+      "boundary_osm_id": "269474454"
+    },
+    {
+      "campus_id": "xiaozhai",
+      "official_group": "south_campus",
+      "display_name": "小寨校区",
+      "aliases": [
+        "小寨校区",
+        "长安大学小寨校区",
+        "校本部西院",
+        "长安大学校本部西院"
+      ],
+      "address": "西安市雁塔区长安中路161号",
+      "enabled": true,
+      "places_path": "assets/maps/xiaozhai/places.json",
+      "boundary_path": "assets/maps/xiaozhai/boundary.geojson",
+      "bounds": {
+        "west": 108.941196,
+        "south": 34.223603,
+        "east": 108.947100,
+        "north": 34.227600
+      },
+      "initial_center": [
+        108.94415,
+        34.2256
+      ],
+      "initial_zoom": 17.3,
+      "min_zoom": 15,
+      "max_zoom": 19,
+      "context_padding": 0.005,
+      "sort_order": 3,
+      "default_place_id": null,
+      "coordinate_system": "WGS84",
+      "boundary_osm_type": "way",
+      "boundary_osm_id": "1419575279"
+    }
+  ]
+}

@@ -1,0 +1,1445 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "wx3-f1-room-01",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 1,
+        "level": 1,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F1_from_P06.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3101",
+        "name": "WX3101",
+        "indoor_space_id": "weishui.wx3.wx3101",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89719893280454,
+              34.37118293417138
+            ],
+            [
+              108.89716319830762,
+              34.371264543083626
+            ],
+            [
+              108.89702513307165,
+              34.371222772937664
+            ],
+            [
+              108.89706086756856,
+              34.37114116402542
+            ],
+            [
+              108.89719893280454,
+              34.37118293417138
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f1-room-02",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 1,
+        "level": 1,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F1_from_P06.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3102",
+        "name": "WX3102",
+        "indoor_space_id": "weishui.wx3.wx3102",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89737279273133,
+              34.371235533614446
+            ],
+            [
+              108.89733705823441,
+              34.37131714252669
+            ],
+            [
+              108.89719899299844,
+              34.37127537238073
+            ],
+            [
+              108.89723472749534,
+              34.37119376346848
+            ],
+            [
+              108.89737279273133,
+              34.371235533614446
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f1-room-03",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 1,
+        "level": 1,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F1_from_P06.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3103",
+        "name": "WX3103",
+        "indoor_space_id": "weishui.wx3.wx3103",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89754665265812,
+              34.37128813305751
+            ],
+            [
+              108.89751091816122,
+              34.37136974196976
+            ],
+            [
+              108.89737285292523,
+              34.371327971823796
+            ],
+            [
+              108.89740858742215,
+              34.37124636291155
+            ],
+            [
+              108.89754665265812,
+              34.37128813305751
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f1-room-04",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 1,
+        "level": 1,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F1_from_P06.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3104",
+        "name": "WX3104",
+        "indoor_space_id": "weishui.wx3.wx3104",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89769028455665,
+              34.37149572910498
+            ],
+            [
+              108.89765119995064,
+              34.371584988852746
+            ],
+            [
+              108.89757961056903,
+              34.37156333025854
+            ],
+            [
+              108.89761869517503,
+              34.37147407051077
+            ],
+            [
+              108.89769028455665,
+              34.37149572910498
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f2-room-01",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 2,
+        "level": 2,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F2_from_P05.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3201",
+        "name": "WX3201",
+        "indoor_space_id": "weishui.wx3.wx3201",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89715546782284,
+              34.37116978431062
+            ],
+            [
+              108.89711973332592,
+              34.371251393222856
+            ],
+            [
+              108.89703791688979,
+              34.37122664054377
+            ],
+            [
+              108.8970736513867,
+              34.37114503163153
+            ],
+            [
+              108.89715546782284,
+              34.37116978431062
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f2-room-02",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 2,
+        "level": 2,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F2_from_P05.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3202",
+        "name": "WX3202",
+        "indoor_space_id": "weishui.wx3.wx3202",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89724137508078,
+              34.37119577462366
+            ],
+            [
+              108.89720564058388,
+              34.371277383535904
+            ],
+            [
+              108.89712382414774,
+              34.371252630856816
+            ],
+            [
+              108.89715955864465,
+              34.37117102194457
+            ],
+            [
+              108.89724137508078,
+              34.37119577462366
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f2-room-03",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 2,
+        "level": 2,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F2_from_P05.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3203",
+        "name": "WX3203",
+        "indoor_space_id": "weishui.wx3.wx3203",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89732728233874,
+              34.371221764936706
+            ],
+            [
+              108.89729154784182,
+              34.371303373848946
+            ],
+            [
+              108.89720973140568,
+              34.37127862116986
+            ],
+            [
+              108.8972454659026,
+              34.37119701225761
+            ],
+            [
+              108.89732728233874,
+              34.371221764936706
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f2-room-04",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 2,
+        "level": 2,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F2_from_P05.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3204",
+        "name": "WX3204",
+        "indoor_space_id": "weishui.wx3.wx3204",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89741318959668,
+              34.37124775524975
+            ],
+            [
+              108.89737745509976,
+              34.371329364161994
+            ],
+            [
+              108.89729563866362,
+              34.371304611482905
+            ],
+            [
+              108.89733137316054,
+              34.37122300257066
+            ],
+            [
+              108.89741318959668,
+              34.37124775524975
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f2-room-05",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 2,
+        "level": 2,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F2_from_P05.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3205",
+        "name": "WX3205",
+        "indoor_space_id": "weishui.wx3.wx3205",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89749909685462,
+              34.371273745562796
+            ],
+            [
+              108.89746336235771,
+              34.371355354475035
+            ],
+            [
+              108.89738154592156,
+              34.37133060179595
+            ],
+            [
+              108.89741728041848,
+              34.3712489928837
+            ],
+            [
+              108.89749909685462,
+              34.371273745562796
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f2-room-06",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 2,
+        "level": 2,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F2_from_P05.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3206",
+        "name": "WX3206",
+        "indoor_space_id": "weishui.wx3.wx3206",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89758500411256,
+              34.37129973587584
+            ],
+            [
+              108.89754926961565,
+              34.371381344788084
+            ],
+            [
+              108.89746745317952,
+              34.371356592108995
+            ],
+            [
+              108.89750318767642,
+              34.37127498319675
+            ],
+            [
+              108.89758500411256,
+              34.37129973587584
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f2-room-07",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 2,
+        "level": 2,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F2_from_P05.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3207",
+        "name": "WX3207",
+        "indoor_space_id": "weishui.wx3.wx3207",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89769028455665,
+              34.37149572910498
+            ],
+            [
+              108.89765119995064,
+              34.371584988852746
+            ],
+            [
+              108.89757961056903,
+              34.37156333025854
+            ],
+            [
+              108.89761869517503,
+              34.37147407051077
+            ],
+            [
+              108.89769028455665,
+              34.37149572910498
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f3-room-01",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 3,
+        "level": 3,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F3_from_P04.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3301",
+        "name": "WX3301",
+        "indoor_space_id": "weishui.wx3.wx3301",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89715546782284,
+              34.37116978431062
+            ],
+            [
+              108.89711973332592,
+              34.371251393222856
+            ],
+            [
+              108.89703791688979,
+              34.37122664054377
+            ],
+            [
+              108.8970736513867,
+              34.37114503163153
+            ],
+            [
+              108.89715546782284,
+              34.37116978431062
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f3-room-02",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 3,
+        "level": 3,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F3_from_P04.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3302",
+        "name": "WX3302",
+        "indoor_space_id": "weishui.wx3.wx3302",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89724137508078,
+              34.37119577462366
+            ],
+            [
+              108.89720564058388,
+              34.371277383535904
+            ],
+            [
+              108.89712382414774,
+              34.371252630856816
+            ],
+            [
+              108.89715955864465,
+              34.37117102194457
+            ],
+            [
+              108.89724137508078,
+              34.37119577462366
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f3-room-03",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 3,
+        "level": 3,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F3_from_P04.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3303",
+        "name": "WX3303",
+        "indoor_space_id": "weishui.wx3.wx3303",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89732728233874,
+              34.371221764936706
+            ],
+            [
+              108.89729154784182,
+              34.371303373848946
+            ],
+            [
+              108.89720973140568,
+              34.37127862116986
+            ],
+            [
+              108.8972454659026,
+              34.37119701225761
+            ],
+            [
+              108.89732728233874,
+              34.371221764936706
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f3-room-04",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 3,
+        "level": 3,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F3_from_P04.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3304",
+        "name": "WX3304",
+        "indoor_space_id": "weishui.wx3.wx3304",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89741318959668,
+              34.37124775524975
+            ],
+            [
+              108.89737745509976,
+              34.371329364161994
+            ],
+            [
+              108.89729563866362,
+              34.371304611482905
+            ],
+            [
+              108.89733137316054,
+              34.37122300257066
+            ],
+            [
+              108.89741318959668,
+              34.37124775524975
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f3-room-05",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 3,
+        "level": 3,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F3_from_P04.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3305",
+        "name": "WX3305",
+        "indoor_space_id": "weishui.wx3.wx3305",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89749909685462,
+              34.371273745562796
+            ],
+            [
+              108.89746336235771,
+              34.371355354475035
+            ],
+            [
+              108.89738154592156,
+              34.37133060179595
+            ],
+            [
+              108.89741728041848,
+              34.3712489928837
+            ],
+            [
+              108.89749909685462,
+              34.371273745562796
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f3-room-06",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 3,
+        "level": 3,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F3_from_P04.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3306",
+        "name": "WX3306",
+        "indoor_space_id": "weishui.wx3.wx3306",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89758500411256,
+              34.37129973587584
+            ],
+            [
+              108.89754926961565,
+              34.371381344788084
+            ],
+            [
+              108.89746745317952,
+              34.371356592108995
+            ],
+            [
+              108.89750318767642,
+              34.37127498319675
+            ],
+            [
+              108.89758500411256,
+              34.37129973587584
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f3-room-07",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 3,
+        "level": 3,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F3_from_P04.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3307",
+        "name": "WX3307",
+        "indoor_space_id": "weishui.wx3.wx3307",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89769028455665,
+              34.37149572910498
+            ],
+            [
+              108.89765119995064,
+              34.371584988852746
+            ],
+            [
+              108.89757961056903,
+              34.37156333025854
+            ],
+            [
+              108.89761869517503,
+              34.37147407051077
+            ],
+            [
+              108.89769028455665,
+              34.37149572910498
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f4-room-01",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 4,
+        "level": 4,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F4_from_P03.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3401",
+        "name": "WX3401",
+        "indoor_space_id": "weishui.wx3.wx3401",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89715546782284,
+              34.37116978431062
+            ],
+            [
+              108.89711973332592,
+              34.371251393222856
+            ],
+            [
+              108.89703791688979,
+              34.37122664054377
+            ],
+            [
+              108.8970736513867,
+              34.37114503163153
+            ],
+            [
+              108.89715546782284,
+              34.37116978431062
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f4-room-02",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 4,
+        "level": 4,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F4_from_P03.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3402",
+        "name": "WX3402",
+        "indoor_space_id": "weishui.wx3.wx3402",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89724137508078,
+              34.37119577462366
+            ],
+            [
+              108.89720564058388,
+              34.371277383535904
+            ],
+            [
+              108.89712382414774,
+              34.371252630856816
+            ],
+            [
+              108.89715955864465,
+              34.37117102194457
+            ],
+            [
+              108.89724137508078,
+              34.37119577462366
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f4-room-03",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 4,
+        "level": 4,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F4_from_P03.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3403",
+        "name": "WX3403",
+        "indoor_space_id": "weishui.wx3.wx3403",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89732728233874,
+              34.371221764936706
+            ],
+            [
+              108.89729154784182,
+              34.371303373848946
+            ],
+            [
+              108.89720973140568,
+              34.37127862116986
+            ],
+            [
+              108.8972454659026,
+              34.37119701225761
+            ],
+            [
+              108.89732728233874,
+              34.371221764936706
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f4-room-04",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 4,
+        "level": 4,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F4_from_P03.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3404",
+        "name": "WX3404",
+        "indoor_space_id": "weishui.wx3.wx3404",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89741318959668,
+              34.37124775524975
+            ],
+            [
+              108.89737745509976,
+              34.371329364161994
+            ],
+            [
+              108.89729563866362,
+              34.371304611482905
+            ],
+            [
+              108.89733137316054,
+              34.37122300257066
+            ],
+            [
+              108.89741318959668,
+              34.37124775524975
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f4-room-05",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 4,
+        "level": 4,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F4_from_P03.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3405",
+        "name": "WX3405",
+        "indoor_space_id": "weishui.wx3.wx3405",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89749909685462,
+              34.371273745562796
+            ],
+            [
+              108.89746336235771,
+              34.371355354475035
+            ],
+            [
+              108.89738154592156,
+              34.37133060179595
+            ],
+            [
+              108.89741728041848,
+              34.3712489928837
+            ],
+            [
+              108.89749909685462,
+              34.371273745562796
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f4-room-06",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 4,
+        "level": 4,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F4_from_P03.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3406",
+        "name": "WX3406",
+        "indoor_space_id": "weishui.wx3.wx3406",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89758500411256,
+              34.37129973587584
+            ],
+            [
+              108.89754926961565,
+              34.371381344788084
+            ],
+            [
+              108.89746745317952,
+              34.371356592108995
+            ],
+            [
+              108.89750318767642,
+              34.37127498319675
+            ],
+            [
+              108.89758500411256,
+              34.37129973587584
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f4-room-07",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 4,
+        "level": 4,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F4_from_P03.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3407",
+        "name": "WX3407",
+        "indoor_space_id": "weishui.wx3.wx3407",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89769028455665,
+              34.37149572910498
+            ],
+            [
+              108.89765119995064,
+              34.371584988852746
+            ],
+            [
+              108.89757961056903,
+              34.37156333025854
+            ],
+            [
+              108.89761869517503,
+              34.37147407051077
+            ],
+            [
+              108.89769028455665,
+              34.37149572910498
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f5-room-01",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 5,
+        "level": 5,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F5_from_P02.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3501",
+        "name": "WX3501",
+        "indoor_space_id": "weishui.wx3.wx3501",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89717796734278,
+              34.37117659129736
+            ],
+            [
+              108.89714223284587,
+              34.37125820020961
+            ],
+            [
+              108.89701746278075,
+              34.371220452374
+            ],
+            [
+              108.89705319727767,
+              34.37113884346175
+            ],
+            [
+              108.89717796734278,
+              34.37117659129736
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f5-room-02",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 5,
+        "level": 5,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F5_from_P02.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3502",
+        "name": "WX3502",
+        "indoor_space_id": "weishui.wx3.wx3502",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.8973109190515,
+              34.37121681440089
+            ],
+            [
+              108.89727518455459,
+              34.37129842331313
+            ],
+            [
+              108.89715041448947,
+              34.371260675477515
+            ],
+            [
+              108.89718614898639,
+              34.371179066565276
+            ],
+            [
+              108.8973109190515,
+              34.37121681440089
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f5-room-03",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 5,
+        "level": 5,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F5_from_P02.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3503",
+        "name": "WX3503",
+        "indoor_space_id": "weishui.wx3.wx3503",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89744387076023,
+              34.37125703750441
+            ],
+            [
+              108.89740813626331,
+              34.37133864641665
+            ],
+            [
+              108.89728336619821,
+              34.37130089858104
+            ],
+            [
+              108.89731910069511,
+              34.371219289668794
+            ],
+            [
+              108.89744387076023,
+              34.37125703750441
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f5-room-04",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 5,
+        "level": 5,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F5_from_P02.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3504",
+        "name": "WX3504",
+        "indoor_space_id": "weishui.wx3.wx3504",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89757682246895,
+              34.371297260607925
+            ],
+            [
+              108.89754108797203,
+              34.37137886952017
+            ],
+            [
+              108.89741631790693,
+              34.37134112168456
+            ],
+            [
+              108.89745205240384,
+              34.37125951277232
+            ],
+            [
+              108.89757682246895,
+              34.371297260607925
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wx3-f5-room-05",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WX3",
+        "building_key": "wx3",
+        "building_place_id": "weishui.osm.way.1234004781",
+        "floor": 5,
+        "level": 5,
+        "georef_status": "verified",
+        "georef_transform_id": "wx3-visual-redraw-20260923",
+        "source_floorplan": "WX3_main_F5_from_P02.png",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WX3505",
+        "name": "WX3505",
+        "indoor_space_id": "weishui.wx3.wx3505",
+        "verified": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89769028455665,
+              34.37149572910498
+            ],
+            [
+              108.89765119995064,
+              34.371584988852746
+            ],
+            [
+              108.89757961056903,
+              34.37156333025854
+            ],
+            [
+              108.89761869517503,
+              34.37147407051077
+            ],
+            [
+              108.89769028455665,
+              34.37149572910498
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "widget_surface",
+      "value": "#EEF1FF"
+    },
+    {
+      "name": "widget_on_surface",
+      "value": "#1C1B1F"
+    },
+    {
+      "name": "widget_on_surface_variant",
+      "value": "#49454F"
+    },
+    {
+      "name": "widget_primary",
+      "value": "#6750A4"
+    }
+  ]
+}

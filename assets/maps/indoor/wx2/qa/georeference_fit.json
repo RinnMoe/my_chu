@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 2,
+  "buildingPlaceId": "weishui.osm.way.1234004782",
+  "sourceDocument": "wx3-4 wh1-2 wm2平面图(2).pdf",
+  "sourcePdfPages": 3,
+  "coordinateFrame": {
+    "originWgs84": [
+      108.89725,
+      34.3718
+    ],
+    "rotationDegrees": 20.0,
+    "units": "meters",
+    "registration": "semantic outdoor building footprint"
+  },
+  "georeferenceStatus": "verified",
+  "publicationVerified": true,
+  "runtimeFeatureCount": 160,
+  "interactionFeatureCount": 55,
+  "roomCount": 55,
+  "supportSpaceCount": 25,
+  "floors": [
+    {
+      "floor": 1,
+      "sourceFloorplan": "source/WX2_F1_from_P01.png",
+      "pdfPage": 1,
+      "roomCodes": [
+        "WX2101",
+        "WX2102",
+        "WX2103",
+        "WX2104",
+        "WX2105",
+        "WX2106",
+        "WX2107"
+      ],
+      "roomCount": 7,
+      "facilityCount": 5
+    },
+    {
+      "floor": 2,
+      "sourceFloorplan": "source/WX2_F2_from_P01.png",
+      "pdfPage": 1,
+      "roomCodes": [
+        "WX2201",
+        "WX2202",
+        "WX2203",
+        "WX2204",
+        "WX2205",
+        "WX2200",
+        "WX2206",
+        "WX2207",
+        "WX2208",
+        "WX2209"
+      ],
+      "roomCount": 10,
+      "facilityCount": 5
+    },
+    {
+      "floor": 3,
+      "sourceFloorplan": "source/WX2_F3_from_P02.png",
+      "pdfPage": 2,
+      "roomCodes": [
+        "WX2301",
+        "WX2302",
+        "WX2303",
+        "WX2304",
+        "WX2305",
+        "WX2300",
+        "WX2306",
+        "WX2307",
+        "WX2308",
+        "WX2309",
+        "WX2310",
+        "WX2311"
+      ],
+      "roomCount": 12,
+      "facilityCount": 5
+    },
+    {
+      "floor": 4,
+      "sourceFloorplan": "source/WX2_F4_from_P02.png",
+      "pdfPage": 2,
+      "roomCodes": [
+        "WX2401",
+        "WX2402",
+        "WX2403",
+        "WX2404",
+        "WX2405",
+        "WX2406",
+        "WX2400",
+        "WX2407",
+        "WX2408",
+        "WX2409",
+        "WX2410",
+        "WX2411",
+        "WX2412"
+      ],
+      "roomCount": 13,
+      "facilityCount": 5
+    },
+    {
+      "floor": 5,
+      "sourceFloorplan": "source/WX2_F5_from_P03.png",
+      "pdfPage": 3,
+      "roomCodes": [
+        "WX2501",
+        "WX2502",
+        "WX2503",
+        "WX2504",
+        "WX2505",
+        "WX2506",
+        "WX2500",
+        "WX2507",
+        "WX2508",
+        "WX2509",
+        "WX2510",
+        "WX2511",
+        "WX2512"
+      ],
+      "roomCount": 13,
+      "facilityCount": 5
+    }
+  ],
+  "notes": [
+    "PDF page 1 contains F1/F2, page 2 F3/F4, and page 3 F5 plus a duplicate F4 panel.",
+    "The F1 left middle panel is sticker-obscured; no WX2100 or other label is inferred.",
+    "Unnumbered grey rooms and the central white courtyard are not modeled as rooms.",
+    "Toilet pictograms are identifiable, but gender is not consistently legible, so labels are neutral.",
+    "Rooms, facilities and corridor are checked for footprint containment and mutual room/facility overlap.",
+    "Position alignment was manually verified by the project maintainer; floor labels follow the identified PDF panels."
+  ]
+}

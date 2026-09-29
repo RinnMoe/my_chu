@@ -1,0 +1,16 @@
+dependency_overrides:
+  flutter_secure_storage:
+    path: third_party/flutter_secure_storage
+  shared_preferences:
+    path: third_party/flutter_packages_ohos/packages/shared_preferences/shared_preferences
+  shared_preferences_ohos:
+    path: third_party/flutter_packages_ohos/packages/shared_preferences/shared_preferences_ohos
+  path_provider:
+    path: third_party/flutter_packages_ohos/packages/path_provider/path_provider
+  path_provider_ohos:
+    path: third_party/flutter_packages_ohos/packages/path_provider/path_provider_ohos
+  flutter_inappwebview_platform_interface:
+    git:
+      url: https://gitcode.com/openharmony-sig/flutter_inappwebview.git
+      path: flutter_inappwebview_platform_interface
+      ref: 528fa913763148719cde7dae2dc22dc33f15da36

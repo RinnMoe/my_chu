@@ -1,0 +1,10 @@
+{
+  "module": {
+    "name": "flutter_blue_plus_ohos",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "tablet"
+    ]
+  }
+}

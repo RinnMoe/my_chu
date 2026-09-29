@@ -1,0 +1,18 @@
+{
+  "forms": [
+    {
+      "name": "today_schedule",
+      "description": "Today's MyCHU schedule",
+      "src": "./ets/widgets/TodayScheduleWidgetCard.ets",
+      "uiSyntax": "arkts",
+      "colorMode": "auto",
+      "isDefault": true,
+      "isDynamic": true,
+      "supportDimensions": ["2*2", "2*4"],
+      "defaultDimension": "2*2",
+      "updateEnabled": true,
+      "scheduledUpdateTime": "00:05",
+      "updateDuration": 48
+    }
+  ]
+}

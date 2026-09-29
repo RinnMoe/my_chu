@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 2,
+  "buildingPlaceId": "weishui.osm.way.440689410",
+  "sourceImages": [
+    "source/mingyuan_b_floors_1-3_reference.jpg",
+    "source/mingyuan_b_floors_4-5_reference.jpg"
+  ],
+  "method": "visual interpretation of marked classroom codes and stair symbols; clean orthogonal redraw; no scan-contour vectorization",
+  "coordinateFrame": {
+    "originWgs84": [
+      108.898,
+      34.37
+    ],
+    "rotationDegrees": 20.0,
+    "units": "meters",
+    "registration": "WM2 semantic outdoor building footprint"
+  },
+  "georeferenceStatus": "verified",
+  "publicationVerified": true,
+  "runtimeFeatureCount": 104,
+  "interactionFeatureCount": 28,
+  "roomCount": 28,
+  "stairCount": 19,
+  "supportSpaceCount": 19,
+  "bounds": {
+    "west": 108.8974287,
+    "south": 34.3697415,
+    "east": 108.8986022,
+    "north": 34.3703702
+  },
+  "floors": [
+    {
+      "floor": 1,
+      "sourceFloorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+      "classroomCodes": [
+        "WM2106",
+        "WM2104",
+        "WM2102",
+        "WM2103",
+        "WM2101"
+      ],
+      "classroomCount": 5,
+      "stairCount": 3,
+      "supportSpaceCount": 3
+    },
+    {
+      "floor": 2,
+      "sourceFloorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+      "classroomCodes": [
+        "WM2208",
+        "WM2206",
+        "WM2204",
+        "WM2202",
+        "WM2205",
+        "WM2203",
+        "WM2201"
+      ],
+      "classroomCount": 7,
+      "stairCount": 4,
+      "supportSpaceCount": 4
+    },
+    {
+      "floor": 3,
+      "sourceFloorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+      "classroomCodes": [
+        "WM2308",
+        "WM2306",
+        "WM2304",
+        "WM2302",
+        "WM2303",
+        "WM2301"
+      ],
+      "classroomCount": 6,
+      "stairCount": 4,
+      "supportSpaceCount": 4
+    },
+    {
+      "floor": 4,
+      "sourceFloorplan": "source/mingyuan_b_floors_4-5_reference.jpg",
+      "classroomCodes": [
+        "WM2408",
+        "WM2406",
+        "WM2404",
+        "WM2402",
+        "WM2403",
+        "WM2401"
+      ],
+      "classroomCount": 6,
+      "stairCount": 4,
+      "supportSpaceCount": 4
+    },
+    {
+      "floor": 5,
+      "sourceFloorplan": "source/mingyuan_b_floors_4-5_reference.jpg",
+      "classroomCodes": [
+        "WM2508",
+        "WM2506",
+        "WM2504",
+        "WM2502"
+      ],
+      "classroomCount": 4,
+      "stairCount": 4,
+      "supportSpaceCount": 4
+    }
+  ],
+  "notes": [
+    "Only classroom codes legible in the supplied plan and visibly marked stairs are represented as spaces.",
+    "Control rooms, Q&A rooms, other unlabeled rooms, and uncertain facilities are omitted.",
+    "Classroom codes use the existing WM2 rule: the plan label suffix plus the stable WM2 prefix (for example 2106 -> WM2106).",
+    "All floors share one manually aligned metric frame to avoid floor-to-floor scan drift.",
+    "The building shell and bounds come from the existing WM2 semantic footprint; room-level survey control points were not supplied, so room placement is an interpreted fit within that footprint.",
+    "All emitted rooms and facilities are checked for footprint containment and same-floor overlap before writing."
+  ]
+}

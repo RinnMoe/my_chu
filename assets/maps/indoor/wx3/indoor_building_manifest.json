@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "buildingId": "WX3",
+  "campusId": "weishui",
+  "buildingPlaceId": "weishui.osm.way.1234004781",
+  "parentBuildingPlaceId": "weishui.xiuyuan",
+  "displayName": "修远教学楼三区",
+  "floors": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "defaultFloor": 1,
+  "bounds": {
+    "west": 108.8968731,
+    "south": 34.3711134,
+    "east": 108.8977951,
+    "north": 34.3717164
+  },
+  "recommendedCamera": {
+    "minZoomOutdoor": 15,
+    "maxZoomOutdoor": 19,
+    "minZoomIndoor": 18,
+    "maxZoomIndoor": 22,
+    "autoEnterZoom": 18,
+    "autoExitZoom": 17.5,
+    "pitch": 0,
+    "rotationEnabled": false
+  },
+  "runtimeGeometry": {
+    "bundledGeoJson": "mapbox/wx3_indoor_runtime.geojson",
+    "interactionGeoJson": "mapbox/wx3_indoor_interaction.geojson",
+    "futureMapboxTilesetCompatible": true
+  },
+  "sourceFloorplans": [
+    "source/WX3_main_F1_from_P06.png",
+    "source/WX3_main_F2_from_P05.png",
+    "source/WX3_main_F3_from_P04.png",
+    "source/WX3_main_F4_from_P03.png",
+    "source/WX3_main_F5_from_P02.png"
+  ],
+  "georeference": {
+    "transformId": "wx3-visual-redraw-20260923",
+    "status": "verified",
+    "qa": "qa/georeference_fit.json",
+    "method": "visually reconstructed orthogonal layouts in a shared building-aligned metric frame, registered to the semantic building footprint"
+  },
+  "roomCount": 30,
+  "supportSpaceCount": 31,
+  "featureCount": 111,
+  "publicationVerified": true
+}

@@ -1,0 +1,330 @@
+{
+  "schemaVersion": 2,
+  "campusPrefixes": [
+    {
+      "prefix": "W",
+      "campus_id": "weishui",
+      "display_name": "渭水校区",
+      "aliases": ["渭水"]
+    },
+    {
+      "prefix": "B",
+      "campus_id": "beiyuan",
+      "display_name": "本部北院",
+      "aliases": ["北院", "校本部北院"]
+    },
+    {
+      "prefix": "Y",
+      "campus_id": "yanta",
+      "display_name": "雁塔校区",
+      "aliases": ["东院", "南校区东院"]
+    },
+    {
+      "prefix": "X",
+      "campus_id": "xiaozhai",
+      "display_name": "小寨校区",
+      "aliases": ["西院", "南校区西院"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "weishui.mingyuan.zone1.classroom",
+      "pattern": "WM1{floor:1}{room:2}",
+      "kind": "classroom",
+      "campus_id": "weishui",
+      "target": {
+        "building": {"name": "明远教学楼", "aliases": ["明远"]},
+        "zone": {"map": {"1": {"name": "明远教学楼A栋", "aliases": ["明远1区", "明远A座"], "block": "A"}}},
+        "fields": {"floor": "floor", "room": "room"}
+      },
+      "captures": {"floor": {"width": 1, "min": 1, "max": 9}, "room": {"width": 2, "min": 0, "max": 99}},
+      "priority": 300,
+      "enabled": true,
+      "note": "只绑定明远1区；楼层和两位教室号由模板自动解析"
+    },
+    {
+      "id": "weishui.mingyuan.zone2.classroom",
+      "pattern": "WM2{floor:1}{room:2}",
+      "kind": "classroom",
+      "campus_id": "weishui",
+      "target": {
+        "building": {"name": "明远教学楼", "aliases": ["明远"]},
+        "zone": {"map": {"2": {"name": "明远教学楼B栋", "aliases": ["明远2区", "明远B座"], "block": "B"}}},
+        "fields": {"floor": "floor", "room": "room"}
+      },
+      "captures": {"floor": {"width": 1, "min": 1, "max": 9}, "room": {"width": 2, "min": 0, "max": 99}},
+      "priority": 300,
+      "enabled": true,
+      "note": "只绑定明远2区；楼层和两位教室号由模板自动解析"
+    },
+    {
+      "id": "weishui.mingyuan.zone3.classroom",
+      "pattern": "WM3{floor:1}{room:2}",
+      "kind": "classroom",
+      "campus_id": "weishui",
+      "target": {
+        "building": {"name": "明远教学楼", "aliases": ["明远"]},
+        "zone": {"map": {"3": {"name": "明远教学楼C栋", "aliases": ["明远3区", "明远C座"], "block": "C"}}},
+        "fields": {"floor": "floor", "room": "room"}
+      },
+      "captures": {"floor": {"width": 1, "min": 1, "max": 9}, "room": {"width": 2, "min": 0, "max": 99}},
+      "priority": 300,
+      "enabled": true,
+      "note": "只绑定明远3区；楼层和两位教室号由模板自动解析"
+    },
+    {
+      "id": "weishui.mingyuan.zone4.classroom",
+      "pattern": "WM4{floor:1}{room:2}",
+      "kind": "classroom",
+      "campus_id": "weishui",
+      "target": {
+        "building": {"name": "明远教学楼", "aliases": ["明远"]},
+        "zone": {"map": {"4": {"name": "明远教学楼D栋", "aliases": ["明远4区", "明远D座"], "block": "D"}}},
+        "fields": {"floor": "floor", "room": "room"}
+      },
+      "captures": {"floor": {"width": 1, "min": 1, "max": 9}, "room": {"width": 2, "min": 0, "max": 99}},
+      "priority": 300,
+      "enabled": true,
+      "note": "只绑定明远4区；楼层和两位教室号由模板自动解析"
+    },
+    {
+      "id": "weishui.mingyuan.zone5.classroom",
+      "pattern": "WM5{floor:1}{room:2}",
+      "kind": "classroom",
+      "campus_id": "weishui",
+      "target": {
+        "building": {"name": "明远教学楼", "aliases": ["明远"]},
+        "zone": {"map": {"5": {"name": "明远教学楼E栋", "aliases": ["明远5区", "明远E座"], "block": "E"}}},
+        "fields": {"floor": "floor", "room": "room"}
+      },
+      "captures": {"floor": {"width": 1, "min": 1, "max": 9}, "room": {"width": 2, "min": 0, "max": 99}},
+      "priority": 300,
+      "enabled": true,
+      "note": "只绑定明远5区；楼层和两位教室号由模板自动解析"
+    },
+    {
+      "id": "weishui.xiuyuan.classroom",
+      "pattern": "WX{zone:1}{floor:1}{room:2}",
+      "kind": "classroom",
+      "campus_id": "weishui",
+      "target": {
+        "building": {"name": "修远教学楼", "aliases": ["修远"]},
+        "zone": {
+          "capture": "zone",
+          "map": {
+            "1": {"name": "修远教学楼一区", "aliases": ["修远1区", "修远A座"], "block": "A"},
+            "2": {"name": "修远教学楼二区", "aliases": ["修远2区", "修远B座"], "block": "B"},
+            "3": {"name": "修远教学楼三区", "aliases": ["修远3区", "修远C座"], "block": "C"},
+            "4": {"name": "修远教学楼四区", "aliases": ["修远4区", "修远D座"], "block": "D"}
+          }
+        },
+        "fields": {"zone": "zone", "floor": "floor", "room": "room"}
+      },
+      "captures": {
+        "zone": {"width": 1, "min": 1, "max": 4},
+        "floor": {"width": 1, "min": 1, "max": 9},
+        "room": {"width": 2, "min": 0, "max": 99}
+      },
+      "priority": 300,
+      "enabled": true,
+      "note": "渭水修远教学楼统一四位教室编码"
+    },
+    {
+      "id": "weishui.library.classroom",
+      "pattern": "WT{zone:1}{floor:1}{room:2}",
+      "kind": "classroom",
+      "campus_id": "weishui",
+      "target": {
+        "building": {"name": "图书馆教学楼", "aliases": ["图书馆"]},
+        "zone": {"capture": "zone"},
+        "fields": {"zone": "zone", "floor": "floor", "room": "room"}
+      },
+      "captures": {
+        "zone": {"width": 1, "min": 0, "max": 9},
+        "floor": {"width": 1, "min": 1, "max": 9},
+        "room": {"width": 2, "min": 0, "max": 99}
+      },
+      "priority": 300,
+      "enabled": true,
+      "note": "图书馆教学楼暂不细分分区，解析后定位父级建筑"
+    },
+    {
+      "id": "weishui.hongyuan.classroom",
+      "pattern": "WH{zone:1}{floor:1}{room:2}",
+      "kind": "classroom",
+      "campus_id": "weishui",
+      "target": {
+        "building": {"name": "鸿远教学楼", "aliases": ["鸿远"]},
+        "zone": {
+          "capture": "zone",
+          "map": {
+            "1": {"name": "鸿远教学楼一区", "aliases": ["鸿远1区", "鸿远A座"], "block": "A"},
+            "2": {"name": "鸿远教学楼二区", "aliases": ["鸿远2区", "鸿远B座"], "block": "B"}
+          }
+        },
+        "fields": {"zone": "zone", "floor": "floor", "room": "room"}
+      },
+      "captures": {
+        "zone": {"width": 1, "min": 1, "max": 2},
+        "floor": {"width": 1, "min": 1, "max": 9},
+        "room": {"width": 2, "min": 0, "max": 99}
+      },
+      "priority": 300,
+      "enabled": true,
+      "note": "渭水鸿远教学楼统一四位教室编码"
+    },
+    {
+      "id": "beiyuan.classroom",
+      "pattern": "B{floor:1}{zone:1}{room:1}",
+      "kind": "classroom",
+      "campus_id": "beiyuan",
+      "target": {
+        "building": {"name": "本部北院", "aliases": ["北院", "校本部北院"], "block": "北院"},
+        "zone": {
+          "capture": "zone",
+          "map": {
+            "0": {"place_id": "beiyuan.osm.way.1548778834", "name": "零区"},
+            "1": {"place_id": "beiyuan.osm.way.1548778832", "name": "一区"},
+            "2": {"place_id": "beiyuan.osm.way.1548778833", "name": "二区"},
+            "3": {"place_id": "beiyuan.osm.way.1548778836", "name": "三区"},
+            "4": {"place_id": "beiyuan.osm.way.1548778837", "name": "四区"},
+            "5": {"place_id": "beiyuan.osm.way.1548778835", "name": "五区"},
+            "6": {"place_id": "beiyuan.osm.way.1282652247", "name": "六区"}
+          }
+        },
+        "fields": {"floor": "floor", "zone": "zone", "room": "room"}
+      },
+      "captures": {
+        "floor": {"width": 1, "min": 1, "max": 9},
+        "zone": {"width": 1, "min": 0, "max": 8},
+        "room": {"width": 1, "min": 0, "max": 9}
+      },
+      "priority": 300,
+      "enabled": true,
+      "note": "北院 B+楼层+分区+教室号，B143 表示 1 层 4 区 3 号"
+    },
+    {
+      "id": "yanta.teaching-building-1.classroom",
+      "pattern": "Y1{floor:1}{room:2}",
+      "kind": "classroom",
+      "campus_id": "yanta",
+      "target": {
+        "building": {
+          "place_id": "yanta.osm.way.1409909484",
+          "name": "第一教学楼（资源学院）",
+          "aliases": ["雁塔第一教学楼", "一教", "资源学院"]
+        },
+        "fields": {"floor": "floor", "room": "room"}
+      },
+      "captures": {
+        "floor": {"width": 1, "min": 1, "max": 9},
+        "room": {"width": 2, "min": 0, "max": 99}
+      },
+      "priority": 300,
+      "enabled": true,
+      "note": "雁塔第一教学楼，Y+楼号+楼层+两位教室号"
+    },
+    {
+      "id": "yanta.teaching-building-2.classroom",
+      "pattern": "Y2{floor:1}{room:2}",
+      "kind": "classroom",
+      "campus_id": "yanta",
+      "target": {
+        "building": {
+          "place_id": "yanta.osm.way.1409909630",
+          "name": "第二教学楼（地测学院）",
+          "aliases": ["雁塔第二教学楼", "二教", "地测学院"]
+        },
+        "fields": {"floor": "floor", "room": "room"}
+      },
+      "captures": {
+        "floor": {"width": 1, "min": 1, "max": 9},
+        "room": {"width": 2, "min": 0, "max": 99}
+      },
+      "priority": 300,
+      "enabled": true,
+      "note": "雁塔第二教学楼，Y+楼号+楼层+两位教室号"
+    },
+    {
+      "id": "yanta.teaching-building-2.staircase",
+      "pattern": "Y阶{floor:1}",
+      "kind": "classroom",
+      "campus_id": "yanta",
+      "target": {
+        "building": {
+          "place_id": "yanta.osm.way.1409909630",
+          "name": "第二教学楼（地测学院）",
+          "aliases": ["雁塔第二教学楼", "二教", "地测学院"]
+        },
+        "fields": {"floor": "floor"}
+      },
+      "room_label": "西侧大阶梯教室",
+      "captures": {"floor": {"width": 1, "min": 1, "max": 9}},
+      "priority": 310,
+      "enabled": true,
+      "note": "Y阶4 表示雁塔第二教学楼四层西侧大阶梯教室"
+    },
+    {
+      "id": "xiaozhai.teaching-building-5.floor4.classroom",
+      "pattern": "X5{floor:1}{room:2}",
+      "kind": "classroom",
+      "campus_id": "xiaozhai",
+      "target": {
+        "building": {
+          "place_id": "xiaozhai.osm.way.1419576656",
+          "name": "第五教学楼",
+          "aliases": ["西院第五教学楼"]
+        },
+        "fields": {"floor": "floor", "room": "room"}
+      },
+      "captures": {
+        "floor": {"width": 1, "min": 4, "max": 4},
+        "room": {"width": 2, "min": 1, "max": 2}
+      },
+      "priority": 300,
+      "enabled": true,
+      "note": "西院第五教学楼四层仅 X5401、X5402"
+    },
+    {
+      "id": "xiaozhai.teaching-building-5.floor5.classroom",
+      "pattern": "X5{floor:1}{room:2}",
+      "kind": "classroom",
+      "campus_id": "xiaozhai",
+      "target": {
+        "building": {
+          "place_id": "xiaozhai.osm.way.1419576656",
+          "name": "第五教学楼",
+          "aliases": ["西院第五教学楼"]
+        },
+        "fields": {"floor": "floor", "room": "room"}
+      },
+      "captures": {
+        "floor": {"width": 1, "min": 5, "max": 5},
+        "room": {"width": 2, "min": 1, "max": 2}
+      },
+      "priority": 300,
+      "enabled": true,
+      "note": "西院第五教学楼五层仅 X5501、X5502"
+    },
+    {
+      "id": "weishui.stadium",
+      "pattern": "WST",
+      "kind": "place",
+      "campus_id": "weishui",
+      "target": {"place": {"name": "渭水运动场", "aliases": ["运动场"]}},
+      "priority": 200,
+      "enabled": true,
+      "note": "地点数据补齐后自动绑定；当前为待绑定目标"
+    },
+    {
+      "id": "weishui.student-service",
+      "pattern": "WSS",
+      "kind": "place",
+      "campus_id": "weishui",
+      "target": {"place": {"name": "渭水学生服务中心", "aliases": ["学生服务中心"]}},
+      "priority": 200,
+      "enabled": true,
+      "note": "地点数据补齐后自动绑定；当前为待绑定目标"
+    }
+  ]
+}

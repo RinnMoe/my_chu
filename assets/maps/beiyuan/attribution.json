@@ -1,0 +1,13 @@
+{
+  "data_source": "OpenStreetMap",
+  "data_license": "ODbL 1.0",
+  "attribution": "© OpenStreetMap contributors",
+  "osm_data_provider": "Geofabrik",
+  "osm_data_file": "shaanxi-260806.osm.pbf",
+  "osm_data_snapshot": "2026-08-06",
+  "osm_carto_tag": "v6.0.0",
+  "osm_carto_commit": "7d2926a85acd07c0a4051f3d444ebe2b59c0676e",
+  "generated_at": "2026-08-08T18:17:15.884253+00:00",
+  "zoom_min": 15,
+  "zoom_max": 19
+}

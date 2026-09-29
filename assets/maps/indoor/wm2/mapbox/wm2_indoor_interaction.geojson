@@ -1,0 +1,1349 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "wm2-f1-room-01",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 1,
+        "level": 1,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2106",
+        "name": "WM2106",
+        "indoor_space_id": "weishui.wm2.wm2106",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89769919994508,
+              34.37001248581526
+            ],
+            [
+              108.89766756055471,
+              34.37008474370631
+            ],
+            [
+              108.89749370353351,
+              34.37003214426324
+            ],
+            [
+              108.89752534292387,
+              34.369959886372186
+            ],
+            [
+              108.89769919994508,
+              34.37001248581526
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f1-room-02",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 1,
+        "level": 1,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2104",
+        "name": "WM2104",
+        "indoor_space_id": "weishui.wm2.wm2104",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89797021236049,
+              34.37009447906474
+            ],
+            [
+              108.89793857297012,
+              34.37016673695579
+            ],
+            [
+              108.8977544890653,
+              34.37011104342784
+            ],
+            [
+              108.89778612845568,
+              34.37003878553679
+            ],
+            [
+              108.89797021236049,
+              34.37009447906474
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f1-room-03",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 1,
+        "level": 1,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2102",
+        "name": "WM2102",
+        "indoor_space_id": "weishui.wm2.wm2102",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89822588445048,
+              34.370171831186894
+            ],
+            [
+              108.89819424506013,
+              34.37024408907795
+            ],
+            [
+              108.89801016115531,
+              34.370188395549995
+            ],
+            [
+              108.89804180054568,
+              34.37011613765895
+            ],
+            [
+              108.89822588445048,
+              34.370171831186894
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f1-room-04",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 1,
+        "level": 1,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2103",
+        "name": "WM2103",
+        "indoor_space_id": "weishui.wm2.wm2103",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.8980525631376,
+              34.369919631843736
+            ],
+            [
+              108.89802278488784,
+              34.36998763927061
+            ],
+            [
+              108.89782847409943,
+              34.36992885165777
+            ],
+            [
+              108.8978582523492,
+              34.3698608442309
+            ],
+            [
+              108.8980525631376,
+              34.369919631843736
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f1-room-05",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 1,
+        "level": 1,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2101",
+        "name": "WM2101",
+        "indoor_space_id": "weishui.wm2.wm2101",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.898298008344,
+              34.36999388988101
+            ],
+            [
+              108.89826823009425,
+              34.37006189730788
+            ],
+            [
+              108.89811482684024,
+              34.37001548603458
+            ],
+            [
+              108.89814460509,
+              34.36994747860771
+            ],
+            [
+              108.898298008344,
+              34.36999388988101
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f2-room-01",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 2,
+        "level": 2,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2208",
+        "name": "WM2208",
+        "indoor_space_id": "weishui.wm2.wm2208",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89769919994508,
+              34.37001248581526
+            ],
+            [
+              108.89766756055471,
+              34.37008474370631
+            ],
+            [
+              108.89749370353351,
+              34.37003214426324
+            ],
+            [
+              108.89752534292387,
+              34.369959886372186
+            ],
+            [
+              108.89769919994508,
+              34.37001248581526
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f2-room-02",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 2,
+        "level": 2,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2206",
+        "name": "WM2206",
+        "indoor_space_id": "weishui.wm2.wm2206",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89797021236049,
+              34.37009447906474
+            ],
+            [
+              108.89793857297012,
+              34.37016673695579
+            ],
+            [
+              108.8977544890653,
+              34.37011104342784
+            ],
+            [
+              108.89778612845568,
+              34.37003878553679
+            ],
+            [
+              108.89797021236049,
+              34.37009447906474
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f2-room-03",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 2,
+        "level": 2,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2204",
+        "name": "WM2204",
+        "indoor_space_id": "weishui.wm2.wm2204",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89822588445048,
+              34.370171831186894
+            ],
+            [
+              108.89819424506013,
+              34.37024408907795
+            ],
+            [
+              108.89801016115531,
+              34.370188395549995
+            ],
+            [
+              108.89804180054568,
+              34.37011613765895
+            ],
+            [
+              108.89822588445048,
+              34.370171831186894
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f2-room-04",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 2,
+        "level": 2,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2202",
+        "name": "WM2202",
+        "indoor_space_id": "weishui.wm2.wm2202",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89849178342409,
+              34.37025227739394
+            ],
+            [
+              108.89846014403372,
+              34.37032453528499
+            ],
+            [
+              108.89827606012892,
+              34.37026884175704
+            ],
+            [
+              108.8983076995193,
+              34.37019658386599
+            ],
+            [
+              108.89849178342409,
+              34.37025227739394
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f2-room-05",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 2,
+        "level": 2,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2205",
+        "name": "WM2205",
+        "indoor_space_id": "weishui.wm2.wm2205",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.8980525631376,
+              34.369919631843736
+            ],
+            [
+              108.89802278488784,
+              34.36998763927061
+            ],
+            [
+              108.89782847409943,
+              34.36992885165777
+            ],
+            [
+              108.8978582523492,
+              34.3698608442309
+            ],
+            [
+              108.8980525631376,
+              34.369919631843736
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f2-room-06",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 2,
+        "level": 2,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2203",
+        "name": "WM2203",
+        "indoor_space_id": "weishui.wm2.wm2203",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89827244113499,
+              34.369986154668794
+            ],
+            [
+              108.89824266288524,
+              34.37005416209566
+            ],
+            [
+              108.89805857898044,
+              34.36999846856771
+            ],
+            [
+              108.8980883572302,
+              34.36993046114084
+            ],
+            [
+              108.89827244113499,
+              34.369986154668794
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f2-room-07",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 2,
+        "level": 2,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2201",
+        "name": "WM2201",
+        "indoor_space_id": "weishui.wm2.wm2201",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89853371542634,
+              34.36999781212266
+            ],
+            [
+              108.89848532577048,
+              34.37010832419133
+            ],
+            [
+              108.89832169563287,
+              34.37005881883315
+            ],
+            [
+              108.89837008528873,
+              34.369948306764485
+            ],
+            [
+              108.89853371542634,
+              34.36999781212266
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f3-room-01",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 3,
+        "level": 3,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2308",
+        "name": "WM2308",
+        "indoor_space_id": "weishui.wm2.wm2308",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89769919994508,
+              34.37001248581526
+            ],
+            [
+              108.89766756055471,
+              34.37008474370631
+            ],
+            [
+              108.89749370353351,
+              34.37003214426324
+            ],
+            [
+              108.89752534292387,
+              34.369959886372186
+            ],
+            [
+              108.89769919994508,
+              34.37001248581526
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f3-room-02",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 3,
+        "level": 3,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2306",
+        "name": "WM2306",
+        "indoor_space_id": "weishui.wm2.wm2306",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89797021236049,
+              34.37009447906474
+            ],
+            [
+              108.89793857297012,
+              34.37016673695579
+            ],
+            [
+              108.8977544890653,
+              34.37011104342784
+            ],
+            [
+              108.89778612845568,
+              34.37003878553679
+            ],
+            [
+              108.89797021236049,
+              34.37009447906474
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f3-room-03",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 3,
+        "level": 3,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2304",
+        "name": "WM2304",
+        "indoor_space_id": "weishui.wm2.wm2304",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89822588445048,
+              34.370171831186894
+            ],
+            [
+              108.89819424506013,
+              34.37024408907795
+            ],
+            [
+              108.89801016115531,
+              34.370188395549995
+            ],
+            [
+              108.89804180054568,
+              34.37011613765895
+            ],
+            [
+              108.89822588445048,
+              34.370171831186894
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f3-room-04",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 3,
+        "level": 3,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2302",
+        "name": "WM2302",
+        "indoor_space_id": "weishui.wm2.wm2302",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89849178342409,
+              34.37025227739394
+            ],
+            [
+              108.89846014403372,
+              34.37032453528499
+            ],
+            [
+              108.89827606012892,
+              34.37026884175704
+            ],
+            [
+              108.8983076995193,
+              34.37019658386599
+            ],
+            [
+              108.89849178342409,
+              34.37025227739394
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f3-room-05",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 3,
+        "level": 3,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2303",
+        "name": "WM2303",
+        "indoor_space_id": "weishui.wm2.wm2303",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.8980525631376,
+              34.369919631843736
+            ],
+            [
+              108.89802278488784,
+              34.36998763927061
+            ],
+            [
+              108.89782847409943,
+              34.36992885165777
+            ],
+            [
+              108.8978582523492,
+              34.3698608442309
+            ],
+            [
+              108.8980525631376,
+              34.369919631843736
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f3-room-06",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 3,
+        "level": 3,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_1-3_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2301",
+        "name": "WM2301",
+        "indoor_space_id": "weishui.wm2.wm2301",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89853371542634,
+              34.36999781212266
+            ],
+            [
+              108.89848532577048,
+              34.37010832419133
+            ],
+            [
+              108.89832169563287,
+              34.37005881883315
+            ],
+            [
+              108.89837008528873,
+              34.369948306764485
+            ],
+            [
+              108.89853371542634,
+              34.36999781212266
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f4-room-01",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 4,
+        "level": 4,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_4-5_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2408",
+        "name": "WM2408",
+        "indoor_space_id": "weishui.wm2.wm2408",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89769919994508,
+              34.37001248581526
+            ],
+            [
+              108.89766756055471,
+              34.37008474370631
+            ],
+            [
+              108.89749370353351,
+              34.37003214426324
+            ],
+            [
+              108.89752534292387,
+              34.369959886372186
+            ],
+            [
+              108.89769919994508,
+              34.37001248581526
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f4-room-02",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 4,
+        "level": 4,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_4-5_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2406",
+        "name": "WM2406",
+        "indoor_space_id": "weishui.wm2.wm2406",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89797021236049,
+              34.37009447906474
+            ],
+            [
+              108.89793857297012,
+              34.37016673695579
+            ],
+            [
+              108.8977544890653,
+              34.37011104342784
+            ],
+            [
+              108.89778612845568,
+              34.37003878553679
+            ],
+            [
+              108.89797021236049,
+              34.37009447906474
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f4-room-03",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 4,
+        "level": 4,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_4-5_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2404",
+        "name": "WM2404",
+        "indoor_space_id": "weishui.wm2.wm2404",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89822588445048,
+              34.370171831186894
+            ],
+            [
+              108.89819424506013,
+              34.37024408907795
+            ],
+            [
+              108.89801016115531,
+              34.370188395549995
+            ],
+            [
+              108.89804180054568,
+              34.37011613765895
+            ],
+            [
+              108.89822588445048,
+              34.370171831186894
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f4-room-04",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 4,
+        "level": 4,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_4-5_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2402",
+        "name": "WM2402",
+        "indoor_space_id": "weishui.wm2.wm2402",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89849178342409,
+              34.37025227739394
+            ],
+            [
+              108.89846014403372,
+              34.37032453528499
+            ],
+            [
+              108.89827606012892,
+              34.37026884175704
+            ],
+            [
+              108.8983076995193,
+              34.37019658386599
+            ],
+            [
+              108.89849178342409,
+              34.37025227739394
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f4-room-05",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 4,
+        "level": 4,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_4-5_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2403",
+        "name": "WM2403",
+        "indoor_space_id": "weishui.wm2.wm2403",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.8980525631376,
+              34.369919631843736
+            ],
+            [
+              108.89802278488784,
+              34.36998763927061
+            ],
+            [
+              108.89782847409943,
+              34.36992885165777
+            ],
+            [
+              108.8978582523492,
+              34.3698608442309
+            ],
+            [
+              108.8980525631376,
+              34.369919631843736
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f4-room-06",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 4,
+        "level": 4,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_4-5_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2401",
+        "name": "WM2401",
+        "indoor_space_id": "weishui.wm2.wm2401",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89828825144043,
+              34.369976497361144
+            ],
+            [
+              108.89825847319067,
+              34.37004450478801
+            ],
+            [
+              108.89809484305307,
+              34.36999499942983
+            ],
+            [
+              108.89812462130283,
+              34.36992699200296
+            ],
+            [
+              108.89828825144043,
+              34.369976497361144
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f5-room-01",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 5,
+        "level": 5,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_4-5_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2508",
+        "name": "WM2508",
+        "indoor_space_id": "weishui.wm2.wm2508",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89769919994508,
+              34.37001248581526
+            ],
+            [
+              108.89766756055471,
+              34.37008474370631
+            ],
+            [
+              108.89749370353351,
+              34.37003214426324
+            ],
+            [
+              108.89752534292387,
+              34.369959886372186
+            ],
+            [
+              108.89769919994508,
+              34.37001248581526
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f5-room-02",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 5,
+        "level": 5,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_4-5_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2506",
+        "name": "WM2506",
+        "indoor_space_id": "weishui.wm2.wm2506",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89797021236049,
+              34.37009447906474
+            ],
+            [
+              108.89793857297012,
+              34.37016673695579
+            ],
+            [
+              108.8977544890653,
+              34.37011104342784
+            ],
+            [
+              108.89778612845568,
+              34.37003878553679
+            ],
+            [
+              108.89797021236049,
+              34.37009447906474
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f5-room-03",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 5,
+        "level": 5,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_4-5_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2504",
+        "name": "WM2504",
+        "indoor_space_id": "weishui.wm2.wm2504",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89822588445048,
+              34.370171831186894
+            ],
+            [
+              108.89819424506013,
+              34.37024408907795
+            ],
+            [
+              108.89801016115531,
+              34.370188395549995
+            ],
+            [
+              108.89804180054568,
+              34.37011613765895
+            ],
+            [
+              108.89822588445048,
+              34.370171831186894
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "wm2-f5-room-04",
+      "properties": {
+        "campus_id": "weishui",
+        "building_id": "WM2",
+        "building_key": "wm2",
+        "building_place_id": "weishui.osm.way.440689410",
+        "floor": 5,
+        "level": 5,
+        "georef_status": "verified",
+        "georef_transform_id": "wm2-visual-redraw-20260927",
+        "source_floorplan": "source/mingyuan_b_floors_4-5_reference.jpg",
+        "render_class": "room",
+        "kind": "classroom",
+        "room_code": "WM2502",
+        "name": "WM2502",
+        "indoor_space_id": "weishui.wm2.wm2502",
+        "verified": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              108.89849178342409,
+              34.37025227739394
+            ],
+            [
+              108.89846014403372,
+              34.37032453528499
+            ],
+            [
+              108.89827606012892,
+              34.37026884175704
+            ],
+            [
+              108.8983076995193,
+              34.37019658386599
+            ],
+            [
+              108.89849178342409,
+              34.37025227739394
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

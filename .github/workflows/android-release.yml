@@ -1,0 +1,153 @@
+name: Android Release APK
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-upload:
+    if: ${{ github.event.release.prerelease == false }}
+    runs-on: ubuntu-latest
+    # Add these as secrets on the android-release environment:
+    # ANDROID_RELEASE_KEYSTORE_BASE64, ANDROID_RELEASE_STORE_PASSWORD,
+    # ANDROID_RELEASE_KEY_ALIAS, ANDROID_RELEASE_KEY_PASSWORD, MAPBOX_DOWNLOADS_TOKEN
+    environment: android-release
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: '3.44.9'
+          cache: true
+
+      - name: Check tag and app version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          app_version="$(sed -n 's/^version: *//p' pubspec.yaml | head -n 1)"
+          app_version="${app_version%%+*}"
+          tag_version="${RELEASE_TAG#v}"
+          if [[ ! "$tag_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || "$tag_version" != "$app_version" ]]; then
+            echo "::error::Release tag must match pubspec.yaml version (optionally prefixed with v)."
+            exit 1
+          fi
+
+      - name: Resolve locked Flutter dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Configure Android release signing
+        shell: bash
+        env:
+          ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          ANDROID_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+
+          secret_names = (
+              "ANDROID_RELEASE_KEYSTORE_BASE64",
+              "ANDROID_RELEASE_STORE_PASSWORD",
+              "ANDROID_RELEASE_KEY_ALIAS",
+              "ANDROID_RELEASE_KEY_PASSWORD",
+          )
+          secrets = {name: os.environ.get(name, "") for name in secret_names}
+          missing = [name for name, value in secrets.items() if not value]
+          if missing:
+              raise SystemExit("Missing Android release secrets: " + ", ".join(missing))
+
+          encoded_keystore = "".join(secrets[secret_names[0]].split())
+          try:
+              keystore = base64.b64decode(encoded_keystore, validate=True)
+          except ValueError as error:
+              raise SystemExit("ANDROID_RELEASE_KEYSTORE_BASE64 is not valid Base64.") from error
+          if not keystore:
+              raise SystemExit("The decoded Android keystore is empty.")
+
+          def escape_property(value: str) -> str:
+              if any(ord(char) < 0x20 or ord(char) > 0x7E for char in value):
+                  raise SystemExit("Android signing properties must contain printable ASCII only.")
+              escaped = []
+              for index, char in enumerate(value):
+                  if char == "\\" or char in "=:#!" or (char == " " and index == 0):
+                      escaped.append("\\")
+                  escaped.append(char)
+              return "".join(escaped)
+
+          Path("android/mychu-release.jks").write_bytes(keystore)
+          properties = (
+              "storeFile=mychu-release.jks",
+              "storePassword=" + escape_property(secrets["ANDROID_RELEASE_STORE_PASSWORD"]),
+              "keyAlias=" + escape_property(secrets["ANDROID_RELEASE_KEY_ALIAS"]),
+              "keyPassword=" + escape_property(secrets["ANDROID_RELEASE_KEY_PASSWORD"]),
+          )
+          Path("android/key.properties").write_text("\n".join(properties) + "\n", encoding="ascii")
+          PY
+
+      - name: Build and validate arm64 Official APK
+        id: build
+        shell: bash
+        env:
+          MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
+          GIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$MAPBOX_DOWNLOADS_TOKEN" ]]; then
+            echo "::error::Configure MAPBOX_DOWNLOADS_TOKEN in the android-release environment."
+            exit 1
+          fi
+          export MYCHU_BUILD_CHANNEL=official
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          build_time="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          pwsh -NoLogo -NoProfile -File scripts/build_android_release.ps1 \
+            -Channel official \
+            -GitSha "$GIT_SHA" \
+            -BuildId "release-$RUN_ID" \
+            -BuildTimeUtc "$build_time"
+          apk_path="$(find output/releases -maxdepth 1 -type f -name 'MyCHU-*-release.apk' -print -quit)"
+          if [[ -z "$apk_path" ]]; then
+            echo "::error::The validated release APK was not produced."
+            exit 1
+          fi
+          echo "apk_path=$apk_path" >> "$GITHUB_OUTPUT"
+          sha256sum "$apk_path" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove signing files
+        if: always()
+        shell: bash
+        run: rm -f android/key.properties android/mychu-release.jks
+
+      - name: Upload APK to the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          APK_PATH: ${{ steps.build.outputs.apk_path }}
+        run: gh release upload "$RELEASE_TAG" "$APK_PATH" --clobber

@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 2,
+  "buildingPlaceId": "weishui.osm.way.1234004781",
+  "method": "visual plan reconstruction; orthogonal room and service-core geometry; shared building-aligned metric frame",
+  "coordinateFrame": {
+    "originWgs84": [
+      108.89735,
+      34.3714
+    ],
+    "rotationDegrees": 20.0,
+    "units": "meters",
+    "registration": "semantic outdoor building footprint"
+  },
+  "georeferenceStatus": "verified",
+  "publicationVerified": true,
+  "runtimeFeatureCount": 111,
+  "interactionFeatureCount": 30,
+  "roomCount": 30,
+  "supportSpaceCount": 31,
+  "floors": [
+    {
+      "floor": 1,
+      "sourceFloorplan": "WX3_main_F1_from_P06.png",
+      "classroomCodes": [
+        "WX3101",
+        "WX3102",
+        "WX3103",
+        "WX3104"
+      ],
+      "classroomCount": 4,
+      "supportSpaceCount": 7,
+      "construction": "manually interpreted orthogonal room/core layout"
+    },
+    {
+      "floor": 2,
+      "sourceFloorplan": "WX3_main_F2_from_P05.png",
+      "classroomCodes": [
+        "WX3201",
+        "WX3202",
+        "WX3203",
+        "WX3204",
+        "WX3205",
+        "WX3206",
+        "WX3207"
+      ],
+      "classroomCount": 7,
+      "supportSpaceCount": 6,
+      "construction": "manually interpreted orthogonal room/core layout"
+    },
+    {
+      "floor": 3,
+      "sourceFloorplan": "WX3_main_F3_from_P04.png",
+      "classroomCodes": [
+        "WX3301",
+        "WX3302",
+        "WX3303",
+        "WX3304",
+        "WX3305",
+        "WX3306",
+        "WX3307"
+      ],
+      "classroomCount": 7,
+      "supportSpaceCount": 6,
+      "construction": "manually interpreted orthogonal room/core layout"
+    },
+    {
+      "floor": 4,
+      "sourceFloorplan": "WX3_main_F4_from_P03.png",
+      "classroomCodes": [
+        "WX3401",
+        "WX3402",
+        "WX3403",
+        "WX3404",
+        "WX3405",
+        "WX3406",
+        "WX3407"
+      ],
+      "classroomCount": 7,
+      "supportSpaceCount": 6,
+      "construction": "manually interpreted orthogonal room/core layout"
+    },
+    {
+      "floor": 5,
+      "sourceFloorplan": "WX3_main_F5_from_P02.png",
+      "classroomCodes": [
+        "WX3501",
+        "WX3502",
+        "WX3503",
+        "WX3504",
+        "WX3505"
+      ],
+      "classroomCount": 5,
+      "supportSpaceCount": 6,
+      "construction": "manually interpreted orthogonal room/core layout"
+    }
+  ],
+  "notes": [
+    "Scans were used to interpret room count, ordering, and service-core placement; contours were redrawn as clean vectors.",
+    "Unmarked rooms are omitted; only coded classrooms and pictogram-identified facilities are emitted.",
+    "All floor plans share one local metric frame to prevent floor-to-floor scan drift.",
+    "WX3 floor geometry, room codes, floor relationships, and building alignment were manually reviewed and confirmed by the project maintainer."
+  ]
+}

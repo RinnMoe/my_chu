@@ -1,0 +1,28 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "MyCHU HarmonyOS module"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "MyCHU main window"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "MyCHU"
+    },
+    {
+      "name": "DesktopWidgetFormAbility_desc",
+      "value": "提供桌面课表和快捷功能卡片"
+    },
+    {
+      "name": "location_permission_reason",
+      "value": "用于地图中显示你主动查询的当前位置。"
+    },
+    {
+      "name": "bluetooth_permission_reason",
+      "value": "仅在你主动测试时扫描附近 BLE 设备并连接二维码对应的设备。"
+    }
+  ]
+}
