@@ -15,26 +15,6 @@ MyCHU 是为长安大学学生开发的第三方校园助手，聚合数十项�
 - 校园生活：我在长大、校历、通勤车、学信网、校园网自助服务、通知公告、淘宝取件码、云达人等。
 - 校园地图：支持通过教室编码及校内地点搜索、解析，部分教学楼支持查看平面图。HarmonyOS 暂不支持此功能。
 
-## 本地构建
-
-本地 Android Debug 构建需要 Flutter、Android SDK，以及两个用途不同的 Mapbox token：
-
-- `MAPBOX_DOWNLOADS_TOKEN`：仅供 Gradle 下载 Mapbox SDK，需使用带 `Downloads:Read` 权限的 Secret Token。只放在本机环境或密钥管理器中，不要提交到仓库。
-- `MAPBOX_PUBLIC_ACCESS_TOKEN`：运行地图所需的 Public Token（`pk.*`）。它会编译进应用，属于客户端可见值；源码仓库不提供默认 token。
-
-在 PowerShell 中设置好这两个变量后运行：
-
-```powershell
-$env:MAPBOX_DOWNLOADS_TOKEN = '<your Mapbox Downloads:Read Secret Token>'
-$env:MAPBOX_PUBLIC_ACCESS_TOKEN = '<your Mapbox public pk.* token>'
-flutter pub get --enforce-lockfile
-flutter build apk --debug --no-pub "--dart-define=MAPBOX_PUBLIC_ACCESS_TOKEN=$env:MAPBOX_PUBLIC_ACCESS_TOKEN"
-```
-
-在 iOS 等支持校园地图的平台本地构建时，也要把相同的 `MAPBOX_PUBLIC_ACCESS_TOKEN` 通过 `--dart-define` 传入 Flutter；HarmonyOS 当前不支持校园地图。
-
-发布 GitHub Release（包括 Pre-release）会自动构建并上传正式签名 APK。可先用 Pre-release 验收，确认后取消 Pre-release 标记升格为正式版，期间保留的是同一 APK。若需重建已有版本，在 Actions 的 `Android Release APK` 中运行 workflow 并输入已发布的 tag；它会覆盖该 Release 中固定命名的 APK 附件。工作流从 `android-release` Environment Secrets 读取签名材料和 `MAPBOX_DOWNLOADS_TOKEN`，并从该 Environment 的 Actions variable 读取 `MAPBOX_PUBLIC_ACCESS_TOKEN`。
-
 ## 开发文档
 
 [更新日志](CHANGELOG.md)
