@@ -131,7 +131,7 @@ jobs:
           Path("android/key.properties").write_text("\n".join(properties) + "\n", encoding="ascii")
           PY
 
-      - name: Build and validate arm64 Official APK
+      - name: Build and validate arm64-v8a Official APK
         id: build
         shell: bash
         env:
@@ -158,13 +158,13 @@ jobs:
             -GitSha "$GIT_SHA" \
             -BuildId "release-$RUN_ID" \
             -BuildTimeUtc "$build_time"
-          apk_path="$(find output/releases -maxdepth 1 -type f -name 'MyCHU-*-release.apk' -print -quit)"
+          apk_path="$(find output/releases -maxdepth 1 -type f -name 'MyCHU-*-arm64-v8a-release.apk' -print -quit)"
           if [[ -z "$apk_path" ]]; then
             echo "::error::The validated release APK was not produced."
             exit 1
           fi
           release_version="${RELEASE_TAG#v}"
-          release_apk_path="$RUNNER_TEMP/MyCHU-${release_version}-release.apk"
+          release_apk_path="$RUNNER_TEMP/MyCHU-${release_version}-arm64-v8a-release.apk"
           cp -- "$apk_path" "$release_apk_path"
           echo "apk_path=$release_apk_path" >> "$GITHUB_OUTPUT"
           sha256sum "$release_apk_path" >> "$GITHUB_STEP_SUMMARY"

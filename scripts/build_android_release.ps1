@@ -90,8 +90,7 @@ try {
         'build',
         'apk',
         '--release',
-        '--target-platform',
-        'android-arm64',
+        '--target-platform=android-arm64',
         '--no-pub',
         "--dart-define=MYCHU_BUILD_CHANNEL=$Channel",
         "--dart-define=MYCHU_GIT_SHA=$GitSha",
@@ -123,6 +122,19 @@ try {
     $source = Join-Path $repoRoot 'build/app/outputs/flutter-apk/app-release.apk'
     if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
         throw "Release APK was not found: $source"
+    }
+
+    $apkEntries = Invoke-ApkAnalyzer @('files', 'list', '--files-only', $source)
+    $apkAbis = @(
+        $apkEntries -split "`r?`n" |
+            ForEach-Object { $_.Trim().TrimStart('/') } |
+            Where-Object { $_ -match '^lib/([^/]+)/' } |
+            ForEach-Object { [regex]::Match($_, '^lib/([^/]+)/').Groups[1].Value } |
+            Sort-Object -Unique
+    )
+    if ($apkAbis.Count -ne 1 -or $apkAbis[0] -ne 'arm64-v8a') {
+        $actualAbis = if ($apkAbis.Count -eq 0) { 'none' } else { $apkAbis -join ', ' }
+        throw "Release APK must contain native libraries for arm64-v8a only; found: $actualAbis."
     }
 
     $expectedApplicationId = if ($Channel -eq 'preview') {
@@ -159,9 +171,9 @@ try {
     $outputDirectory = Join-Path $repoRoot 'output/releases'
     New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
     $outputName = if ($Channel -eq 'preview') {
-        "MyCHU-$versionName-$Date-preview-$BuildId-$GitSha.apk"
+        "MyCHU-$versionName-$Date-arm64-v8a-preview-$BuildId-$GitSha.apk"
     } else {
-        "MyCHU-$versionName-$Date-release.apk"
+        "MyCHU-$versionName-$Date-arm64-v8a-release.apk"
     }
     $destination = Join-Path $outputDirectory $outputName
     if ((Test-Path -LiteralPath $destination) -and -not $Overwrite) {

@@ -47,6 +47,9 @@ require(dartBuildChannel == buildChannel) {
 }
 
 val splitPerAbi = project.findProperty("split-per-abi") == "true"
+val releaseBuildRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName.contains("release", ignoreCase = true)
+}
 val signingPropertiesFile = rootProject.file(
     if (buildChannel == "preview") "preview-key.properties" else "key.properties",
 )
@@ -108,6 +111,12 @@ android {
         versionName = flutter.versionName
         buildConfigField("String", "MYCHU_BUILD_CHANNEL", "\"$buildChannel\"")
         resValue("string", "app_name", "MyCHU")
+        if (releaseBuildRequested && !splitPerAbi) {
+            ndk {
+                abiFilters.clear()
+                abiFilters.add("arm64-v8a")
+            }
+        }
     }
 
     signingConfigs {
@@ -139,12 +148,6 @@ android {
                 resValue("string", "app_name", "MyCHU Preview")
             }
             signingConfig = signingConfigs.getByName("release")
-            if (!splitPerAbi) {
-                ndk {
-                    abiFilters.clear()
-                    abiFilters.add("arm64-v8a")
-                }
-            }
         }
     }
 
