@@ -16,6 +16,7 @@ import '../../services/user_error_message.dart';
 import '../../capabilities/shuwei_request_proxy.dart';
 import '../../capabilities/web_view_rendering_policy.dart';
 import '../../capabilities/web_view_session_binding.dart';
+import '../../widgets/root_destination_active_scope.dart';
 import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// 教务系统网页版（WakeUp 兼容逻辑，带共享底栏）。
@@ -50,6 +51,10 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage> {
   var _loading = true;
   var _canGoBack = false;
   var _canGoForward = false;
+  var _rootDestinationActive = true;
+  var _routeCurrent = true;
+  var _resumeRefreshPending = false;
+  var _resumeRefreshRunning = false;
   String? _error;
   ErrorFeedbackAttempt? _feedbackAttempt;
   // 教务系统网页版默认桌面视图：首次进入即按电脑模式渲染，避免
@@ -66,8 +71,71 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage> {
   @override
   void initState() {
     super.initState();
+    AuthenticatedWebViewCapability.resumeNotifier.addListener(
+      _onAppResumeRevisionChanged,
+    );
     _proxy = ShuweiRequestProxy(refreshBinding: _refreshProxyBinding);
     unawaited(_prepareWebView());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _rootDestinationActive = RootDestinationActiveScope.activeOf(context);
+    _routeCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+    _refreshAfterResumeWhenVisible();
+  }
+
+  void _onAppResumeRevisionChanged() {
+    _resumeRefreshPending = true;
+    _refreshAfterResumeWhenVisible();
+  }
+
+  void _refreshAfterResumeWhenVisible() {
+    if (!_resumeRefreshPending ||
+        !_rootDestinationActive ||
+        !_routeCurrent ||
+        _resumeRefreshRunning ||
+        _disposed ||
+        !mounted) {
+      return;
+    }
+    _resumeRefreshPending = false;
+    _resumeRefreshRunning = true;
+    unawaited(
+      _refreshAfterAppResume().whenComplete(() {
+        _resumeRefreshRunning = false;
+        _refreshAfterResumeWhenVisible();
+      }),
+    );
+  }
+
+  Future<void> _refreshAfterAppResume() async {
+    final controller = _webViewController;
+    if (controller == null) {
+      await _prepareWebView();
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    _startFeedbackAttempt();
+    try {
+      final binding = await AuthenticatedWebViewCapability.seedServiceSession(
+        serviceId: _serviceId,
+        entryUri: _entryUri,
+      );
+      if (_disposed || !mounted) return;
+      _proxy.bindSession(binding);
+      await controller.reload();
+      if (_disposed || !mounted) return;
+      await _updateNavigationState();
+    } catch (error) {
+      _showWebViewError(error);
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
   }
 
   Uri get _entryUri =>
@@ -83,6 +151,9 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage> {
   @override
   void dispose() {
     _disposed = true;
+    AuthenticatedWebViewCapability.resumeNotifier.removeListener(
+      _onAppResumeRevisionChanged,
+    );
     _webViewController = null;
     _proxy.dispose();
     super.dispose();

@@ -240,6 +240,7 @@ class CampusSessionService {
     final account = await AuthService.getCurrentAccount();
     if (account == null) return null;
     var sessionRevision = AuthService.sessionRevision;
+    final cachedSessionRevision = sessionRevision;
     final definition = CampusServiceEndpoints.definitionFor(serviceId);
     if (definition == null) return null;
     var store = await CampusSessionStore.open(accountKey: account.accountKey);
@@ -248,13 +249,40 @@ class CampusSessionService {
       definition: definition,
       sessionRevision: sessionRevision,
     );
+    final key = '${account.accountKey}:${serviceId.value}';
+    final refreshAfter = definition.sessionRefreshAfter;
+    final lastExchangeAt = _lastExchangeAt[key];
+    final policyRefreshDue =
+        !forceRefresh &&
+        refreshAfter != null &&
+        (lastExchangeAt == null ||
+            DateTime.now().difference(lastExchangeAt) >= refreshAfter);
     final usesSavedIdentityPassword =
         definition.authentication is SavedIdentityPasswordAuthentication;
     final storeCached = await _cachedFromSessionStore(
       account.accountKey,
       serviceId,
     );
+    Future<CampusServiceSession?> cachedPolicyFallback() async {
+      if (!policyRefreshDue ||
+          storeCached == null ||
+          AuthService.sessionRevision != cachedSessionRevision) {
+        return null;
+      }
+      final latest = await AuthService.getCurrentAccount();
+      if (latest == null ||
+          latest.accountKey != account.accountKey ||
+          !fence.isCurrent(
+            currentAccountKey: latest.accountKey,
+            currentSessionRevision: AuthService.sessionRevision,
+          )) {
+        return null;
+      }
+      return storeCached;
+    }
+
     if (!forceRefresh &&
+        !policyRefreshDue &&
         AuthService.sessionRevision == sessionRevision &&
         storeCached != null &&
         (storeCached.cookieHeader.isNotEmpty ||
@@ -272,15 +300,21 @@ class CampusSessionService {
       return _cachedFromSessionStore(recoveredAccount.accountKey, serviceId);
     }
 
-    final key = '${account.accountKey}:${serviceId.value}';
     final flightKey = '$key:${fence.fingerprint}';
     if (!forceRefresh &&
         !usesSavedIdentityPassword &&
         _exchangeCooldowns.isBlocked(key)) {
-      return null;
+      return cachedPolicyFallback();
     }
     final pending = _refreshes[flightKey];
-    if (pending != null) return (await pending).$1;
+    if (pending != null) {
+      final (sharedCredential, sharedAuthExpired) = await pending;
+      if (sharedCredential != null) return sharedCredential;
+      if (!sharedAuthExpired) {
+        return cachedPolicyFallback();
+      }
+      return null;
+    }
 
     final refresh = _refresh(account, serviceId, fence: fence);
     _refreshes[flightKey] = refresh;
@@ -323,6 +357,14 @@ class CampusSessionService {
         }
       } else if (!usesSavedIdentityPassword && !authExpired) {
         _exchangeCooldowns.recordFailure(key);
+      }
+      if (credential == null && !authExpired) {
+        final fallback = await cachedPolicyFallback();
+        if (fallback == null) return null;
+        // A scheduled refresh is best-effort. Keep the prior materialization
+        // available for its normal auth-failure handling when the refresh
+        // could not complete because of a transient service/network failure.
+        return fallback;
       }
       return credential;
     } finally {
@@ -1504,6 +1546,10 @@ class CampusSessionService {
             currentAccountKey: account.accountKey,
             currentSessionRevision: AuthService.sessionRevision,
           )) {
+        if (effectiveServiceId != null) {
+          _lastExchangeAt['${account.accountKey}:${effectiveServiceId.value}'] =
+              DateTime.now();
+        }
         _serviceExchangeCooldowns.clear(key);
       } else {
         session = null;

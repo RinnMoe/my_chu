@@ -25,9 +25,6 @@ class SportsPage extends StatelessWidget {
     const hostname = location.hostname.toLowerCase();
     if (hostname === 'ids.chd.edu.cn' || hostname === 'identity.chd.edu.cn') {
       let authorizationTriggered = false;
-      const normalizedText = (value) => String(value || '')
-        .replace(/\s+/g, '')
-        .trim();
       const isVisible = (element) => {
         if (!element || element.disabled) return false;
         const style = window.getComputedStyle(element);
@@ -37,20 +34,22 @@ class SportsPage extends StatelessWidget {
       };
       const tryAuthorize = () => {
         if (authorizationTriggered) return;
-        const bodyText = document.body?.innerText || '';
-        if (!bodyText.includes('授权申请') ||
-            !bodyText.includes('申请获得以下授权')) return;
-        const candidate = Array.from(document.querySelectorAll(
-          'button, a, input, [role="button"], div, span'
-        )).find((element) => {
-          const label = normalizedText(
-            element.innerText ||
-              element.value ||
-              element.getAttribute('aria-label')
-          );
-          return label === '授权' && isVisible(element);
-        });
-        if (!candidate) return;
+        const form = document.querySelector('form.oauth-form-h5');
+        if (!form || String(form.method).toLowerCase() !== 'post') return;
+        try {
+          const action = new URL(form.action, location.href);
+          const redirect = new URL(action.searchParams.get('redirect_uri'));
+          if (action.protocol !== 'https:' ||
+              action.hostname !== hostname ||
+              action.pathname !== '/authserver/oauth2.0/authorize' ||
+              action.searchParams.get('client_id') !== '1503432086291156992' ||
+              redirect.protocol !== 'https:' ||
+              redirect.host !== 'stuh5.chd.edu.cn' ||
+              redirect.pathname !== '/' ||
+              redirect.hash.split('?')[0] !== '#/pages/oauth/callback') return;
+        } catch (_) { return; }
+        const candidate = form.querySelector('input.oauth-btn[type="submit"]');
+        if (!isVisible(candidate)) return;
         authorizationTriggered = true;
         try {
           candidate.click();
@@ -126,9 +125,7 @@ class SportsPage extends StatelessWidget {
       window.uni.switchTab = function (options) {
         const requestedRoute = String(options?.url || '').split('?')[0];
         const isOAuthCallback = routePath() === '#/pages/oauth/callback';
-        const callbackSucceeded =
-          !!document.querySelector('.status-success') ||
-          (document.body?.innerText || '').includes('登录成功');
+        const callbackSucceeded = !!document.querySelector('.status-success');
         if (!isOAuthCallback || requestedRoute !== '/pages/index' ||
             !callbackSucceeded ||
             oauthLandingRequested) {

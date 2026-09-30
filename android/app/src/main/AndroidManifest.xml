@@ -34,68 +34,42 @@
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true"
         android:networkSecurityConfig="@xml/network_security_config">
-        <meta-data
-            android:name="miuiWidgetVersion"
-            android:value="2" />
         <receiver
             android:name=".desktopwidgets.TodayScheduleWidgetReceiver"
             android:exported="true"
-            android:label="@string/today_schedule_widget_label"
-            android:process=":widgetProvider">
+            android:label="@string/today_schedule_widget_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="miui.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/today_schedule_widget_info" />
-            <meta-data
-                android:name="miuiWidget"
-                android:value="true" />
-            <meta-data
-                android:name="miuiWidgetRefresh"
-                android:value="exposure" />
-            <meta-data
-                android:name="miuiWidgetRefreshMinInterval"
-                android:value="60000" />
         </receiver>
         <receiver
             android:name=".desktopwidgets.DesktopWidgetPackageReplacedReceiver"
-            android:exported="false"
-            android:process=":widgetProvider">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
         <receiver
             android:name=".desktopwidgets.DesktopWidgetRefreshReceiver"
-            android:exported="false"
-            android:process=":widgetProvider" />
-        <!-- Glance multiprocess worker and action components must share the provider process. -->
-        <service
-            android:name="androidx.work.multiprocess.RemoteWorkerService"
-            android:exported="false"
-            android:process=":widgetProvider" />
+            android:exported="false" />
         <activity
             android:name="androidx.glance.appwidget.action.ActionTrampolineActivity"
-            android:exported="false"
-            android:process=":widgetProvider" />
+            android:exported="false" />
         <activity
             android:name="androidx.glance.appwidget.action.InvisibleActionTrampolineActivity"
-            android:exported="false"
-            android:process=":widgetProvider" />
+            android:exported="false" />
         <receiver
             android:name="androidx.glance.appwidget.action.ActionCallbackBroadcastReceiver"
-            android:exported="false"
-            android:process=":widgetProvider" />
+            android:exported="false" />
         <receiver
             android:name="androidx.glance.appwidget.UnmanagedSessionReceiver"
-            android:exported="false"
-            android:process=":widgetProvider" />
+            android:exported="false" />
         <service
             android:name="androidx.glance.appwidget.GlanceRemoteViewsService"
-            android:exported="true"
-            android:process=":widgetProvider" />
+            android:exported="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

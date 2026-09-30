@@ -178,11 +178,8 @@ dependencies {
     // Android 设备品牌、厂商系统与市场机型名识别。
     implementation("com.github.getActivity:DeviceCompat:2.6")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    // Native home-screen widgets. Multiprocess support keeps Glance work in
-    // the isolated provider process used by Xiaomi HyperOS widgets.
+    // Native home-screen widgets.
     implementation("androidx.glance:glance-appwidget:1.2.0")
-    implementation("androidx.glance:glance-appwidget-multiprocess:1.2.0")
-    implementation("androidx.work:work-multiprocess:2.12.0")
     // LeakCanary 只用于 Android Debug 生命周期泄漏检查，不进入 Profile/Release。
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
     testImplementation("junit:junit:4.13.2")

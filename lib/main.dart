@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import 'capabilities/alert_registry.dart';
+import 'capabilities/authenticated_web_view_capability.dart';
 import 'pages/apps_page.dart';
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
@@ -619,6 +620,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   bool _campusPromptAttempted = false;
   bool _onboardingFlowRunning = false;
   bool _onboardingFlowAttempted = false;
+  Future<void>? _resumeSessionCheck;
   final GuidePreferences _guidePreferences = GuidePreferences();
 
   @override
@@ -663,9 +665,41 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     academicScheduleCapability.handleAppLifecycleState(state);
     if (state == AppLifecycleState.resumed && mounted) {
       _syncDesktopWidgetSnapshot();
+      _restoreCampusSessionAfterResume();
       // ActivityKit has no APNs-backed server in the first release. Reconcile
       // whenever the host gets an execution opportunity again.
       unawaited(LiveUpdateService.refreshIfEnabled(forceRefresh: true));
+    }
+  }
+
+  void _restoreCampusSessionAfterResume() {
+    if (_resumeSessionCheck != null) return;
+    final check = _runCampusSessionRestoreAfterResume();
+    _resumeSessionCheck = check;
+    unawaited(
+      check.whenComplete(() {
+        if (identical(_resumeSessionCheck, check)) {
+          _resumeSessionCheck = null;
+        }
+      }),
+    );
+  }
+
+  Future<void> _runCampusSessionRestoreAfterResume() async {
+    try {
+      final result = await AuthLifecycleService.restoreForResume();
+      if (!mounted) return;
+      if (result.status == AuthLifecycleStatus.manualLoginRequired ||
+          result.status == AuthLifecycleStatus.noAccount) {
+        LoginRequiredNotifier.requestRelogin(
+          result.recoveryOutcome?.name ?? result.status.name,
+        );
+        return;
+      }
+      AuthenticatedWebViewCapability.notifyAppResumed();
+    } catch (error) {
+      AppLogger.warn('前台恢复校园会话失败 (${error.runtimeType})');
+      if (mounted) AuthenticatedWebViewCapability.notifyAppResumed();
     }
   }
 

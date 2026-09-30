@@ -40,7 +40,8 @@ object LiveUpdateNotifier {
         }
 
         builder
-            .setSmallIcon(R.drawable.ic_stat_course)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setLargeIcon(Icon.createWithResource(context, R.mipmap.ic_launcher))
             .setContentTitle(render.title)
             .setContentText(render.body)
             .setCategory(Notification.CATEGORY_EVENT)
@@ -73,8 +74,7 @@ object LiveUpdateNotifier {
                 .setProgressTrackerIcon(
                     render.trackerEmoji
                         ?.takeIf { it.isNotBlank() }
-                        ?.let { emojiTrackerIcon(context, it) }
-                        ?: Icon.createWithResource(context, R.drawable.ic_stat_course),
+                        ?.let { emojiTrackerIcon(context, it) },
                 )
             if (elapsed > 0) {
                 style.addProgressSegment(

@@ -647,11 +647,19 @@ class HomeFocusService {
     final today = DateTime(now.year, now.month, now.day);
     final tomorrow = today.add(const Duration(days: 1));
     final snapshot = await provider.loadRange(today, tomorrow, force: force);
+    final todayHolidayNames = snapshot
+        .daysFor(today)
+        .where((day) => day.isOffDay)
+        .map((day) => day.name.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet();
     final days = snapshot.daysFor(tomorrow);
     final makeup = days.where((day) => !day.isOffDay).toList(growable: false);
     final holidays = days.where((day) => day.isOffDay).toList(growable: false);
     final holidayNames = _publicHolidayNames(holidays);
-    final holidayDaysRemaining = tomorrow.difference(today).inDays + 1;
+    final holidayStartsTomorrow = holidays.any(
+      (holiday) => !todayHolidayNames.contains(holiday.name.trim()),
+    );
     return [
       if (makeup.isNotEmpty)
         HomeFocusItem(
@@ -673,7 +681,7 @@ class HomeFocusService {
           id: _publicHolidayId(tomorrow, 'holiday'),
           kind: HomeFocusKind.publicHoliday,
           title: '$holidayNames假期',
-          subtitle: '还有$holidayDaysRemaining天',
+          subtitle: holidayStartsTomorrow ? '明天开始' : '假期中',
           priority: HomeFocusPriority.p1,
           eventTime: tomorrow,
           createdAt: now,

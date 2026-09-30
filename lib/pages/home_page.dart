@@ -42,9 +42,8 @@ const _quickAppsRunSpacing = 16.0;
 
 String _academicTeachingWeekLabel(String term, int week) => '$term · 第$week周';
 
-double _quickAppItemWidth(double maxWidth) {
-  return (maxWidth - _quickAppsSpacing * (_quickAppsColumns - 1)) /
-      _quickAppsColumns;
+double _quickAppItemWidth(double maxWidth, {int columns = _quickAppsColumns}) {
+  return (maxWidth - _quickAppsSpacing * (columns - 1)) / columns;
 }
 
 class HomePage extends StatefulWidget {
@@ -811,38 +810,63 @@ class _HomePageState extends State<HomePage> {
     required Widget header,
     required bool focusVisible,
   }) {
-    final content = Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1240),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 24, 28, 48),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              header,
-              SizedBox(
-                height: focusVisible ? _headerToFocusGap : _emptyFocusToAppsGap,
-              ),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final focusWidth = (constraints.maxWidth * 0.38).clamp(
-                    320.0,
-                    460.0,
-                  );
-                  return Row(
+    final content = LayoutBuilder(
+      builder: (context, constraints) {
+        final schedule = academicScheduleCapability.createHomeModule(
+          publicHolidayProvider: _publicHolidayProvider,
+          calendarState: _academicCalendarState,
+          calendarStateLoading: _teachingWeekLoading,
+          onRetryCalendarState: () => _refreshTeachingWeek(force: true),
+        );
+        final actions = _QuickAppsSection(
+          plugins: quickApps,
+          onEdit: _showQuickAppsEditor,
+          onTap: _openApp,
+          onLongPress: _showQuickAppMenu,
+        );
+        final twoColumns =
+            constraints.maxWidth - 40 >= 600 && _quickAppsConfig.enabled;
+        final primary = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            header,
+            const SizedBox(height: 20),
+            if (focusVisible) ...[
+              _buildHomeFocus(),
+              const SizedBox(height: 20),
+            ],
+            if (_loading)
+              const _HomeActionsSkeleton()
+            else if (twoColumns)
+              actions
+            else
+              schedule,
+          ],
+        );
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          child:
+              twoColumns
+                  ? Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(width: focusWidth, child: _buildHomeFocus()),
-                      const SizedBox(width: 24),
-                      Expanded(child: _buildHomeBlocks(quickApps: quickApps)),
+                      Expanded(flex: 3, child: primary),
+                      const SizedBox(width: 20),
+                      Expanded(flex: 2, child: schedule),
                     ],
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
+                  )
+                  : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      primary,
+                      if (_quickAppsConfig.enabled && !_loading) ...[
+                        const SizedBox(height: 20),
+                        actions,
+                      ],
+                    ],
+                  ),
+        );
+      },
     );
     final scrollView = CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -915,7 +939,7 @@ class _HomePageState extends State<HomePage> {
       windowClassOverride: widget.windowClassOverride,
     );
     if (environment.deviceFamily == DeviceFamily.tablet &&
-        environment.windowClass.isExpanded) {
+        environment.windowClass.isAtLeastMedium) {
       return _buildExpandedTabletHome(
         quickApps: quickApps,
 
@@ -940,17 +964,6 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    if (environment.deviceFamily == DeviceFamily.tablet &&
-        environment.windowClass == WindowClass.medium) {
-      return Scaffold(
-        body: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: content,
-          ),
-        ),
-      );
-    }
     return Scaffold(body: content);
   }
 }
@@ -1362,7 +1375,19 @@ class _QuickAppsGrid extends StatelessWidget {
     // 左对齐 + 4 列等分 item 宽度；常规手机宽度下每行 4 项，不足 4 项不拉满。
     return LayoutBuilder(
       builder: (context, constraints) {
-        final itemWidth = _quickAppItemWidth(constraints.maxWidth);
+        final tablet =
+            PlatformEnvironment.fromContext(context).deviceFamily ==
+            DeviceFamily.tablet;
+        final columns =
+            tablet
+                ? ((constraints.maxWidth + _quickAppsSpacing) / 84)
+                    .floor()
+                    .clamp(2, _quickAppsColumns)
+                : _quickAppsColumns;
+        final itemWidth = _quickAppItemWidth(
+          constraints.maxWidth,
+          columns: columns,
+        );
         return Wrap(
           spacing: _quickAppsSpacing,
           runSpacing: _quickAppsRunSpacing,

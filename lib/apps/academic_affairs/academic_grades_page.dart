@@ -167,11 +167,17 @@ class _GradesView extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder:
+        (context, constraints) => _buildForWidth(context, constraints.maxWidth),
+  );
+
+  Widget _buildForWidth(BuildContext context, double width) {
     final environment = PlatformEnvironment.fromContext(context);
     final expandedTablet =
         environment.deviceFamily == DeviceFamily.tablet &&
-        environment.windowClass.isExpanded;
+        environment.windowClass.isExpanded &&
+        width >= 840;
     final gradeTap = expandedTablet ? onGradeSelected : null;
     if (report == null) {
       return AcademicSectionFallback(

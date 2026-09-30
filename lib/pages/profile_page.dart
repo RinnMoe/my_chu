@@ -378,6 +378,13 @@ class _ProfilePageState extends State<ProfilePage> {
       ],
     );
 
-    return Scaffold(body: content);
+    return Scaffold(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: content,
+        ),
+      ),
+    );
   }
 }

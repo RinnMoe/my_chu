@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -13,6 +14,7 @@ import '../services/federated_session.dart';
 import '../services/logger_service.dart';
 import '../services/service_endpoints.dart';
 import '../services/user_error_message.dart';
+import 'authentication_gate_monitor.dart';
 import 'campus_web_view_security.dart';
 import 'campus_webview_cookie_bridge.dart';
 import 'web_view_session_binding.dart';
@@ -22,6 +24,7 @@ import 'web_view_error_view.dart';
 import 'web_view_external_navigation.dart';
 import 'web_view_permission_capability.dart';
 import 'web_view_rendering_policy.dart';
+import '../widgets/root_destination_active_scope.dart';
 import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// Host-side bridge for authenticated WebViews.
@@ -31,6 +34,16 @@ import 'package:mychu/widgets/apple_window_controls.dart';
 /// service credential into WebView cookies and initial request headers.
 /// Feature pages and plugins must not hold credential strings themselves.
 class AuthenticatedWebViewCapability {
+  static final ValueNotifier<int> _appResumeRevision = ValueNotifier(0);
+
+  static ValueListenable<int> get resumeNotifier => _appResumeRevision;
+
+  /// Rebuilds retained authenticated WebViews after the root identity has
+  /// been checked by the host resume coordinator.
+  static void notifyAppResumed() {
+    _appResumeRevision.value++;
+  }
+
   /// 桌面版 User-Agent（与教务服务请求使用的桌面 UA 一致）。
   static const desktopUserAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -284,7 +297,13 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage> {
   var _browserRelayCallbackSeen = false;
   var _browserRelayCallbackCompleted = false;
   var _authenticationGateReleased = false;
+  AuthenticationGateMonitor? _authenticationGateMonitor;
+  var _authenticationGateRevision = 0;
   var _webViewGeneration = 0;
+  var _rootDestinationActive = true;
+  var _routeCurrent = true;
+  var _resumeRefreshPending = false;
+  var _resumeRefreshRunning = false;
   ErrorFeedbackAttempt? _loadAttempt;
 
   UserOperationId get _feedbackOperation =>
@@ -296,13 +315,69 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage> {
   @override
   void initState() {
     super.initState();
+    AuthenticatedWebViewCapability._appResumeRevision.addListener(
+      _onAppResumeRevisionChanged,
+    );
     _useDesktopUA = widget.defaultDesktopUA;
     unawaited(_prepareInitialLoad());
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _rootDestinationActive = RootDestinationActiveScope.activeOf(context);
+    _routeCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+    _refreshAfterResumeWhenVisible();
+  }
+
+  void _onAppResumeRevisionChanged() {
+    _resumeRefreshPending = true;
+    _refreshAfterResumeWhenVisible();
+  }
+
+  void _refreshAfterResumeWhenVisible() {
+    if (!_resumeRefreshPending ||
+        !_rootDestinationActive ||
+        !_routeCurrent ||
+        _resumeRefreshRunning ||
+        _disposed ||
+        !mounted) {
+      return;
+    }
+    _resumeRefreshPending = false;
+    _resumeRefreshRunning = true;
+    unawaited(
+      _refreshAfterAppResume().whenComplete(() {
+        _resumeRefreshRunning = false;
+        _refreshAfterResumeWhenVisible();
+      }),
+    );
+  }
+
+  Future<void> _refreshAfterAppResume() async {
+    Uri? currentUri;
+    try {
+      final raw = await _controller?.getUrl();
+      final candidate = raw == null ? null : Uri.tryParse(raw.toString());
+      if (candidate != null && _definition.allowsUri(candidate)) {
+        currentUri = candidate;
+      }
+    } catch (_) {}
+    if (!mounted || _disposed) return;
+    setState(() {
+      _error = null;
+      _loading = true;
+    });
+    await _prepareInitialLoad(requestedUri: currentUri);
+  }
+
+  @override
   void dispose() {
     _disposed = true;
+    _authenticationGateMonitor?.cancel();
+    AuthenticatedWebViewCapability._appResumeRevision.removeListener(
+      _onAppResumeRevisionChanged,
+    );
     _controller = null;
     super.dispose();
   }
@@ -331,17 +406,41 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage> {
 
   void _onWebViewCreated(InAppWebViewController controller) {
     _controller = controller;
+    if (!widget.waitForAuthenticationPage ||
+        !widget.autoCompleteAuthentication ||
+        _authenticationGateReleased) {
+      return;
+    }
+    _authenticationGateMonitor?.cancel();
+    _authenticationGateMonitor = AuthenticationGateMonitor(
+      checkReady: () => _observeAuthenticationReady(controller),
+      onTimeout: () {
+        if (_disposed || !mounted || !identical(_controller, controller)) {
+          return;
+        }
+        AppLogger.event(
+          level: 'INFO',
+          code: 'webview.authentication.manual_fallback',
+          message: '自动授权等待超时，已显示网页以继续认证',
+          operation: _feedbackOperation,
+        );
+        _releaseAuthenticationGate();
+      },
+    );
   }
 
   void _startLoadAttempt() {
     _loadAttempt = ErrorFeedbackCoordinator.shared.begin(_feedbackOperation);
   }
 
-  Future<void> _prepareInitialLoad() async {
+  Future<void> _prepareInitialLoad({Uri? requestedUri}) async {
+    _authenticationGateMonitor?.cancel();
+    _authenticationGateRevision++;
     _authenticationGateReleased = false;
     _clearSessionLanding();
     final preset = widget.url;
-    final presetUri = preset == null ? null : Uri.tryParse(preset);
+    final presetUri =
+        requestedUri ?? (preset == null ? null : Uri.tryParse(preset));
     if (preset != null) {
       if (presetUri == null || !presetUri.hasScheme) {
         if (mounted) {
@@ -534,15 +633,18 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage> {
       return;
     }
     _authenticationGateReleased = true;
+    _authenticationGateMonitor?.cancel();
     if (mounted && !_disposed) setState(() {});
   }
 
   Future<void> _observeAuthenticationReady(
     InAppWebViewController controller,
   ) async {
+    final gateRevision = _authenticationGateRevision;
     if (!widget.waitForAuthenticationPage ||
         _authenticationGateReleased ||
-        _disposed) {
+        _disposed ||
+        !identical(_controller, controller)) {
       return;
     }
     try {
@@ -554,7 +656,11 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage> {
 (() => document.documentElement?.dataset?.mychuAuthenticationReady === '1')()
 ''',
       );
-      if (ready == true || '$ready' == 'true') {
+      if (!_disposed &&
+          mounted &&
+          gateRevision == _authenticationGateRevision &&
+          identical(_controller, controller) &&
+          (ready == true || '$ready' == 'true')) {
         _releaseAuthenticationGate();
       }
     } catch (_) {}

@@ -1067,11 +1067,24 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
     return page;
   }
 
-  Widget _buildBody(BuildContext context) {
+  bool _canShowScheduleInspector(double width) {
+    final days = _hideWeekend ? 5 : 7;
+    final inspectorWidth = (width * 0.30).clamp(320.0, 360.0);
+    return width - inspectorWidth - 1 - _scheduleLeftWidth >= days * 80;
+  }
+
+  Widget _buildBody(BuildContext context) => LayoutBuilder(
+    builder:
+        (context, constraints) =>
+            _buildBodyForWidth(context, constraints.maxWidth),
+  );
+
+  Widget _buildBodyForWidth(BuildContext context, double width) {
     final environment = PlatformEnvironment.fromContext(context);
     final expandedTablet =
         environment.deviceFamily == DeviceFamily.tablet &&
-        environment.windowClass.isExpanded;
+        environment.windowClass.isExpanded &&
+        _canShowScheduleInspector(width);
     Widget buildScheduleStack() {
       return KeyedSubtree(
         key: const ValueKey('academic-schedule-canvas'),
@@ -1772,6 +1785,16 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
+              final tablet =
+                  PlatformEnvironment.fromContext(context).deviceFamily ==
+                  DeviceFamily.tablet;
+              final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
+              final periodHeight =
+                  tablet
+                      ? ((constraints.maxHeight - 44) / maxPeriod)
+                          .clamp(40.0 * scale, math.max(56.0, 40.0 * scale))
+                          .toDouble()
+                      : 68.0;
               final columnWidth = math.max(
                 0.0,
                 (constraints.maxWidth - _scheduleLeftWidth) /
@@ -1793,6 +1816,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
                       showNonCurrent: false,
                       maxPeriod: maxPeriod,
                       columnWidth: columnWidth,
+                      periodHeight: periodHeight,
                       visibleWeekdays: visibleWeekdays,
                       highlightToday: false,
                       todayWeekday: _clock().weekday,
@@ -1819,6 +1843,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
                       showNonCurrent: false,
                       maxPeriod: maxPeriod,
                       columnWidth: columnWidth,
+                      periodHeight: periodHeight,
                       visibleWeekdays: visibleWeekdays,
                       highlightToday: false,
                       todayWeekday: _clock().weekday,
@@ -1844,6 +1869,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
                     showNonCurrent: _showNonCurrent,
                     maxPeriod: maxPeriod,
                     columnWidth: columnWidth,
+                    periodHeight: periodHeight,
                     visibleWeekdays: visibleWeekdays,
                     highlightToday: week == _currentScheduleWeek,
                     todayWeekday: _clock().weekday,
@@ -2058,6 +2084,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
     final environment = PlatformEnvironment.fromContext(context);
     if (environment.deviceFamily == DeviceFamily.tablet &&
         environment.windowClass.isExpanded &&
+        _canShowScheduleInspector(context.size?.width ?? 0) &&
         courses.length == 1) {
       final selected = courses.single;
       setState(() {
@@ -2568,7 +2595,7 @@ typedef _ScheduleCellTapCallback =
 /// enclosing PageView, so this grid always fits the width.
 class _ScheduleWeekPage extends StatelessWidget {
   static const _leftWidth = _scheduleLeftWidth;
-  static const _periodHeight = 68.0;
+  final double periodHeight;
   static const _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
 
   final AcademicScheduleWeekSplit split;
@@ -2600,6 +2627,7 @@ class _ScheduleWeekPage extends StatelessWidget {
     required this.selectedWeek,
     required this.teachingSchedule,
     required this.columnWidth,
+    required this.periodHeight,
     required this.visibleWeekdays,
     required this.isClassSchedule,
     required this.firstCourseKey,
@@ -2624,7 +2652,7 @@ class _ScheduleWeekPage extends StatelessWidget {
         showNonCurrent
             ? split.faded.toSet()
             : const <AcademicPersonalScheduleEntry>{};
-    final height = _periodHeight * maxPeriod;
+    final height = periodHeight * maxPeriod;
     final colors = Theme.of(context).colorScheme;
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     final highlightColor = colors.primary.withValues(
@@ -2708,9 +2736,9 @@ class _ScheduleWeekPage extends StatelessWidget {
                   for (var period = 0; period < maxPeriod; period++)
                     Positioned(
                       left: 0,
-                      top: period * _periodHeight,
+                      top: period * periodHeight,
                       width: _leftWidth,
-                      height: _periodHeight,
+                      height: periodHeight,
                       child: _PeriodLabel(
                         period: period + 1,
                         teachingSchedule: teachingSchedule,
@@ -2762,7 +2790,7 @@ class _ScheduleWeekPage extends StatelessWidget {
       group: group,
       blockHeight: math.max(
         12.0,
-        (group.endPeriod - group.startPeriod + 1) * _periodHeight - 4,
+        (group.endPeriod - group.startPeriod + 1) * periodHeight - 4,
       ),
       mergeSources: mergeSources,
       selectedWeek: selectedWeek,
@@ -2779,11 +2807,11 @@ class _ScheduleWeekPage extends StatelessWidget {
     return Positioned(
       left:
           _leftWidth + visibleWeekdays.indexOf(group.weekday) * columnWidth + 2,
-      top: (group.startPeriod - 1) * _periodHeight + 2,
+      top: (group.startPeriod - 1) * periodHeight + 2,
       width: math.max(12.0, columnWidth - 4),
       height: math.max(
         12.0,
-        (group.endPeriod - group.startPeriod + 1) * _periodHeight - 4,
+        (group.endPeriod - group.startPeriod + 1) * periodHeight - 4,
       ),
       child: child,
     );
@@ -3184,7 +3212,7 @@ class _CourseBlockLineBudget {
     required bool hasTeacher,
   }) {
     final span = math.max(1, periodSpan).toInt();
-    var titleLines = math.min(6, span * 2);
+    var titleLines = 2;
     var locationLines =
         hasLocation && span >= 2
             ? 2
@@ -3207,8 +3235,8 @@ class _CourseBlockLineBudget {
               teacherLines: teacherLines,
             ) >
             availableHeight &&
-        teacherLines > 0) {
-      teacherLines--;
+        titleLines > 1) {
+      titleLines--;
     }
     while (_estimatedHeight(
               textScaler: textScaler,
@@ -3218,8 +3246,8 @@ class _CourseBlockLineBudget {
               teacherLines: teacherLines,
             ) >
             availableHeight &&
-        titleLines > 1) {
-      titleLines--;
+        teacherLines > 0) {
+      teacherLines--;
     }
     while (_estimatedHeight(
               textScaler: textScaler,

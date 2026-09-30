@@ -43,27 +43,20 @@ class MaterialNavigationShell extends StatelessWidget {
                 child: NavigationRail(
                   selectedIndex: selectedIndex,
                   onDestinationSelected: onSelected,
-                  extended: windowClass.isExpanded,
-                  labelType:
-                      windowClass.isExpanded
-                          ? NavigationRailLabelType.none
-                          : NavigationRailLabelType.all,
-                  leading:
-                      windowClass.isExpanded
-                          ? Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-                            child: Text(
-                              'MyCHU',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w800),
-                            ),
-                          )
-                          : null,
+                  extended: false,
+                  minWidth: 80,
+                  labelType: NavigationRailLabelType.all,
                   destinations: [
                     for (final item in items)
                       NavigationRailDestination(
-                        icon: _navigationIcon(item.icon),
-                        selectedIcon: _navigationIcon(item.selectedIcon),
+                        icon: Tooltip(
+                          message: item.label,
+                          child: _navigationIcon(item.icon),
+                        ),
+                        selectedIcon: Tooltip(
+                          message: item.label,
+                          child: _navigationIcon(item.selectedIcon),
+                        ),
                         label: Text(item.label),
                       ),
                   ],

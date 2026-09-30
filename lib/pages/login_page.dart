@@ -6,6 +6,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/account.dart';
 import '../services/auth_lifecycle_service.dart';
+import '../services/platform_compatibility_service.dart';
 import '../services/cookie_service.dart';
 import '../services/logger_service.dart';
 import '../services/saved_login_credential_service.dart';
@@ -158,13 +159,15 @@ class _LoginHintDialogState extends State<_LoginHintDialog> {
   }
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   static const _loginOnboardingDismissedKey = 'login_onboarding_v3_dismissed';
   final _webViewPermissions = WebViewPermissionCapability();
   InAppWebViewController? _controller;
   String _lastLoadedUrl = '';
   Timer? _autoConfirmTimer;
   bool _isLoading = true;
+  double _loadProgress = 0;
+  Future<void> _renderingUpdate = Future<void>.value();
   bool _hintShown = false;
   bool _hintLoading = false;
   bool _isConfirmingLogin = false;
@@ -220,6 +223,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // 不依赖 WebView 首次加载成功才展示登录提示，避免网络或页面异常延迟安全选择。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_ensureLoginHint());
@@ -228,10 +232,39 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _autoConfirmTimer?.cancel();
     unawaited(_clearLoginCapture());
     _capturedLogin = null;
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _updateWebViewRendering();
+  }
+
+  void _updateWebViewRendering() {
+    if (!PlatformCompatibilityService.isHarmony &&
+        !PlatformCompatibilityService.isAndroid) {
+      return;
+    }
+    // Serialize native calls so a rapid background/foreground transition
+    // cannot leave the WebView paused after the app has resumed.
+    _renderingUpdate = _renderingUpdate.then((_) async {
+      final controller = _controller;
+      if (!mounted || controller == null || !_webViewVisible) return;
+      try {
+        final state = WidgetsBinding.instance.lifecycleState;
+        if (state == null || state == AppLifecycleState.resumed) {
+          await controller.resume();
+        } else {
+          await controller.pause();
+        }
+      } catch (error) {
+        AppLogger.warn('登录页面渲染状态更新失败 (${error.runtimeType})');
+      }
+    });
   }
 
   void _beginCredentialExchange() {
@@ -824,6 +857,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
             onWebViewCreated: (controller) async {
               _controller = controller;
+              _updateWebViewRendering();
               try {
                 await _loadInitialPage();
               } catch (error) {
@@ -842,6 +876,7 @@ class _LoginPageState extends State<LoginPage> {
               if (mounted) {
                 setState(() {
                   _isLoading = true;
+                  _loadProgress = 0;
                   _webViewError = null;
                 });
               }
@@ -861,6 +896,10 @@ class _LoginPageState extends State<LoginPage> {
               }
               _scheduleAutoConfirm(url?.toString() ?? '');
             },
+            onProgressChanged: (controller, progress) {
+              if (!mounted) return;
+              setState(() => _loadProgress = progress.clamp(0, 100) / 100);
+            },
             onReceivedError: (controller, request, error) {
               if (request.isForMainFrame != true) return;
               _showWebViewError(error);
@@ -878,11 +917,13 @@ class _LoginPageState extends State<LoginPage> {
         else
           const SizedBox.expand(),
         if (_isLoading)
-          const Positioned(
+          Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: LinearProgressIndicator(),
+            // A stalled load must not keep scheduling indeterminate frames
+            // over an otherwise static authentication page.
+            child: LinearProgressIndicator(value: _loadProgress),
           ),
         if (_webViewError case final error?)
           Positioned.fill(

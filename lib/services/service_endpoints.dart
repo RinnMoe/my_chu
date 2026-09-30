@@ -106,6 +106,10 @@ class CampusServiceDefinition {
   /// target URL (for example a short-lived access-token login URL).
   final bool webViewUsesSessionUri;
 
+  /// Proactive refresh threshold for reusing a derived service session.
+  /// This is an app-side refresh policy, not a claim about server expiry.
+  final Duration? sessionRefreshAfter;
+
   final AuthenticationPolicy authentication;
   final SessionMaterializer? _sessionMaterializer;
   final SessionScope? _sessionScope;
@@ -129,6 +133,7 @@ class CampusServiceDefinition {
     this.exactExchangePaths = const [],
     this.webViewBootstrapMode = WebViewBootstrapMode.serviceSession,
     this.webViewUsesSessionUri = false,
+    this.sessionRefreshAfter,
     this.scopedPaths = const {},
     this.authentication = const FederatedAuthentication(ChdIdentityProvider()),
     SessionMaterializer? sessionMaterializer,
@@ -462,6 +467,7 @@ class CampusServiceEndpoints {
       host: 'portal.chd.edu.cn',
       startUri: portalLoginUri,
       seedUri: portalLoginUri,
+      sessionRefreshAfter: const Duration(hours: 24),
       allowedPaths: const ['/', '/qljfwapp/'],
       exactExchangePaths: const ['/qljfwapp/'],
       scopedPaths: const {'/qljfwapp/': PathPrefixSessionScope('/qljfwapp/')},
@@ -512,6 +518,7 @@ class CampusServiceEndpoints {
       host: 'bkjw.chd.edu.cn',
       startUri: academicAffairsHomeUri,
       seedUri: academicAffairsHomeUri,
+      sessionRefreshAfter: const Duration(hours: 3),
       validationUri: academicAffairsHomeUri,
       cookiePath: '/eams',
       allowedPaths: const ['/eams'],
@@ -528,6 +535,7 @@ class CampusServiceEndpoints {
       host: 'yjs.chd.edu.cn',
       startUri: graduateAcademicAffairsHomeUri,
       seedUri: graduateAcademicAffairsHomeUri,
+      sessionRefreshAfter: const Duration(hours: 3),
       validationUri: graduateAcademicAffairsHomeUri,
       cookiePath: '/py',
       allowedPaths: const ['/py'],

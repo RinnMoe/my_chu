@@ -7,20 +7,11 @@ import android.content.ComponentName
 import android.content.SharedPreferences
 import android.os.Build
 import android.widget.RemoteViews
-import androidx.work.Configuration
-import androidx.work.WorkManager
 import moe.rinn.mychu.desktopwidgets.TodayScheduleWidgetReceiver
 
 class MyChuApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-
-        // WorkManager's startup initializer skips non-default app processes.
-        // Glance's RemoteWorkerService runs in :widgetProvider, so initialize
-        // WorkManager there before the service handles a widget update.
-        if (!WorkManager.isInitialized()) {
-            WorkManager.initialize(this, Configuration.Builder().build())
-        }
 
         if (
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM &&

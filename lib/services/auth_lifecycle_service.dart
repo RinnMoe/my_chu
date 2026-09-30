@@ -52,7 +52,14 @@ class AuthLifecycleService {
     debugWarmup = null;
   }
 
-  static Future<AuthLifecycleResult> restore() async {
+  static Future<AuthLifecycleResult> restore() => _restore(warmUp: true);
+
+  /// Revalidates the root identity after the app returns to the foreground
+  /// without restarting unrelated account-scoped background warm-up work.
+  static Future<AuthLifecycleResult> restoreForResume() =>
+      _restore(warmUp: false);
+
+  static Future<AuthLifecycleResult> _restore({required bool warmUp}) async {
     final account = await AuthService.getCurrentAccount();
     if (account == null) {
       CredentialSyncService.cancel();
@@ -64,7 +71,7 @@ class AuthLifecycleService {
     );
     switch (probe) {
       case IdentityProbeStatus.authenticated:
-        _startCoreWarmup(account.accountKey);
+        if (warmUp) _startCoreWarmup(account.accountKey);
         return AuthLifecycleResult(
           status: AuthLifecycleStatus.authenticated,
           accountKey: account.accountKey,
@@ -91,7 +98,7 @@ class AuthLifecycleService {
           message: '账号状态已变化，请重试。',
         );
       }
-      _startCoreWarmup(current.accountKey);
+      if (warmUp) _startCoreWarmup(current.accountKey);
       return AuthLifecycleResult(
         status: AuthLifecycleStatus.authenticated,
         accountKey: current.accountKey,

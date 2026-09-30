@@ -25,8 +25,7 @@ import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
-import androidx.glance.appwidget.multiprocess.MultiProcessConfig
-import androidx.glance.appwidget.multiprocess.MultiProcessGlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.provideContent
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -41,17 +40,13 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.appwidget.updateAll
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import moe.rinn.mychu.MainActivity
 import moe.rinn.mychu.R
 import org.json.JSONObject
 
-internal class TodayScheduleWidget : MultiProcessGlanceAppWidget() {
+internal class TodayScheduleWidget : GlanceAppWidget() {
     override val sizeMode: SizeMode = SizeMode.Responsive(
         setOf(
             DpSize(110.dp, 110.dp),
@@ -61,9 +56,6 @@ internal class TodayScheduleWidget : MultiProcessGlanceAppWidget() {
             DpSize(300.dp, 220.dp),
         ),
     )
-
-    override fun getMultiProcessConfig(context: Context): MultiProcessConfig =
-        MultiProcessConfig.getDefault(context)
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val now = Instant.now()
@@ -83,28 +75,6 @@ internal class TodayScheduleWidget : MultiProcessGlanceAppWidget() {
 
 internal class TodayScheduleWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget = TodayScheduleWidget()
-
-    override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == XIAOMI_EXPOSURE_REFRESH_ACTION) {
-            val pendingResult = goAsync()
-            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-                try {
-                    TodayScheduleWidget().updateAll(context.applicationContext)
-                } catch (_: Exception) {
-                    // Exposure refresh is best-effort and reads only local snapshot data.
-                } finally {
-                    pendingResult.finish()
-                }
-            }
-            return
-        }
-        super.onReceive(context, intent)
-    }
-
-    private companion object {
-        const val XIAOMI_EXPOSURE_REFRESH_ACTION =
-            "miui.appwidget.action.APPWIDGET_UPDATE"
-    }
 }
 
 private fun scheduleNextRefresh(
