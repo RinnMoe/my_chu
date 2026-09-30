@@ -164,13 +164,8 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _loadVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
-      final buildNumber = info.buildNumber;
-      final version =
-          buildNumber.isNotEmpty && buildNumber != '0'
-              ? '${info.version} ($buildNumber)'
-              : info.version;
       if (!mounted) return;
-      setState(() => _versionLabel = version);
+      setState(() => _versionLabel = 'v${info.version}');
     } catch (_) {
       // Version display is optional; AboutPage still loads it independently.
     }
@@ -365,7 +360,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     icon: Icons.info_outline,
                     title: '关于',
                     trailingValue:
-                        _versionLabel.isEmpty ? null : 'v$_versionLabel',
+                        _versionLabel.isEmpty ? null : _versionLabel,
                     onTap: () => _push(const AboutPage()),
                   ),
                 ],

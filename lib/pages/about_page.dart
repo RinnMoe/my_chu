@@ -3,7 +3,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../capabilities/dev_visibility.dart';
 import '../services/app_remote_services_service.dart';
-import '../services/build_info.dart';
 import 'fenfa_dialogs.dart';
 import 'fenfa_feedback_page.dart';
 import 'diagnostic_report_page.dart';
@@ -48,11 +47,8 @@ class _AboutPageState extends State<AboutPage> {
   Future<void> _loadVersion() async {
     final info = await PackageInfo.fromPlatform();
     if (!mounted) return;
-    final buildNumber = info.buildNumber;
     setState(() {
-      _versionLabel =
-          '${buildNumber.isNotEmpty && buildNumber != '0' ? '${info.version} ($buildNumber)' : info.version}'
-          ' · ${BuildInfo.current.displayIdentity}';
+      _versionLabel = 'v${info.version}';
     });
   }
 

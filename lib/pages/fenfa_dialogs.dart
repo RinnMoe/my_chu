@@ -131,7 +131,7 @@ class _FenfaUpdateDialogState extends State<FenfaUpdateDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'v${widget.release.version}（build ${widget.release.build}）',
+                'v${widget.release.version}',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),

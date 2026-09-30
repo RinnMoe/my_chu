@@ -1,7 +1,7 @@
 name: mychu
 description: 长安大学第三方校园助手
 publish_to: 'none'
-version: 1.0.0+11
+version: 1.0.1+12
 
 environment:
   sdk: ^3.7.0
