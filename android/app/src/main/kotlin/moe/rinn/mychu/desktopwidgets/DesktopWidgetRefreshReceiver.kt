@@ -14,14 +14,23 @@ import kotlinx.coroutines.sync.withLock
 /** Runs Glance refresh requests inside the process that owns widget sessions. */
 internal class DesktopWidgetRefreshReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != ACTION_REFRESH) return
+        if (intent.action !in setOf(ACTION_REFRESH, Intent.ACTION_BOOT_COMPLETED,
+                Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED)) return
 
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 refreshMutex.withLock {
                     val appContext = context.applicationContext
-                    TodayScheduleWidget().updateAll(appContext)
+                    try {
+                        TodayScheduleWidget().updateAll(appContext)
+                    } finally {
+                        try {
+                            WeekScheduleWidget().updateAll(appContext)
+                        } finally {
+                            DesktopWidgetScheduler.schedule(appContext)
+                        }
+                    }
                 }
             } catch (_: Exception) {
                 // The widget refresh is best-effort; the next snapshot retries it.

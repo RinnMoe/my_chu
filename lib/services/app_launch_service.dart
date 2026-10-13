@@ -5,6 +5,7 @@ class AppLaunchService {
   static const MethodChannel _channel = MethodChannel('mychu/app_launch');
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
   static String? _pendingTargetId;
+  static Map? _pendingReminder;
   static String? _pendingWidgetLaunchRequest;
   static bool _initialized = false;
 
@@ -31,6 +32,12 @@ class AppLaunchService {
     }
   }
 
+  static Map? takePendingReminder() {
+    final payload = _pendingReminder;
+    _pendingReminder = null;
+    return payload;
+  }
+
   static String? takePendingTarget() {
     final target = _pendingTargetId;
     _pendingTargetId = null;
@@ -44,6 +51,12 @@ class AppLaunchService {
   }
 
   static void _receive(Object? value) {
+    if (value is Map && value['source'] == 'timeReminder') {
+      _pendingReminder = value;
+      _pendingTargetId = null;
+      revision.value++;
+      return;
+    }
     if (value is Map && value['source'] == 'desktopWidget') {
       _receiveWidgetRequest(value['request']);
       return;

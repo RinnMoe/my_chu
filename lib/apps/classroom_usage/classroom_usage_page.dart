@@ -1,3 +1,5 @@
+import 'package:mychu/widgets/campus_auth_boundary.dart';
+import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'package:flutter/material.dart';
 
 import '../../capabilities/east8_time.dart';
@@ -33,7 +35,11 @@ class ClassroomUsagePage extends StatefulWidget {
   State<ClassroomUsagePage> createState() => _ClassroomUsagePageState();
 }
 
-class _ClassroomUsagePageState extends State<ClassroomUsagePage> {
+class _ClassroomUsagePageState extends State<ClassroomUsagePage>
+    with CampusAuthRefresh<ClassroomUsagePage> {
+  @override
+  Future<void> onCampusAuthChanged() => _refresh();
+
   List<RoomBuilding> _buildings = const [];
   Object? _buildingsError;
   bool _buildingsLoading = true;
@@ -57,6 +63,10 @@ class _ClassroomUsagePageState extends State<ClassroomUsagePage> {
   }
 
   Future<void> _loadBuildings({bool force = false}) async {
+    if (campusAuthGuest) {
+      setState(() => _buildingsLoading = false);
+      return;
+    }
     if (!mounted) return;
     final generation = ++_buildingsRequestGeneration;
     setState(() {
@@ -91,6 +101,7 @@ class _ClassroomUsagePageState extends State<ClassroomUsagePage> {
   }
 
   Future<void> _loadSpaces({bool force = false}) async {
+    if (campusAuthGuest) return;
     if (!mounted) return;
     final generation = ++_spacesRequestGeneration;
     final date = _formatDate(_date);
@@ -288,7 +299,13 @@ class _ClassroomUsagePageState extends State<ClassroomUsagePage> {
       children: [
         _buildFilterBar(context),
         const Divider(height: 1),
-        Expanded(child: _buildList(context)),
+        Expanded(
+          child: CampusProtectedContent(
+            title: '教室使用情况',
+            icon: Icons.meeting_room_outlined,
+            builder: (_) => _buildList(context),
+          ),
+        ),
       ],
     );
   }

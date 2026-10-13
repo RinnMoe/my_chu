@@ -1,3 +1,7 @@
+import 'services/host_auth_state.dart';
+import 'services/auth_service.dart';
+import 'services/host_auth_coordinator.dart';
+import 'widgets/campus_auth_boundary.dart';
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
@@ -8,37 +12,36 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import 'capabilities/alert_registry.dart';
+import 'capabilities/time_reminder_registry.dart';
 import 'capabilities/authenticated_web_view_capability.dart';
 import 'pages/apps_page.dart';
 import 'pages/home_page.dart';
-import 'pages/login_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/campus_settings_page.dart';
 import 'capabilities/campus_map/campus_map_capability.dart';
 import 'capabilities/academic_schedule/academic_schedule_capability.dart';
 import 'capabilities/academic_schedule/academic_schedule_store.dart';
+import 'capabilities/academic_schedule/recent_schedule_repository.dart';
+import 'capabilities/academic_schedule/academic_schedule_alerts.dart';
 import 'capabilities/desktop_widgets/desktop_widget_bridge.dart';
 import 'capabilities/desktop_widgets/desktop_widget_models.dart';
 import 'apps/app_registry.dart';
 import 'apps/app_service.dart';
-import 'models/account.dart';
-import 'services/auth_service.dart';
-import 'services/auth_lifecycle_service.dart';
 import 'services/login_required_notifier.dart';
 import 'services/logger_service.dart';
 import 'services/navigation_layout_service.dart';
 import 'services/privacy_agreement_service.dart';
 import 'services/usage_analytics_service.dart';
-import 'services/live_update_service.dart';
+import 'services/time_reminder_service.dart';
+import 'services/platform_compatibility_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'apps/portal_personal/portal_personal_page.dart';
 import 'services/host_permission_service.dart';
 import 'services/theme_service.dart';
 import 'services/app_launch_service.dart';
 import 'services/temporal_change_service.dart';
 import 'services/root_navigation_service.dart';
-import 'services/legacy_session_migration_executor.dart';
 import 'services/platform_environment.dart';
-import 'services/error_feedback_service.dart';
 import 'services/campus_settings_service.dart';
 import 'services/guide_preferences.dart';
 import 'services/onboarding_flow_service.dart';
@@ -46,9 +49,7 @@ import 'theme/app_palette.dart';
 import 'pages/fenfa_dialogs.dart';
 import 'pages/privacy_agreement_dialog.dart';
 import 'pages/app_sheet.dart';
-import 'pages/auth_recovery_page.dart';
 import 'pages/host_permission_purpose_overlay.dart';
-import 'widgets/adaptive_confirmation_dialog.dart';
 import 'widgets/adaptive_navigation_item.dart';
 import 'widgets/adaptive_root_navigation.dart';
 import 'widgets/adaptive_startup_splash.dart';
@@ -68,7 +69,12 @@ void _bootstrap() {
   // credential-free WebView lifecycle logs instead.
   PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
-  ensureBuiltInAlertProvidersRegistered();
+  registerTimeReminders();
+  unawaited(
+    TimeReminderService.initialize().catchError((Object error) {
+      AppLogger.warn('旧提醒清理失败 (${error.runtimeType})');
+    }),
+  );
   unawaited(themePreferencesNotifier.initialize());
   unawaited(AppLaunchService.initialize());
   TemporalChangeService.initialize();
@@ -288,23 +294,15 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-enum _Page { startup, login, recovery, main }
-
 class _AppShellState extends State<AppShell> {
-  _Page _page = _Page.startup;
-  bool _reloginPromptShowing = false;
-  AuthLifecycleResult? _authRecovery;
+  bool _ready = false;
   int _restoreGeneration = 0;
-
-  ErrorFeedbackCoordinator get _feedbackCoordinator =>
-      ErrorFeedbackCoordinator.shared;
 
   @override
   void initState() {
     super.initState();
     LoginRequiredNotifier.addListener(_onLoginRequired);
-    _refresh();
-    // 原生启动图在启动页首帧渲染后移除，露出带加载动画的启动页。
+    unawaited(_refresh());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) FlutterNativeSplash.remove();
     });
@@ -312,125 +310,26 @@ class _AppShellState extends State<AppShell> {
 
   @override
   void dispose() {
+    _restoreGeneration++;
     LoginRequiredNotifier.removeListener(_onLoginRequired);
     super.dispose();
   }
 
-  /// 运行期凭证失效也复用启动恢复状态机，避免单独弹出一套登录对话框。
   void _onLoginRequired(String reason) {
-    if (!mounted) {
-      LoginRequiredNotifier.markPromptDismissed();
-      return;
-    }
-    // 已经在启动、登录或恢复页时，当前流程会处理状态，无需重复恢复。
-    if (_page != _Page.main) {
-      LoginRequiredNotifier.markPromptDismissed();
-      return;
-    }
-    if (_reloginPromptShowing) {
-      LoginRequiredNotifier.markPromptDismissed();
-      return;
-    }
-    _reloginPromptShowing = true;
+    HostAuthCoordinator.requireLogin();
     LoginRequiredNotifier.markPromptDismissed();
-    final generation = ++_restoreGeneration;
-    unawaited(_restoreAfterRuntimeExpiry(generation));
-  }
-
-  Future<void> _restoreAfterRuntimeExpiry(int generation) async {
-    late final AuthLifecycleResult lifecycle;
-    try {
-      lifecycle = await AuthLifecycleService.retryRestore();
-    } catch (error) {
-      AppLogger.warn('运行期恢复登录状态失败 (${error.runtimeType})');
-      lifecycle = const AuthLifecycleResult(
-        status: AuthLifecycleStatus.retryableFailure,
-        message: '暂时无法恢复登录状态，请重试。',
-      );
-    }
-    if (!mounted || generation != _restoreGeneration) return;
-    _reloginPromptShowing = false;
-    if (lifecycle.status == AuthLifecycleStatus.noAccount) {
-      _feedbackCoordinator.reset();
-      _authRecovery = null;
-      if (!await _requirePrivacyAgreement(generation)) return;
-      await _showInteractiveLogin(generation);
-      return;
-    }
-    if (!lifecycle.isAuthenticated) {
-      _feedbackCoordinator.reset();
-      setState(() {
-        _authRecovery = lifecycle;
-        _page = _Page.recovery;
-      });
-    }
   }
 
   Future<void> _refresh() async {
     final generation = ++_restoreGeneration;
-    final migration = await SessionMigrationBootstrap.ensure();
-    if (!migration.isSuccessful) {
-      if (!mounted || generation != _restoreGeneration) return;
-      setState(() {
-        _authRecovery = const AuthLifecycleResult(
-          status: AuthLifecycleStatus.retryableFailure,
-          message: '账号会话迁移未完成，请重试。',
-        );
-        _page = _Page.recovery;
-      });
-      return;
-    }
-    late final Account? account;
-    try {
-      // Read the persisted account locally. Network identity validation and
-      // recovery happen on demand through CampusSession after the first frame.
-      account = await AuthService.getCurrentAccount();
-    } catch (error) {
-      AppLogger.warn('启动读取本地登录状态失败 (${error.runtimeType})');
-      const lifecycle = AuthLifecycleResult(
-        status: AuthLifecycleStatus.retryableFailure,
-        message: '暂时无法读取登录状态，请重试。',
-      );
-      if (!mounted || generation != _restoreGeneration) return;
-      _feedbackCoordinator.reset();
-      setState(() {
-        _authRecovery = lifecycle;
-        _page = _Page.recovery;
-      });
-      return;
-    }
-    if (!mounted || generation != _restoreGeneration) return;
-
-    if (account == null) {
-      _feedbackCoordinator.reset();
-      _authRecovery = null;
-      if (!await _requirePrivacyAgreement(generation)) return;
-      await _showInteractiveLogin(generation);
-      return;
-    }
-
-    _authRecovery = null;
-    await _showMainForPersistedAccount(generation, account.accountKey);
-  }
-
-  Future<void> _showMainForPersistedAccount(
-    int generation,
-    String accountKey,
-  ) async {
-    if (!mounted || generation != _restoreGeneration) return;
-
     if (!await _requirePrivacyAgreement(generation)) return;
+    await HostAuthCoordinator.initialize();
     if (!mounted || generation != _restoreGeneration) return;
-    setState(() {
-      _page = _Page.main;
-    });
-    // Allow the first main-screen frame to render before warming core service
-    // sessions. CampusSession owns request-time validation and silent recovery.
+    setState(() => _ready = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || generation != _restoreGeneration || _page != _Page.main) {
-        return;
+      if (mounted && generation == _restoreGeneration) {
+        unawaited(HostAuthCoordinator.check());
       }
-      AuthLifecycleService.warmUpPersistedAccount(accountKey);
     });
   }
 
@@ -454,7 +353,7 @@ class _AppShellState extends State<AppShell> {
       AppLogger.warn('隐私协议流程失败 (${error.runtimeType})');
       if (mounted && generation == _restoreGeneration) {
         setState(() {
-          _page = _Page.startup;
+          _ready = false;
         });
         _showAgreementRetry();
       }
@@ -507,91 +406,9 @@ class _AppShellState extends State<AppShell> {
     });
   }
 
-  void _onLoginSuccess() {
-    _feedbackCoordinator.reset();
-    _restoreGeneration++;
-    _reloginPromptShowing = false;
-    _authRecovery = null;
-    setState(() {
-      _page = _Page.main;
-    });
-    LoginRequiredNotifier.resetAfterLogin();
-  }
-
-  void _onSignedOut() {
-    _feedbackCoordinator.reset();
-    unawaited(_refresh());
-  }
-
-  void _retryRecovery() {
-    setState(() => _page = _Page.startup);
-    unawaited(_refresh());
-  }
-
-  void _openManualLogin() {
-    unawaited(_openManualLoginAfterPrivacyAgreement());
-  }
-
-  Future<void> _openManualLoginAfterPrivacyAgreement() async {
-    _feedbackCoordinator.reset();
-    _restoreGeneration++;
-    _reloginPromptShowing = false;
-    final generation = _restoreGeneration;
-    if (!await _requirePrivacyAgreement(generation)) return;
-    await _showInteractiveLogin(generation);
-  }
-
-  Future<void> _showInteractiveLogin(int generation) async {
-    if (!mounted || generation != _restoreGeneration) return;
-    await AuthLifecycleService.prepareInteractiveLogin();
-    if (!mounted || generation != _restoreGeneration) return;
-    setState(() {
-      _page = _Page.login;
-    });
-  }
-
-  Future<void> _clearLocalAccount() async {
-    final confirmation = showAdaptiveConfirmationDialog(
-      context,
-      title: '清除本地账号',
-      message: '这会清除本地登录状态、缓存和已保存的登录信息。',
-      confirmLabel: '清除',
-      destructive: true,
-    );
-    final confirmed = await confirmation;
-    if (confirmed != true) return;
-    _restoreGeneration++;
-    _reloginPromptShowing = false;
-    _feedbackCoordinator.reset();
-    await AuthLifecycleService.signOut();
-    if (!mounted) return;
-    _authRecovery = null;
-    await _openManualLoginAfterPrivacyAgreement();
-  }
-
   @override
-  Widget build(BuildContext context) {
-    switch (_page) {
-      case _Page.startup:
-        return const AdaptiveStartupSplash();
-      case _Page.login:
-        return LoginPage(onLoginSuccess: _onLoginSuccess);
-      case _Page.recovery:
-        return AuthRecoveryPage(
-          result:
-              _authRecovery ??
-              const AuthLifecycleResult(
-                status: AuthLifecycleStatus.retryableFailure,
-                message: '暂时无法确认登录状态，请重试。',
-              ),
-          onRetry: _retryRecovery,
-          onManualLogin: _openManualLogin,
-          onClearAccount: () => unawaited(_clearLocalAccount()),
-        );
-      case _Page.main:
-        return MainScreen(onSignedOut: _onSignedOut);
-    }
-  }
+  Widget build(BuildContext context) =>
+      _ready ? MainScreen(onSignedOut: () {}) : const AdaptiveStartupSplash();
 }
 
 class MainScreen extends StatefulWidget {
@@ -615,6 +432,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final Map<String, Widget?> _pages = {};
   String _currentKey = NavigationLayoutService.hostHomeKey;
   String? _accountKey;
+  int _authContentRevision = HostAuthState.snapshot.value.contentRevision;
   bool _startupReady = false;
   bool _campusPromptRunning = false;
   bool _campusPromptAttempted = false;
@@ -628,11 +446,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     NavigationLayoutService.revision.addListener(_reloadTabs);
+    HostAuthState.snapshot.addListener(_onAuthSnapshotChanged);
     appCatalogNotifier.addListener(_reloadTabs);
     AppLaunchService.revision.addListener(_handleAppLaunch);
     RootNavigationService.revision.addListener(_handleRootNavigationRequest);
     TemporalChangeService.revision.addListener(_handleTemporalChange);
     AcademicScheduleStore.revision.addListener(_syncDesktopWidgetSnapshot);
+    RecentScheduleRepository.instance.revision.addListener(
+      _onRecentScheduleChanged,
+    );
     unawaited(AppLaunchService.initialize());
     _reloadTabs();
     _handleAppLaunch();
@@ -640,6 +462,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     // 进入主界面后异步执行 Fenfa 更新检查；公告由首页 Focus 加载。
     // 不阻塞登录与首页渲染；Fenfa 不可用时静默降级。
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(RecentScheduleRepository.instance.refresh());
       if (mounted) unawaited(_runStartupChecksAndRequestHomePermissions());
     });
   }
@@ -651,12 +474,45 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       presentPurpose:
           (purpose) => presentHostPermissionPurpose(context, purpose),
     );
+    await _requestTimeReminderPermissions();
     if (mounted) {
       setState(() => _startupReady = true);
+      _handleAppLaunch();
       // The first reconciliation is deliberately scheduled after the primary
       // UI and its startup permission flow are usable. It only reads the
       // host-owned, account-scoped data contract.
-      unawaited(LiveUpdateService.refreshIfEnabled());
+      unawaited(TimeReminderService.refreshAll());
+    }
+  }
+
+  bool _requestingReminderPermissions = false;
+  Future<void> _requestTimeReminderPermissions() async {
+    if (_requestingReminderPermissions) return;
+    _requestingReminderPermissions = true;
+    try {
+      if (mounted &&
+          await AuthService.getCurrentAccount() != null &&
+          TimeReminderService.isSupported &&
+          await PrivacyAgreementService.isAccepted()) {
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.getBool('time_reminders.v2.permission_prompted') != true) {
+          await prefs.setBool('time_reminders.v2.permission_prompted', true);
+          await hostPermissionService.requestNotificationPermission(
+            presentPurpose:
+                (purpose) => presentHostPermissionPurpose(context, purpose),
+          );
+          if (mounted &&
+              PlatformCompatibilityService.isAndroid &&
+              (await TimeReminderService.status()).notifications &&
+              !(await TimeReminderService.status()).exact) {
+            await PlatformCompatibilityService.openExactAlarmSettings();
+          }
+        }
+      }
+    } catch (error) {
+      AppLogger.warn('时间提醒权限初始化失败 (${error.runtimeType})');
+    } finally {
+      _requestingReminderPermissions = false;
     }
   }
 
@@ -666,9 +522,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed && mounted) {
       _syncDesktopWidgetSnapshot();
       _restoreCampusSessionAfterResume();
-      // ActivityKit has no APNs-backed server in the first release. Reconcile
-      // whenever the host gets an execution opportunity again.
-      unawaited(LiveUpdateService.refreshIfEnabled(forceRefresh: true));
+      // Refresh local reminder candidates on a foreground opportunity.
+      unawaited(TimeReminderService.refreshAll());
     }
   }
 
@@ -686,67 +541,47 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _runCampusSessionRestoreAfterResume() async {
-    try {
-      final result = await AuthLifecycleService.restoreForResume();
-      if (!mounted) return;
-      if (result.status == AuthLifecycleStatus.manualLoginRequired ||
-          result.status == AuthLifecycleStatus.noAccount) {
-        LoginRequiredNotifier.requestRelogin(
-          result.recoveryOutcome?.name ?? result.status.name,
-        );
-        return;
-      }
-      AuthenticatedWebViewCapability.notifyAppResumed();
-    } catch (error) {
-      AppLogger.warn('前台恢复校园会话失败 (${error.runtimeType})');
-      if (mounted) AuthenticatedWebViewCapability.notifyAppResumed();
+    await HostAuthCoordinator.check();
+    if (mounted) AuthenticatedWebViewCapability.notifyAppResumed();
+    if (mounted && !HostAuthState.snapshot.value.blocksRequests) {
+      await RecentScheduleRepository.instance.refresh();
     }
   }
 
   Future<void> _runStartupChecks() async {
     await presentFenfaStartupCheck(context);
-    if (!mounted) return;
-
-    final shouldPrompt =
-        await LiveUpdateService.shouldPromptPromotionOnStartup();
-    if (!mounted || !shouldPrompt) return;
-
-    // Mark before displaying so a dismissed dialog is still one-time.
-    await LiveUpdateService.markPromotionStartupPromptShown();
-    if (!mounted) return;
-
-    final openSettings = await showAdaptiveConfirmationDialog(
-      context,
-      title: '开启状态栏实时动态',
-      message: 'Android 16.1+ 可以在状态栏显示课程进行中的实时动态。是否前往系统设置，允许 MyCHU 发布推广通知？',
-      confirmLabel: '去开启',
-      cancelLabel: '暂不',
-    );
-    if (!mounted || openSettings != true) return;
-    try {
-      await LiveUpdateService.openPromotionSettings();
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('暂时无法打开系统设置，请稍后从“通知与提醒”进入')));
-    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     NavigationLayoutService.revision.removeListener(_reloadTabs);
+    HostAuthState.snapshot.removeListener(_onAuthSnapshotChanged);
     appCatalogNotifier.removeListener(_reloadTabs);
     AppLaunchService.revision.removeListener(_handleAppLaunch);
     RootNavigationService.revision.removeListener(_handleRootNavigationRequest);
     TemporalChangeService.revision.removeListener(_handleTemporalChange);
     AcademicScheduleStore.revision.removeListener(_syncDesktopWidgetSnapshot);
+    RecentScheduleRepository.instance.revision.removeListener(
+      _onRecentScheduleChanged,
+    );
     super.dispose();
   }
 
   void _handleTemporalChange() {
     if (mounted) setState(() {});
+  }
+
+  void _onRecentScheduleChanged() {
+    if (!mounted) return;
+    _syncDesktopWidgetSnapshot();
+    unawaited(_refreshRecentAlerts());
+  }
+
+  Future<void> _refreshRecentAlerts() async {
+    if (!await PrivacyAgreementService.isAccepted()) return;
+    final key = (await AuthService.getCurrentAccount())?.accountKey;
+    if (key != null && mounted) await refreshRecentCourseAlerts(key);
   }
 
   void _syncDesktopWidgetSnapshot() {
@@ -775,6 +610,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _handleAppLaunch() {
+    // Keep a cold-start request pending until the root protocol/auth shell is ready.
+    if (!_startupReady ||
+        HostAuthState.snapshot.value.status == HostAuthStatus.checking) {
+      return;
+    }
+    final reminder = AppLaunchService.takePendingReminder();
+    if (reminder != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_openTimeReminder(reminder));
+      });
+      return;
+    }
     final widgetRequest = AppLaunchService.takePendingWidgetLaunchRequest();
     if (widgetRequest != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -789,6 +636,22 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     });
   }
 
+  Future<void> _openTimeReminder(Map payload) async {
+    try {
+      if (!await TimeReminderService.acceptsLaunch(payload) || !mounted) return;
+      await openTargetId(
+        context,
+        payload['targetAppId'] as String,
+        appPageBuilder:
+            payload['category'] == 'deadline'
+                ? (_) => const PortalPersonalPage(initialTabIndex: 1)
+                : null,
+      );
+    } catch (_) {
+      /* Invalid/stale notification must never navigate. */
+    }
+  }
+
   Future<void> _openDesktopWidgetTarget(String request) async {
     final launch = DesktopWidgetLaunchRequestV1.tryDecode(request);
     if (!mounted || launch?.targetId != AcademicScheduleCapability.targetId) {
@@ -797,11 +660,35 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     await openTargetId(context, launch!.targetId);
   }
 
+  void _onAuthSnapshotChanged() {
+    if (!mounted) return;
+    _handleAppLaunch();
+    final owner = HostAuthState.snapshot.value.accountKey;
+    final ownerChanged = _accountKey != owner;
+    final revision = HostAuthState.snapshot.value.contentRevision;
+    final contentChanged = revision != _authContentRevision;
+    _authContentRevision = revision;
+    setState(() {
+      if (_accountKey != owner) {
+        for (final key in [
+          NavigationLayoutService.hostHomeKey,
+          NavigationLayoutService.hostProfileKey,
+        ]) {
+          _pages.remove(key);
+          if (_currentKey == key) _pages[key] = _tabFor(key)?.builder(context);
+        }
+      }
+      _accountKey = owner;
+    });
+    if ((ownerChanged || contentChanged) && owner != null) {
+      unawaited(RecentScheduleRepository.instance.refresh());
+      unawaited(_requestTimeReminderPermissions());
+      unawaited(TimeReminderService.refreshAll());
+    }
+  }
+
   Future<void> _reloadTabs() async {
-    final account = await AuthService.getCurrentAccount();
-    final layout = await NavigationLayoutService.read(
-      account?.accountKey ?? 'anonymous',
-    );
+    final layout = await NavigationLayoutService.read();
     final tabs = <_NavTab>[];
     for (final key in NavigationLayoutService.resolveTabKeys(layout)) {
       final tab = _tabFor(key);
@@ -812,7 +699,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
     if (!mounted) return;
     setState(() {
-      _accountKey = account?.accountKey;
+      _accountKey = HostAuthState.snapshot.value.accountKey;
       _tabs = tabs;
       if (!tabs.any((tab) => tab.key == _currentKey)) {
         _currentKey = NavigationLayoutService.hostHomeKey;
@@ -891,7 +778,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         label: plugin.metadata.navigationLabel ?? plugin.metadata.name,
         icon: plugin.metadata.icon,
         selectedIcon: plugin.metadata.icon,
-        builder: plugin.pageBuilder!,
+        builder:
+            (context) =>
+                plugin.requiresCampusAccount
+                    ? CampusAuthBoundary(
+                      title: plugin.metadata.name,
+                      retainGuestShell: plugin.retainsGuestShell,
+                      builder: plugin.pageBuilder!,
+                    )
+                    : plugin.pageBuilder!(context),
       );
     }
     return null;
@@ -937,7 +832,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             enabled: index == selectedIndex,
             child: RootDestinationActiveScope(
               active: index == selectedIndex,
-              child: _pages[_tabs[index].key] ?? const SizedBox.shrink(),
+              child: KeyedSubtree(
+                // Evict private root-page state immediately on owner changes.
+                key: ValueKey(
+                  _tabs[index].key == NavigationLayoutService.hostHomeKey ||
+                          _tabs[index].key ==
+                              NavigationLayoutService.hostProfileKey
+                      ? '${_tabs[index].key}:${_accountKey ?? 'guest'}'
+                      : _tabs[index].key,
+                ),
+                child: _pages[_tabs[index].key] ?? const SizedBox.shrink(),
+              ),
             ),
           ),
       ],
@@ -1016,7 +921,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       final accountKey = _accountKey;
       if (accountKey == null) return;
       try {
-        final storedCampus = await campusSettingsService.readStored(accountKey);
+        final storedCampus = await campusSettingsService.readStored();
         if (!mounted || !_canShowCampusPrompt) return;
         if (storedCampus == null) {
           await _showCampusSelection(accountKey);
@@ -1033,7 +938,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Future<void> _showCampusSelection(String accountKey) async {
     Widget buildPanel(BuildContext dialogContext) {
       return CampusSelectionPanel(
-        accountKey: accountKey,
         title: '选择常用校区',
         message: '首页信息、课表上课时间和地图默认校区会根据校区设置变化。',
         note: '之后也可以在“我的 → 校区设置”中修改。',

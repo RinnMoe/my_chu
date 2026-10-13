@@ -3,14 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../capabilities/campus_places/campus_registry.dart';
-import '../services/auth_service.dart';
 import '../services/campus_settings_service.dart';
 
-Future<bool?> showCampusSettingsSheet(
-  BuildContext context, {
-  required String accountKey,
-}) {
-  final sheet = CampusSettingsSheet(accountKey: accountKey);
+Future<bool?> showCampusSettingsSheet(BuildContext context) {
+  const sheet = CampusSettingsSheet();
 
   return showModalBottomSheet<bool>(
     context: context,
@@ -23,16 +19,9 @@ Future<bool?> showCampusSettingsSheet(
 /// Profile-only campus selector. Its rows follow the theme settings sheet;
 /// onboarding keeps the separate elevated card presentation.
 class CampusSettingsSheet extends StatefulWidget {
-  final String accountKey;
-
   final CampusSettingsService? service;
 
-  const CampusSettingsSheet({
-    super.key,
-    required this.accountKey,
-
-    this.service,
-  });
+  const CampusSettingsSheet({super.key, this.service});
 
   @override
   State<CampusSettingsSheet> createState() => _CampusSettingsSheetState();
@@ -40,7 +29,6 @@ class CampusSettingsSheet extends StatefulWidget {
 
 class _CampusSettingsSheetState extends State<CampusSettingsSheet> {
   late final CampusSettingsService _service;
-  late final int _sessionRevision;
   List<CampusEntry> _campuses = const [];
   String? _selectedCampusId;
   bool _loading = true;
@@ -48,38 +36,15 @@ class _CampusSettingsSheetState extends State<CampusSettingsSheet> {
   bool _defaultFallback = false;
   Object? _loadError;
   String? _saveError;
-  bool _closedForStaleSession = false;
 
   @override
   void initState() {
     super.initState();
     _service = widget.service ?? campusSettingsService;
-    _sessionRevision = AuthService.sessionRevision;
-    AuthService.sessionRevisionNotifier.addListener(_onSessionRevisionChanged);
     unawaited(_load());
   }
 
-  @override
-  void dispose() {
-    AuthService.sessionRevisionNotifier.removeListener(
-      _onSessionRevisionChanged,
-    );
-    super.dispose();
-  }
-
-  void _onSessionRevisionChanged() {
-    if (!mounted || _closedForStaleSession) return;
-    if (AuthService.sessionRevision == _sessionRevision) return;
-    _closedForStaleSession = true;
-    Navigator.of(context).maybePop();
-  }
-
-  Future<bool> _isCurrentSession() async {
-    if (AuthService.sessionRevision != _sessionRevision) return false;
-    final account = await AuthService.getCurrentAccount();
-    return account?.accountKey == widget.accountKey &&
-        AuthService.sessionRevision == _sessionRevision;
-  }
+  Future<bool> _isCurrentSession() async => mounted;
 
   Future<void> _load() async {
     if (mounted) {
@@ -91,8 +56,8 @@ class _CampusSettingsSheetState extends State<CampusSettingsSheet> {
     }
     try {
       final campuses = await _service.enabledCampuses();
-      final stored = await _service.readStored(widget.accountKey);
-      final current = await _service.read(widget.accountKey);
+      final stored = await _service.readStored();
+      final current = await _service.read();
       if (!mounted) return;
       final isCurrentSession = await _isCurrentSession();
       if (!isCurrentSession) return;
@@ -129,9 +94,6 @@ class _CampusSettingsSheetState extends State<CampusSettingsSheet> {
 
   Future<void> _save(String campusId) async {
     if (_saving || !(await _isCurrentSession())) {
-      if (AuthService.sessionRevision != _sessionRevision) {
-        _onSessionRevisionChanged();
-      }
       return;
     }
     setState(() {
@@ -141,7 +103,7 @@ class _CampusSettingsSheetState extends State<CampusSettingsSheet> {
       _saveError = null;
     });
     try {
-      final saved = await _service.set(widget.accountKey, campusId);
+      final saved = await _service.set(campusId);
       if (!mounted) return;
       final isCurrentSession = await _isCurrentSession();
       if (!isCurrentSession) return;

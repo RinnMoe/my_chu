@@ -1,3 +1,4 @@
+import 'host_auth_state.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -37,8 +38,12 @@ class CampusSession {
     String? accountKey,
     FlutterSecureStorage? storage,
   }) async {
+    HostAuthState.requireRequestsAllowed();
     final account = await AuthService.getCurrentAccount();
-    if (account == null) throw StateError('请先登录后再创建校园会话');
+    HostAuthState.requireRequestsAllowed();
+    if (account == null) {
+      throw const CampusAuthenticationRequired(HostAuthStatus.guest);
+    }
     if (accountKey != null && account.accountKey != accountKey) {
       throw StateError('校园会话账号已切换');
     }
@@ -144,6 +149,7 @@ class CampusSession {
     void Function(int receivedBytes, int? totalBytes, int attempt)?
     onDownloadProgress,
   }) async {
+    HostAuthState.requireRequestsAllowed();
     final definition = _requireDefinition(serviceId);
     final uri = Uri.parse(url);
     _validateUri(definition, uri);
@@ -158,7 +164,9 @@ class CampusSession {
       rethrow;
     }
     final account = await AuthService.getCurrentAccount();
-    if (account == null) throw StateError('请先登录后再调用应用接口');
+    if (account == null) {
+      throw const CampusAuthenticationRequired(HostAuthStatus.guest);
+    }
 
     Future<AccountNetworkResponse> perform() async {
       final stopwatch = Stopwatch()..start();

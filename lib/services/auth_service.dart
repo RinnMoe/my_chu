@@ -1,15 +1,13 @@
+import 'time_reminder_service.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../apps/app_service.dart';
-import '../capabilities/alert_center.dart';
 import '../capabilities/account_scoped_cache.dart';
 import '../capabilities/persistent_summary_cache.dart';
 import '../models/account.dart';
 import '../services/account_network_session_service.dart';
 import '../services/logger_service.dart';
-import '../services/in_app_notification_service.dart';
 import '../services/saved_login_credential_service.dart';
 import '../services/network_self_service_auth_service.dart';
 import '../services/campus_session_store.dart';
@@ -45,13 +43,11 @@ class AuthService {
     await _serializeWrite(() async {
       _advanceSessionRevision();
       NetworkSelfServiceAuthService.clearAll();
-      AlertCenterService.resetState();
+      await TimeReminderService.clearAll();
       AccountNetworkSessionService.discardAll();
       AccountCacheRegistry.invalidateAll();
       await PersistentCacheRegistry.clearAll();
-      await InAppNotificationService.clearAll();
-      await AlertSubscriptionStore.clearAll();
-      await AppService.clearAllRecent();
+
       await CurrentAccountStore(storage: _storage).write(account);
       final sessionStore = await CampusSessionStore.open(
         accountKey: account.accountKey,
@@ -119,7 +115,7 @@ class AuthService {
     // window in which an older session fence still appears current.
     _advanceSessionRevision();
     await _serializeWrite(() async {
-      AlertCenterService.resetState();
+      await TimeReminderService.clearAll();
       NetworkSelfServiceAuthService.clearAll();
       final account = await getCurrentAccount();
       if (account != null) {
@@ -139,9 +135,7 @@ class AuthService {
       AccountNetworkSessionService.discardAll();
       AccountCacheRegistry.invalidateAll();
       await PersistentCacheRegistry.clearAll();
-      await InAppNotificationService.clearAll();
-      await AlertSubscriptionStore.clearAll();
-      await AppService.clearAllRecent();
+
       ServiceGenerationRegistry.clear();
     });
   }

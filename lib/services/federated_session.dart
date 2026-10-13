@@ -101,6 +101,7 @@ class FederatedSession {
     required String identityCookieHeader,
     required String label,
     CampusServiceDefinition? definition,
+    bool Function(Uri)? stopAtRedirect,
   }) async {
     final client = _newClient();
     final jar =
@@ -164,6 +165,10 @@ class FederatedSession {
         }
         uri = uri.resolve(location);
         finalUri = uri;
+        if (stopAtRedirect?.call(uri) == true) {
+          reachedRedirectLimit = false;
+          break;
+        }
       }
       if (reachedRedirectLimit) {
         endedAtIdentityLogin = isIdentityLoginUri(

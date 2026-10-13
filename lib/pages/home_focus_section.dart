@@ -2,16 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../apps/portal_personal/portal_personal_page.dart';
 import '../capabilities/skeleton_block.dart';
-import '../services/auth_service.dart';
 import '../services/credential_sync_service.dart';
 import '../services/home_focus_service.dart';
-import '../services/in_app_notification_service.dart';
 import '../services/platform_environment.dart';
 import 'app_sheet.dart';
-import 'notifications_page.dart';
 import 'package:mychu/widgets/apple_window_controls.dart';
 
-/// 首页 Focus：统一渲染考试、待办、动态提醒、公告与同步状态，最多 3 条。
+/// 首页 Focus：统一渲染考试、待办、公告与同步状态，最多 3 条。
 class HomeFocusSection extends StatelessWidget {
   final HomeFocusSnapshot? snapshot;
   final CredentialSyncState? credentialSyncState;
@@ -43,15 +40,6 @@ class HomeFocusSection extends StatelessWidget {
       return;
     }
     if (destination is HomeFocusAppDestination) {
-      final notificationId = destination.notificationId;
-      if (notificationId != null) {
-        final account = await AuthService.getCurrentAccount();
-        final accountKey = account?.accountKey;
-        if (accountKey != null) {
-          await InAppNotificationService.markRead(accountKey, notificationId);
-        }
-      }
-      if (!context.mounted) return;
       final appId = destination.appId;
       if (appId != null && appId.isNotEmpty) {
         final pageBuilder =
@@ -65,29 +53,11 @@ class HomeFocusSection extends StatelessWidget {
         }
       }
       if (!context.mounted) return;
-      await Navigator.push(
-        context,
-        _notificationsRoute(context, const NotificationsPage()),
-      );
+      await openTargetId(context, 'feature.portal.notices');
       return;
     }
 
-    if (destination is HomeFocusNoticeDestination) {
-      // 公告 Focus 只表达打开通知中心公告 Tab，不直达单条公告详情。
-      await Navigator.push(
-        context,
-        _notificationsRoute(
-          context,
-          const NotificationsPage(initialTabIndex: 1),
-        ),
-      );
-      return;
-    }
-
-    await Navigator.push(
-      context,
-      _notificationsRoute(context, const NotificationsPage()),
-    );
+    if (context.mounted) await openTargetId(context, 'feature.portal.notices');
   }
 
   @override

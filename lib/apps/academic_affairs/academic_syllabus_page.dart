@@ -1,3 +1,5 @@
+import 'package:mychu/widgets/campus_auth_boundary.dart';
+import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -28,7 +30,14 @@ class AcademicSyllabusPage extends StatefulWidget {
   State<AcademicSyllabusPage> createState() => _AcademicSyllabusPageState();
 }
 
-class _AcademicSyllabusPageState extends State<AcademicSyllabusPage> {
+class _AcademicSyllabusPageState extends State<AcademicSyllabusPage>
+    with CampusAuthRefresh<AcademicSyllabusPage> {
+  @override
+  Future<void> onCampusAuthChanged() =>
+      _selectedSemester == null
+          ? _loadInitial()
+          : _searchFirstPage(_currentFilters());
+
   static const _initialAutoLoadPages = 3;
 
   final TextEditingController _courseNameController = TextEditingController();
@@ -70,6 +79,7 @@ class _AcademicSyllabusPageState extends State<AcademicSyllabusPage> {
   }
 
   Future<void> _loadInitial() async {
+    if (campusAuthGuest) return;
     final generation = ++_generation;
     setState(() {
       _loading = true;
@@ -91,7 +101,7 @@ class _AcademicSyllabusPageState extends State<AcademicSyllabusPage> {
       }
       final page = await (widget.searchLoader ?? service.searchSyllabus)(
         semesterId,
-        const SyllabusSearchFilters(),
+        _currentFilters(),
         1,
       );
       return (
@@ -130,6 +140,7 @@ class _AcademicSyllabusPageState extends State<AcademicSyllabusPage> {
   }
 
   Future<void> _searchFirstPage(SyllabusSearchFilters filters) async {
+    if (campusAuthGuest) return;
     final semesterId = _selectedSemester;
     if (semesterId == null) return;
     final generation = ++_generation;
@@ -171,6 +182,7 @@ class _AcademicSyllabusPageState extends State<AcademicSyllabusPage> {
   }
 
   Future<void> _loadMore({bool automatic = false}) async {
+    if (campusAuthGuest) return;
     if (_loading || _loadingMore || !_hasMore) return;
     if (automatic && _autoLoadedPages >= _initialAutoLoadPages) return;
     final generation = _generation;
@@ -315,7 +327,13 @@ class _AcademicSyllabusPageState extends State<AcademicSyllabusPage> {
               ),
             ),
           ),
-        Expanded(child: _buildBody()),
+        Expanded(
+          child: CampusProtectedContent(
+            title: '课程大纲',
+            icon: Icons.menu_book_outlined,
+            builder: (_) => _buildBody(),
+          ),
+        ),
       ],
     );
   }

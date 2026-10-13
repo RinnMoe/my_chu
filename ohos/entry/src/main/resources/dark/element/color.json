@@ -15,6 +15,34 @@
     {
       "name": "widget_primary",
       "value": "#D0BCFF"
+    },
+    {
+      "name": "widget_course_0",
+      "value": "#73342F"
+    },
+    {
+      "name": "widget_course_1",
+      "value": "#284777"
+    },
+    {
+      "name": "widget_course_2",
+      "value": "#355032"
+    },
+    {
+      "name": "widget_course_3",
+      "value": "#51416D"
+    },
+    {
+      "name": "widget_course_4",
+      "value": "#684A26"
+    },
+    {
+      "name": "widget_course_5",
+      "value": "#235650"
+    },
+    {
+      "name": "widget_course_text",
+      "value": "#F5F5F5"
     }
   ]
 }

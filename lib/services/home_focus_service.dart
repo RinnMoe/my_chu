@@ -7,22 +7,17 @@ import '../apps/portal_notices/mobile_campus_notice_service.dart';
 import '../apps/portal_notices/portal_notices_models.dart';
 import '../apps/tronclass/tronclass_models.dart';
 import '../apps/tronclass/tronclass_service.dart';
-import '../capabilities/academic_schedule/academic_schedule_alerts.dart';
 import '../capabilities/academic_schedule/academic_schedule_store.dart';
-import '../capabilities/academic_schedule/academic_schedule_utils.dart';
+import '../capabilities/academic_schedule/recent_schedule_loader.dart';
 import '../capabilities/account_scoped_cache.dart';
-import '../capabilities/alert_center.dart';
-import '../capabilities/alert_models.dart';
 import '../capabilities/east8_time.dart';
 import '../capabilities/public_holidays/public_holidays.dart';
 import '../capabilities/text_utils.dart';
-import 'campus_settings_service.dart';
 import 'demo_data_service.dart';
 import 'fenfa/fenfa_models.dart';
 import 'fenfa/fenfa_service.dart';
-import 'in_app_notification_service.dart';
 import 'logger_service.dart';
-import 'teaching_schedule_service.dart';
+import 'auth_service.dart';
 
 typedef _CurrentTeachingWeekLoader =
     Future<CurrentTeachingWeek?> Function(String accountKey);
@@ -56,12 +51,11 @@ sealed class HomeFocusDestination {
 
 class HomeFocusAppDestination extends HomeFocusDestination {
   final String? appId;
-  final String? notificationId;
 
-  const HomeFocusAppDestination({this.appId, this.notificationId});
+  const HomeFocusAppDestination({this.appId});
 }
 
-/// 学校公告的 Focus 点击目标：打开通知中心公告 Tab，不直达单条详情。
+/// 学校公告的 Focus 点击目标：打开校园公告列表，不直达单条详情。
 class HomeFocusNoticeDestination extends HomeFocusDestination {
   const HomeFocusNoticeDestination();
 }
@@ -71,10 +65,6 @@ class HomeFocusAnnouncementDestination extends HomeFocusDestination {
   final String content;
 
   const HomeFocusAnnouncementDestination(this.content);
-}
-
-class HomeFocusNotificationsDestination extends HomeFocusDestination {
-  const HomeFocusNotificationsDestination();
 }
 
 class HomeFocusItem {
@@ -119,7 +109,7 @@ class HomeFocusSnapshot {
   bool get isEmpty => items.isEmpty;
 }
 
-/// 聚合考试、待办、订阅动态与公告，输出首页 Focus。
+/// 聚合考试、待办、课程与公告，输出首页 Focus。
 ///
 /// 聚合层负责 eligibility、优先级、基础去重与 Top 3；首页不再感知各来源
 /// 的内部模型。
@@ -127,7 +117,6 @@ class HomeFocusService {
   HomeFocusService({
     Future<List<AcademicExam>> Function()? examsLoader,
     Future<List<TronclassTodo>> Function()? todosLoader,
-    Future<List<InAppNotification>> Function(String accountKey)? alertsLoader,
     Future<CurrentTeachingWeek?> Function(String accountKey)? currentWeekLoader,
     Future<AcademicPersonalSchedule?> Function(String accountKey)?
     scheduleLoader,
@@ -147,12 +136,6 @@ class HomeFocusService {
        _todosLoader =
            todosLoader ??
            (() => TronclassService().fetchTodos(evaluateAlerts: false)),
-       _alertsLoader =
-           alertsLoader ??
-           ((accountKey) => InAppNotificationService.activeList(
-             accountKey,
-             limit: InAppNotificationService.maxEntries,
-           )),
        _currentWeekLoader = currentWeekLoader ?? _defaultCurrentWeekLoader,
        _scheduleLoader = scheduleLoader ?? _defaultScheduleLoader,
        _alertEvaluator = alertEvaluator ?? _evaluateSourceAlerts,
@@ -173,8 +156,6 @@ class HomeFocusService {
 
   final Future<List<AcademicExam>> Function() _examsLoader;
   final Future<List<TronclassTodo>> Function() _todosLoader;
-  final Future<List<InAppNotification>> Function(String accountKey)
-  _alertsLoader;
   final _CurrentTeachingWeekLoader _currentWeekLoader;
   final _ScheduleLoader _scheduleLoader;
   final _SourceAlertEvaluator _alertEvaluator;
@@ -302,27 +283,22 @@ class HomeFocusService {
     required DateTime now,
     required _EarlyClassFocusTiming earlyClassTiming,
   }) async {
+    final session = AuthService.sessionRevision;
     final results = await Future.wait<Object?>([
       _examsLoader(),
       _todosLoader(),
-      _alertsLoader(accountKey),
       _loadNextDayFirstClass(accountKey, now, earlyClassTiming),
     ]);
     final exams = results[0] as List<AcademicExam>;
     final todos = results[1] as List<TronclassTodo>;
-    var alerts = results[2] as List<InAppNotification>;
-    final earlyClass = results[3] as HomeFocusItem?;
-    if (evaluateAlerts) {
+    final earlyClass = results[2] as HomeFocusItem?;
+    if (evaluateAlerts && session == AuthService.sessionRevision) {
       await _alertEvaluator(accountKey, exams, todos);
-      // Evaluation may publish new notifications; read the shared active
-      // projection again so this Focus load includes them immediately.
-      alerts = await _alertsLoader(accountKey);
     }
     return _FocusSourceSnapshot(
       candidates: _buildSourceCandidates(
         exams,
         todos,
-        alerts,
         now,
         earlyClass: earlyClass,
       ),
@@ -336,8 +312,8 @@ class HomeFocusService {
     List<TronclassTodo> todos,
   ) async {
     await Future.wait<void>([
-      AcademicAffairsService.evaluateExamAlerts(accountKey, exams),
-      TronclassService.evaluateTodoAlerts(accountKey, todos),
+      AcademicAffairsService.scheduleExamReminders(accountKey, exams),
+      TronclassService.scheduleTodoReminders(accountKey, todos),
     ]);
   }
 
@@ -345,20 +321,8 @@ class HomeFocusService {
     String accountKey,
   ) async {
     try {
-      final provider = academicScheduleNextDayAlertProvider;
-      final subscription = await AlertCenterService.effectiveSubscription(
-        accountKey,
-        provider.id,
-      );
       final now = _clock();
-      if (subscription == null || !subscription.enabled) {
-        return _EarlyClassFocusTiming(evaluatedAt: now);
-      }
-      final reminderHour =
-          ((subscription.params['reminderHour'] as num?)?.round() ?? 21).clamp(
-            18,
-            23,
-          );
+      const reminderHour = 21;
       var nextRefreshAt = DateTime(now.year, now.month, now.day, reminderHour);
       if (!nextRefreshAt.isAfter(now)) {
         nextRefreshAt = DateTime(
@@ -386,37 +350,23 @@ class HomeFocusService {
   ) async {
     if (!timing.visibleNow) return null;
     try {
-      final schedule = await _scheduleLoader(accountKey);
-      if (schedule == null) return null;
-      final teachingWeek = await _currentWeekLoader(accountKey);
-      if (teachingWeek == null ||
-          scheduleWeekForTeachingWeek(schedule, teachingWeek) == null) {
-        return null;
-      }
       final tomorrow = DateTime(now.year, now.month, now.day + 1);
-      final week = scheduleWeekForDate(schedule, teachingWeek, tomorrow);
-      if (week == null) return null;
-      final entries = filterScheduleEntriesForDay(
-        schedule.entries,
-        weekday: tomorrow.weekday,
-        week: week,
-      );
-      final first = entries.firstOrNull;
-      // “早八” only means a class starting in the first period.
-      if (first == null || first.startPeriod != 1) return null;
-      final teaching = teachingScheduleFor(
-        await campusSettingsService.scheduleModeFor(accountKey),
-      );
-      final range = teaching.range(first.startPeriod, first.endPeriod);
-      if (range == null) return null;
-      final startsAt = range.startAt(tomorrow);
+      final day =
+          (await loadRecentScheduleDays(
+            accountKey,
+            [tomorrow],
+            readSchedule: _scheduleLoader,
+            readTeachingWeek: _currentWeekLoader,
+            onAcademicFailure: _recordEarlyClassFailure,
+          )).single;
+      final first = day.courses.firstOrNull;
+      if (first == null || !first.isFirstPeriod) return null;
+      final startsAt = first.start;
       return HomeFocusItem(
-        id:
-            'early-class:${_dateKey(tomorrow)}:${academicScheduleEntryKey(first)}',
+        id: 'early-class:${_dateKey(tomorrow)}:${first.earlyClassKey}',
         kind: HomeFocusKind.serviceAlert,
         title: '明日早八',
-        subtitle:
-            '第${first.startPeriod}-${first.endPeriod}节 ${first.displayName}',
+        subtitle: '第${first.startPeriod}-${first.endPeriod}节 ${first.name}',
         tertiaryText: [
           '${_two(startsAt.hour)}:${_two(startsAt.minute)}',
           if (first.location.trim().isNotEmpty) first.location.trim(),
@@ -424,7 +374,7 @@ class HomeFocusService {
         priority: HomeFocusPriority.p1,
         eventTime: startsAt,
         createdAt: now,
-        source: '我的课表',
+        source: day.sourceLabel,
         destination: const HomeFocusAppDestination(
           appId: 'feature.academic.schedule',
         ),
@@ -466,7 +416,6 @@ class HomeFocusService {
   List<HomeFocusItem> _buildSourceCandidates(
     List<AcademicExam> exams,
     List<TronclassTodo> todos,
-    List<InAppNotification> alerts,
     DateTime now, {
     HomeFocusItem? earlyClass,
   }) {
@@ -474,8 +423,6 @@ class HomeFocusService {
     final todoWindowEnd = now.add(const Duration(hours: 72));
     final overdueWindowStart = now.subtract(const Duration(hours: 24));
     final items = <HomeFocusItem>[if (earlyClass != null) earlyClass];
-    final examAlertKeys = <String>{};
-    final todoAlertKeys = <String>{};
 
     for (final exam in exams) {
       final start = academicExamStart(exam);
@@ -503,7 +450,6 @@ class HomeFocusService {
           ),
         ),
       );
-      examAlertKeys.add(examKey);
     }
 
     for (final todo in todos) {
@@ -532,55 +478,8 @@ class HomeFocusService {
           ),
         ),
       );
-      todoAlertKeys.add('todo:${todo.id}');
     }
 
-    for (final alert in alerts) {
-      if (alert.expiresAt case final expiresAt? when !expiresAt.isAfter(now)) {
-        continue;
-      }
-      if (alert.source == '教务' &&
-          alert.deeplinkAppId == 'feature.academic.exams' &&
-          _matchesAlertKey(alert.fingerprintKey, examAlertKeys)) {
-        continue;
-      }
-      if (alert.source == '畅课' &&
-          TronclassService.isTodoAlertTarget(alert.deeplinkAppId) &&
-          _matchesAlertKey(alert.fingerprintKey, todoAlertKeys)) {
-        continue;
-      }
-      if (earlyClass != null &&
-          alert.source == '我的课表' &&
-          _matchesScheduledEarlyClass(alert.fingerprintKey, earlyClass.id)) {
-        continue;
-      }
-      final (kind, priority) = switch (alert.severity) {
-        AlertSeverity.critical => (
-          HomeFocusKind.importantReminder,
-          HomeFocusPriority.p0,
-        ),
-        AlertSeverity.warning => (
-          HomeFocusKind.serviceAlert,
-          HomeFocusPriority.p1,
-        ),
-        AlertSeverity.info => (HomeFocusKind.dataChange, HomeFocusPriority.p2),
-      };
-      items.add(
-        HomeFocusItem(
-          id: alert.id,
-          kind: kind,
-          title: alert.title,
-          subtitle: alert.body ?? alert.source,
-          priority: priority,
-          createdAt: alert.createdAt,
-          source: alert.source,
-          destination: HomeFocusAppDestination(
-            appId: alert.deeplinkAppId,
-            notificationId: alert.id,
-          ),
-        ),
-      );
-    }
     return items;
   }
 
@@ -588,22 +487,6 @@ class HomeFocusService {
     final within24h = endTime.isBefore(now.add(const Duration(hours: 24)));
     if (!endTime.isAfter(now) || within24h) return HomeFocusPriority.p0;
     return HomeFocusPriority.p1;
-  }
-
-  static bool _matchesAlertKey(String fingerprint, Set<String> keys) {
-    for (final key in keys) {
-      if (fingerprint == key || fingerprint.startsWith('$key#')) return true;
-    }
-    return false;
-  }
-
-  static bool _matchesScheduledEarlyClass(String fingerprint, String eventId) {
-    if (fingerprint == eventId) return true;
-    // Older receipt imports used these prefixed fingerprints. Keep them
-    // readable for already-persisted history while new receipts use eventId.
-    if (fingerprint == 'scheduled:$eventId') return true;
-    return fingerprint.startsWith('scheduled:') &&
-        fingerprint.contains('|$eventId|');
   }
 
   static String _timeLabel(DateTime time) {
@@ -647,12 +530,13 @@ class HomeFocusService {
     final today = DateTime(now.year, now.month, now.day);
     final tomorrow = today.add(const Duration(days: 1));
     final snapshot = await provider.loadRange(today, tomorrow, force: force);
-    final todayHolidayNames = snapshot
-        .daysFor(today)
-        .where((day) => day.isOffDay)
-        .map((day) => day.name.trim())
-        .where((name) => name.isNotEmpty)
-        .toSet();
+    final todayHolidayNames =
+        snapshot
+            .daysFor(today)
+            .where((day) => day.isOffDay)
+            .map((day) => day.name.trim())
+            .where((name) => name.isNotEmpty)
+            .toSet();
     final days = snapshot.daysFor(tomorrow);
     final makeup = days.where((day) => !day.isOffDay).toList(growable: false);
     final holidays = days.where((day) => day.isOffDay).toList(growable: false);

@@ -2,8 +2,8 @@ import {
   DesktopWidgetOccurrence,
   DesktopWidgetSnapshot,
   parseDesktopWidgetSnapshot,
-  todayEast8Date,
 } from './DesktopWidgetSnapshotStore';
+import { projectWidgetToday } from './TodayScheduleWidgetData';
 import { openTodaySchedule } from './DesktopWidgetCardActions';
 
 @Entry
@@ -15,12 +15,16 @@ struct TodayScheduleWidgetCard {
 
   build() {
     Column() {
-      if (this.snapshot()?.schedule.status === 'ready' && this.todaysCourses().length === 0) {
+      if (this.ready() && this.todaysCourses().length === 0) {
         Text('今天没有课了~')
           .fontSize(this.formDimension === 2 ? 13 : 16)
           .fontColor($r('app.color.widget_on_surface_variant'))
           .width('100%')
-          .height('100%')
+          .textAlign(TextAlign.Center)
+        Text(this.weekLabel())
+          .fontSize(10)
+          .fontColor($r('app.color.widget_on_surface_variant'))
+          .maxLines(2)
           .textAlign(TextAlign.Center)
       } else {
         Row() {
@@ -29,7 +33,7 @@ struct TodayScheduleWidgetCard {
             .fontWeight(500)
             .fontColor($r('app.color.widget_on_surface'))
           Blank()
-          if (this.snapshot()?.schedule.status === 'ready') {
+          if (this.ready()) {
             Text(`${this.todaysCourses().length}节课`)
               .fontSize(this.formDimension === 2 ? 11 : 12)
               .fontColor($r('app.color.widget_on_surface_variant'))
@@ -38,7 +42,7 @@ struct TodayScheduleWidgetCard {
         .width('100%')
         .margin({ bottom: this.formDimension === 2 ? 6 : 8 })
 
-        if (this.snapshot()?.schedule.status === 'ready') {
+        if (this.ready()) {
           Column() {
               ForEach(
                 this.todaysCourses().slice(0, this.formDimension === 2 ? 2 : 4),
@@ -109,13 +113,16 @@ struct TodayScheduleWidgetCard {
     return parseDesktopWidgetSnapshot(this.snapshotText);
   }
 
+  private ready(): boolean {
+    return projectWidgetToday(this.snapshot()).status === 'ready';
+  }
+
   private weekLabel(): string {
-    const week = this.snapshot()?.schedule.currentWeek;
-    return week === undefined || week === null ? '第—周' : `第${week}周`;
+    return projectWidgetToday(this.snapshot()).sourceLabel || '今日课表';
   }
 
   private statusMessage(): string {
-    const status = this.snapshot()?.schedule.status;
+    const status = projectWidgetToday(this.snapshot()).status;
     if (status === 'signedOut') return '登录后显示今日课表';
     if (status === 'noSchedule') return '暂无课表，打开 MyCHU 获取';
     if (status === 'calendarUnavailable') return '课表日期信息暂不可用';
@@ -123,19 +130,7 @@ struct TodayScheduleWidgetCard {
   }
 
   private todaysCourses(): Array<DesktopWidgetOccurrence> {
-    const snapshot = this.snapshot();
-    if (snapshot === null || snapshot.schedule.status !== 'ready') return [];
-    const today = todayEast8Date();
-    const now = Date.now();
-    return snapshot.schedule.occurrences.filter((course) => {
-      if (course.date !== today) return false;
-      if (course.endTime === null) return true;
-      const endAt = Date.parse(`${course.date}T${course.endTime}:00+08:00`);
-      return isNaN(endAt) || endAt > now;
-    }).sort((first, second) =>
-      first.startPeriod - second.startPeriod ||
-      first.endPeriod - second.endPeriod ||
-      first.courseName.localeCompare(second.courseName));
+    return projectWidgetToday(this.snapshot()).courses;
   }
 
   private timeLabel(course: DesktopWidgetOccurrence): string {

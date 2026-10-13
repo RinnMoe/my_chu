@@ -5,6 +5,7 @@ import 'channel_resources_page.dart';
 
 /// 频道资料站：原生校园资料与账号服务。
 final channelResourcesApp = AppDefinition(
+  requiresCampusAccount: false,
   metadata: AppMetadata(
     id: 'feature.channel.resources',
     name: '频道资料站',

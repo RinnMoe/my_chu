@@ -6,8 +6,6 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../../capabilities/account_scoped_cache.dart';
-import '../../capabilities/alert_center.dart';
-import '../../capabilities/alert_models.dart';
 import '../../services/account_network_session_service.dart';
 import '../../services/academic_affairs_backend.dart';
 import '../../services/auth_service.dart';
@@ -21,74 +19,6 @@ import 'information_portal_models.dart';
 /// Reads the small, privacy-conscious subset of data shown by the information
 /// portal. It deliberately does not persist the returned personal data.
 class PortalApiService {
-  static const _balanceLowProviderId = 'portal_personal.balance_low';
-  static const _unreadEmailProviderId = 'portal_personal.unread_email';
-
-  /// 校园卡余额不足提醒提供者（订阅制）：余额低于订阅阈值时提醒。
-  static final AlertProvider balanceLowAlertProvider = AlertProvider(
-    id: _balanceLowProviderId,
-    source: '个人数据',
-    title: '校园卡余额不足',
-    kind: AlertKind.condition,
-    severity: AlertSeverity.warning,
-    params: const [
-      AlertParamSpec(
-        key: 'threshold',
-        label: '余额阈值',
-        type: AlertParamType.number,
-        defaultValue: 10,
-        min: 1,
-        max: 500,
-        unit: '元',
-      ),
-    ],
-    evaluate: (params, data) {
-      final info =
-          data is Map<PortalInfoKind, PortalPersonalInfo>
-              ? data
-              : const <PortalInfoKind, PortalPersonalInfo>{};
-      final card = info[PortalInfoKind.campusCard];
-      final amount = card == null ? null : double.tryParse(card.homeValue);
-      if (amount == null) return const [];
-      final threshold = (params['threshold'] as num?)?.toDouble() ?? 10;
-      if (amount >= threshold) return const [];
-      return [
-        AlertDraft(
-          fingerprintKey: 'balance_low',
-          title: '校园卡余额不足',
-          body: '当前余额 ${_formatAmount(amount)} 元，请及时充值',
-          deeplinkAppId: 'feature.portal.personal',
-        ),
-      ];
-    },
-  );
-
-  /// 未读邮件提醒提供者（订阅制）：存在未读邮件时提醒。
-  static final AlertProvider unreadEmailAlertProvider = AlertProvider(
-    id: _unreadEmailProviderId,
-    source: '个人数据',
-    title: '有未读邮件',
-    kind: AlertKind.condition,
-    severity: AlertSeverity.info,
-    evaluate: (params, data) {
-      final info =
-          data is Map<PortalInfoKind, PortalPersonalInfo>
-              ? data
-              : const <PortalInfoKind, PortalPersonalInfo>{};
-      final email = info[PortalInfoKind.email];
-      final count = email == null ? null : int.tryParse(email.homeValue);
-      if (count == null || count <= 0) return const [];
-      return [
-        AlertDraft(
-          fingerprintKey: 'unread_email',
-          title: '有 $count 封未读邮件',
-          body: '打开邮箱查看最新邮件',
-          deeplinkAppId: 'feature.portal.personal',
-        ),
-      ];
-    },
-  );
-
   static const _requestTimeout = Duration(seconds: 12);
   static const _bootstrapTtl = Duration(minutes: 5);
   static const _personalTtl = Duration(seconds: 60);
@@ -133,20 +63,6 @@ class PortalApiService {
       cacheKey,
       () => _fetchPersonalDataWithRecovery(account.accountKey, route),
       force: force,
-    );
-    unawaited(
-      AlertCenterService.evaluate(
-        account.accountKey,
-        _balanceLowProviderId,
-        info,
-      ),
-    );
-    unawaited(
-      AlertCenterService.evaluate(
-        account.accountKey,
-        _unreadEmailProviderId,
-        info,
-      ),
     );
     return info;
   }
@@ -658,13 +574,6 @@ class PortalApiService {
     }
     return const PortalApiException('门户服务返回了无法识别的数据');
   }
-}
-
-String _formatAmount(double value) {
-  if (value == value.roundToDouble()) {
-    return value.toStringAsFixed(0);
-  }
-  return value.toStringAsFixed(2);
 }
 
 /// Pure response parsers kept public for regression tests and endpoint changes.

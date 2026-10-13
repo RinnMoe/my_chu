@@ -33,12 +33,6 @@ object PlatformCompatibilityChannel {
                             result.error("OPEN_SETTINGS_FAILED", "无法打开精确提醒设置", null)
                         }
                     }
-                    "setExactAlarmRequested" -> {
-                        val requested = call.argument<Boolean>("requested") == true
-                        ScheduledAlertStore.setExactRequested(context, requested)
-                        ScheduledAlertScheduler.rescheduleAll(context)
-                        result.success(null)
-                    }
                     else -> result.notImplemented()
                 }
             }
@@ -50,7 +44,6 @@ object PlatformCompatibilityChannel {
         return mapOf(
             "exactAlarmSupported" to true,
             "exactAlarmAuthorized" to exactAuthorized,
-            "exactAlarmRequested" to ScheduledAlertStore.exactRequested(context),
         )
     }
 }

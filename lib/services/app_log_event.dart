@@ -172,6 +172,7 @@ class DiagnosticLogEvent extends AppLogEvent {
     super.statusCode,
     super.renderProcessCrashed,
     super.attempt,
+    super.fields,
   }) : super(
          level: 'ERROR',
          code: operation.key,

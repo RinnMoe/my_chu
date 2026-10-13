@@ -1,3 +1,4 @@
+import '../services/auth_service.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
@@ -172,6 +173,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   bool _hintLoading = false;
   bool _isConfirmingLogin = false;
   bool _loginCompleted = false;
+  bool _committingAccount = false;
   bool _webViewVisible = true;
   String? _webViewError;
 
@@ -574,14 +576,15 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
               ? _formatCookieHeader(casCookieJar)
               : bestCookies;
 
-      final identityProbe = await IdentitySilentLoginService.probeCookies(
-        authCookies,
-      );
-      if (identityProbe != IdentityProbeStatus.authenticated) {
+      final identityProbe =
+          await IdentitySilentLoginService.probeInteractiveIdentity(
+            authCookies,
+          );
+      if (identityProbe.status != IdentityProbeStatus.authenticated) {
         await _discardCapturedLogin();
         if (!automatic) {
           _showLoginError(
-            identityProbe == IdentityProbeStatus.unauthenticated
+            identityProbe.status == IdentityProbeStatus.unauthenticated
                 ? '统一身份认证尚未生效，请完成登录后再试。'
                 : '暂时无法确认统一身份登录状态，请检查网络后重试。',
           );
@@ -591,11 +594,21 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
 
       // 4. 只提交已经通过统一身份探针的根凭证；校园服务凭证由宿主后台预热。
       AppLogger.info('统一身份会话已确认，准备进入主界面');
-      final account = Account(
-        id: Account.createAccountKey(),
-        name: 'CHUer',
-        loginTime: DateTime.now(),
-      );
+      if (!mounted) return;
+      final previous = await AuthService.getCurrentAccount();
+      if (!mounted) return;
+      final sameIdentity =
+          identityProbe.uid != null && previous?.uid == identityProbe.uid;
+      final account =
+          sameIdentity
+              ? previous!.copyWith(loginTime: DateTime.now())
+              : Account(
+                id: Account.createAccountKey(),
+                uid: identityProbe.uid,
+                name: 'CHUer',
+                loginTime: DateTime.now(),
+              );
+      setState(() => _committingAccount = true);
       await AuthLifecycleService.installInteractiveAccount(
         account,
         rootIdentityCookies: authCookies,
@@ -610,8 +623,13 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
         setState(() => _webViewVisible = false);
         await Future<void>.delayed(const Duration(milliseconds: 200));
       }
-      if (mounted) widget.onLoginSuccess();
+      if (mounted) {
+        setState(() => _committingAccount = false);
+        await WidgetsBinding.instance.endOfFrame;
+        if (mounted) widget.onLoginSuccess();
+      }
     } catch (error) {
+      if (mounted) setState(() => _committingAccount = false);
       await _discardCapturedLogin();
       AppLogger.event(
         level: 'ERROR',
@@ -835,11 +853,14 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
 
   Widget _buildWebView(ThemeData theme) {
     final body = _buildWebViewBody(theme);
-    return AdaptiveLoginScaffold(
-      onOpenLog: _openLogPage,
-      onConfirm: _manualConfirm,
-      isConfirming: _isConfirmingLogin,
-      child: body,
+    return PopScope(
+      canPop: !_committingAccount,
+      child: AdaptiveLoginScaffold(
+        onOpenLog: _openLogPage,
+        onConfirm: _manualConfirm,
+        isConfirming: _isConfirmingLogin,
+        child: body,
+      ),
     );
   }
 

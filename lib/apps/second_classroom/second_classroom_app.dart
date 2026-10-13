@@ -8,6 +8,7 @@ import 'second_classroom_page.dart';
 /// 站点未接入统一身份认证，使用手动登录 WebView；登录凭据由平台 WebView
 /// 本机持久化，下次打开无需重复登录。
 final secondClassroomApp = AppDefinition(
+  requiresCampusAccount: false,
   metadata: AppMetadata(
     id: 'feature.second.classroom',
     name: '第二课堂',

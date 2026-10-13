@@ -6,14 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../capabilities/campus_places/campus_places.dart';
 import 'teaching_schedule_service.dart';
 
-/// 账号级校区偏好，复用现有 `SharedPreferences` + `accountKey` + `revision`
-/// 模式，与 `AcademicScheduleDisplayPreferences`/`HomeLayoutService` 一致。
-///
-/// 键格式为 `campus.settings.v1.<accountKey>`，退出登录不清除；账号替换后
-/// 旧键成为无害孤儿键。天气、课表时间、地图初始校区及未来内置应用也从这里读取校区设置。
+/// 设备全局校区偏好，与账号、会话和登出独立。
 class CampusSettingsService {
   static const defaultCampusId = 'weishui';
-  static const _keyPrefix = 'campus.settings.v1.';
 
   /// Bumped whenever a stored campus preference changes so pages can rebuild.
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
@@ -33,30 +28,30 @@ class CampusSettingsService {
        _releaseCoordinator = releaseCoordinator ?? MapReleaseCoordinator.shared,
        _setStringOverride = setString;
 
-  static String _key(String accountKey) => '$_keyPrefix$accountKey';
+  static String _key() => 'preferences.v1.campus';
 
-  /// 读取当前账号校区；缺失、未知或未启用时回退渭水校区。
-  Future<String> read(String accountKey) async {
-    return await readStored(accountKey) ?? defaultCampusId;
+  /// 读取设备校区；缺失、未知或未启用时回退渭水校区。
+  Future<String> read() async {
+    return await readStored() ?? defaultCampusId;
   }
 
   /// Reads an explicitly persisted, currently enabled campus without applying
   /// the user-facing default. This lets selection UIs distinguish a real
   /// preference from the implicit 渭水 fallback.
-  Future<String?> readStored(String accountKey) async {
-    final stored = (await _prefs()).getString(_key(accountKey));
+  Future<String?> readStored() async {
+    final stored = (await _prefs()).getString(_key());
     if (stored == null || stored.isEmpty) return null;
     final campus = (await _registryData()).byId(stored);
     if (campus == null || !campus.enabled) return null;
     return stored;
   }
 
-  /// 写入当前账号校区并通知监听方。
+  /// 写入设备校区并通知监听方。
   ///
   /// `SharedPreferences` can report a failed write without throwing. Only a
   /// confirmed write advances [revision], so dependent pages never refresh
   /// from a preference that was not persisted.
-  Future<bool> set(String accountKey, String campusId) async {
+  Future<bool> set(String campusId) async {
     final campus = (await _registryData()).byId(campusId);
     if (campus == null || !campus.enabled) {
       throw ArgumentError.value(campusId, 'campusId', 'unknown campus');
@@ -64,8 +59,8 @@ class CampusSettingsService {
     try {
       final saved =
           _setStringOverride == null
-              ? await (await _prefs()).setString(_key(accountKey), campusId)
-              : await _setStringOverride(_key(accountKey), campusId);
+              ? await (await _prefs()).setString(_key(), campusId)
+              : await _setStringOverride(_key(), campusId);
       if (!saved) return false;
     } catch (_) {
       return false;
@@ -85,15 +80,15 @@ class CampusSettingsService {
     return (await _registryData()).enabledCampuses;
   }
 
-  /// 当前账号选中的校区条目。
-  Future<CampusEntry?> selectedCampus(String accountKey) async {
-    final campusId = await read(accountKey);
+  /// 设备选中的校区条目。
+  Future<CampusEntry?> selectedCampus() async {
+    final campusId = await read();
     return campusFor(campusId);
   }
 
-  /// 当前账号校区对应的节次时间表模式。
-  Future<TeachingScheduleMode> scheduleModeFor(String accountKey) async {
-    return scheduleModeForCampusId(await read(accountKey));
+  /// 设备校区对应的节次时间表模式。
+  Future<TeachingScheduleMode> scheduleModeFor() async {
+    return scheduleModeForCampusId(await read());
   }
 
   Future<CampusRegistry> _registryData() async {

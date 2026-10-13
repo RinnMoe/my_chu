@@ -1,18 +1,19 @@
+import 'time_reminder_service.dart';
+import 'host_auth_state.dart';
+import 'host_auth_coordinator.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../capabilities/alert_center.dart';
+import '../capabilities/academic_schedule/recent_schedule_repository.dart';
 import '../capabilities/desktop_widgets/desktop_widget_bridge.dart';
 import '../models/account.dart';
 import '../services/credential_sync_service.dart';
 import '../services/identity_silent_login_service.dart';
-import '../services/live_update_service.dart';
 import '../services/logger_service.dart';
 import '../services/login_required_notifier.dart';
 import '../services/auth_service.dart';
 import '../services/saved_login_credential_service.dart';
-import '../services/scheduled_alert_service.dart';
 import '../capabilities/web_view_cookie_coordinator.dart';
 
 enum AuthLifecycleStatus {
@@ -164,24 +165,36 @@ class AuthLifecycleService {
     Account account, {
     String? rootIdentityCookies,
   }) async {
+    if (HostAuthState.snapshot.value.status == HostAuthStatus.storageError) {
+      throw const CampusAuthenticationRequired(HostAuthStatus.storageError);
+    }
     // Remove the previous identity's private schedule before persisting the
     // newly confirmed account.
     await DesktopWidgetSyncService.clearSchedule();
+    await RecentScheduleRepository.instance.clear();
     try {
-      await LiveUpdateService.clearAccountData();
-    } catch (_) {}
-    try {
-      await ScheduledAlertService.clearAll();
+      await TimeReminderService.clearAll();
     } catch (_) {}
     // Saved passwords are host-scoped rather than Account-scoped. Clear the
     // previous user's value before replacing the active account; the login
     // page may save the newly captured password immediately afterwards.
     await SavedLoginCredentialService.clearCredential();
-    await AuthService.addAccount(
-      account,
-      rootIdentityCookies: rootIdentityCookies,
-    );
+    final current = await AuthService.getCurrentAccount();
+    if (current?.accountKey == account.accountKey &&
+        rootIdentityCookies != null) {
+      await AuthService.replaceIdentityCookies(
+        account.accountKey,
+        rootIdentityCookies,
+      );
+      await AuthService.patchAccount(account.accountKey, (_) => account);
+    } else {
+      await AuthService.addAccount(
+        account,
+        rootIdentityCookies: rootIdentityCookies,
+      );
+    }
     LoginRequiredNotifier.resetAfterLogin();
+    await HostAuthCoordinator.accountInstalled();
     _startCoreWarmup(account.accountKey);
   }
 
@@ -192,7 +205,7 @@ class AuthLifecycleService {
       return;
     }
     unawaited(CredentialSyncService.startForAccount(accountKey));
-    unawaited(AlertCenterService.importScheduledReceipts(accountKey));
+    unawaited(TimeReminderService.refreshAll());
   }
 
   static String _manualLoginMessage(IdentityRecoveryOutcome outcome) {
@@ -208,18 +221,17 @@ class AuthLifecycleService {
   /// single host operation. The low-level AuthService remains usable by tests
   /// and storage callers, but UI sign-out goes through this method.
   static Future<void> signOut() async {
+    HostAuthCoordinator.signedOut();
     CredentialSyncService.cancel();
     final clearWidgetFuture = DesktopWidgetSyncService.clearSchedule();
     // The session fence is invalidated synchronously at operation entry. The
     // first platform reset also advances cookieManagerEpoch immediately, but
     // its final barrier is repeated after account persistence cleanup below.
     final clearFuture = AuthService.clearAll();
+    await RecentScheduleRepository.instance.clear();
     final initialResetFuture = WebViewCookieCoordinator.resetCookies();
     try {
-      await LiveUpdateService.clearAccountData();
-    } catch (_) {}
-    try {
-      await ScheduledAlertService.clearAll();
+      await TimeReminderService.clearAll();
     } catch (_) {}
     try {
       await clearFuture;

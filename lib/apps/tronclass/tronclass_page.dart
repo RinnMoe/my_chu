@@ -1,3 +1,4 @@
+import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'package:flutter/material.dart';
 
 import '../../capabilities/in_app_download/in_app_download.dart';
@@ -29,7 +30,10 @@ class _CoursewareTab extends StatefulWidget {
 }
 
 class _CoursewareTabState extends State<_CoursewareTab>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, CampusAuthRefresh<_CoursewareTab> {
+  @override
+  Future<void> onCampusAuthChanged() => _load();
+
   /// 默认自动加载的批次数：5 批以内自动分批加载完成，避免用户下拉时
   /// 新数据跳到列表上方；超过 5 批才需要用户下滑触发继续加载。
   static const _autoLoadPages = 5;
@@ -351,7 +355,11 @@ class _CoursewareFilesPage extends StatefulWidget {
   State<_CoursewareFilesPage> createState() => _CoursewareFilesPageState();
 }
 
-class _CoursewareFilesPageState extends State<_CoursewareFilesPage> {
+class _CoursewareFilesPageState extends State<_CoursewareFilesPage>
+    with CampusAuthRefresh<_CoursewareFilesPage> {
+  @override
+  Future<void> onCampusAuthChanged() => _load();
+
   List<TronclassCoursewareFile>? _files;
   TronclassCoursewareProgress? _progress;
   String? _error;

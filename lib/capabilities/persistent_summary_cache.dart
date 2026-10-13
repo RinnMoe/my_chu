@@ -22,8 +22,7 @@ typedef SummaryEncoder<T> = Map<String, dynamic> Function(T value);
 /// a completed load that differs from the previously known value (memory or
 /// disk) fires [onChanged] with the account key and both values. The callback
 /// is fire-and-forget and never blocks or breaks the load path. Reminders are
-/// no longer produced here: features that need to remind publish through
-/// `AlertCenterService.evaluate` from the change callback.
+/// no longer produced here: time-based events are passed to the shared TimeReminderService.
 class PersistentSummaryCache<T> {
   PersistentSummaryCache({
     required this.storageKey,

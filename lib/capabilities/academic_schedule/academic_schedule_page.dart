@@ -1,3 +1,6 @@
+import '../../services/host_auth_state.dart';
+import 'package:mychu/widgets/campus_auth_boundary.dart';
+import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -14,12 +17,11 @@ import '../../apps/academic_affairs/academic_affairs_widgets.dart';
 import '../../services/auth_service.dart';
 import '../../services/academic_affairs_backend.dart';
 import '../../services/user_error_message.dart';
+import '../../services/error_feedback_service.dart';
 import '../../services/campus_settings_service.dart';
 import '../../services/guide_preferences.dart';
 import '../../services/onboarding_flow_service.dart';
 import '../../services/file_save_service.dart';
-import '../../services/host_permission_service.dart';
-import '../../services/live_update_service.dart';
 import '../../services/logger_service.dart';
 import '../../services/teaching_schedule_service.dart';
 import '../../services/temporal_change_service.dart';
@@ -34,12 +36,12 @@ import '../../apps/academic_calendar/academic_calendar_models.dart';
 import '../../apps/academic_calendar/academic_calendar_service.dart';
 import '../desktop_widgets/desktop_widget_bridge.dart';
 import '../../apps/academic_web/shuwei_schedule_importer.dart';
-import 'academic_schedule_live_update.dart';
 import 'academic_schedule_alerts.dart';
 import 'academic_schedule_editor.dart';
 import 'academic_schedule_export.dart';
 import 'academic_schedule_store.dart';
 import 'academic_schedule_utils.dart';
+import 'academic_schedule_cell_colors.dart';
 import 'package:mychu/widgets/apple_window_controls.dart';
 
 typedef AcademicScheduleAccountKeyLoader = Future<String?> Function();
@@ -58,7 +60,7 @@ typedef AcademicScheduleAcquisitionLoader =
 
 bool _isLoginRequired(Object error) =>
     error is AcademicAffairsAuthenticationException ||
-    (error is AcademicAffairsException && error.message == '请先登录后查看我的课表');
+    error is CampusAuthenticationRequired;
 
 class AcademicScheduleCalendarSelection {
   final AcademicCalendarData calendar;
@@ -97,7 +99,12 @@ class AcademicSchedulePage extends StatefulWidget {
   State<AcademicSchedulePage> createState() => _AcademicSchedulePageState();
 }
 
-class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
+class _AcademicSchedulePageState extends State<AcademicSchedulePage>
+    with CampusAuthRefresh<AcademicSchedulePage> {
+  @override
+  Future<void> onCampusAuthChanged() =>
+      _schedule == null ? _loadInitial() : _refreshSchedule();
+
   late final AcademicScheduleStore _store;
   late final AcademicScheduleAccountKeyLoader _accountKeyLoader;
   late final AcademicScheduleCalendarLoader _calendarLoader;
@@ -126,18 +133,16 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
   bool _loading = true;
   bool _refreshing = false;
   bool _exporting = false;
-  bool _liveUpdateEnabled = false;
-  bool _liveUpdateWorking = false;
   int _loadGeneration = 0;
   final GlobalKey _firstCourseKey = GlobalKey();
+  final GlobalKey _scheduleSemesterKey = GlobalKey();
+  final GlobalKey _scheduleWeekKey = GlobalKey();
   final GlobalKey _scheduleScopeKey = GlobalKey();
   final GlobalKey _scheduleOptionsKey = GlobalKey();
   final GuidePreferences _guidePreferences = GuidePreferences();
   bool _featureTourScheduled = false;
   bool _featureTourRunning = false;
   bool _unavailableAdvanceScheduled = false;
-
-  bool get _supportsLiveUpdate => LiveUpdateService.isSupported;
 
   @override
   void initState() {
@@ -160,6 +165,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
         ({bool force = false}) =>
             AcademicCalendarService().fetchCurrentCalendar(force: force);
     _clock = widget.clock ?? east8Now;
+    _onDisplayPreferencesChanged();
     unawaited(_loadInitial());
   }
 
@@ -228,6 +234,26 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
       }
 
       final steps = <CoachMarkStep>[];
+      if (_scheduleSemesterKey.currentContext != null) {
+        steps.add(
+          CoachMarkStep(
+            targetKey: _scheduleSemesterKey,
+            title: '切换学期',
+            message: '点击左上角的年份和春／秋标识，选择要查看的学期。',
+            contentAlign: ContentAlign.bottom,
+          ),
+        );
+      }
+      if (_scheduleWeekKey.currentContext != null) {
+        steps.add(
+          CoachMarkStep(
+            targetKey: _scheduleWeekKey,
+            title: '切换周次',
+            message: '点击周次选择要查看的周，也可以左右滑动课表切周。',
+            contentAlign: ContentAlign.bottom,
+          ),
+        );
+      }
       if (_firstCourseKey.currentContext != null) {
         steps.add(
           CoachMarkStep(
@@ -243,7 +269,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
           CoachMarkStep(
             targetKey: _scheduleScopeKey,
             title: '切换个人/班级课表',
-            message: '点击标题旁的“个人”或“班级”，切换课表范围。',
+            message: '点击右上角的“个人”或“班级”，切换课表范围。',
             contentAlign: ContentAlign.bottom,
           ),
         );
@@ -300,25 +326,17 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
   }
 
   Future<void> _refreshScheduleMode(String accountKey) async {
-    final mode = await campusSettingsService.scheduleModeFor(accountKey);
+    final mode = await campusSettingsService.scheduleModeFor();
     if (!mounted || _accountKey != accountKey || _scheduleMode == mode) return;
     setState(() => _scheduleMode = mode);
-    if (_liveUpdateEnabled && _supportsLiveUpdate) {
-      unawaited(
-        LiveUpdateService.refreshDefinition(
-          academicScheduleLiveUpdateDefinition.id,
-        ),
-      );
-    }
   }
 
   void _onDisplayPreferencesChanged() {
-    final accountKey = _accountKey;
-    if (!mounted || accountKey == null) return;
+    if (!mounted) return;
     unawaited(() async {
       final values = await Future.wait([
-        AcademicScheduleDisplayPreferences.readShowNonCurrent(accountKey),
-        AcademicScheduleDisplayPreferences.readHideWeekend(accountKey),
+        AcademicScheduleDisplayPreferences.readShowNonCurrent(),
+        AcademicScheduleDisplayPreferences.readHideWeekend(),
       ]);
       if (!mounted) return;
       final showNonCurrent = values[0];
@@ -344,6 +362,10 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
   }
 
   Future<void> _loadInitial() async {
+    if (campusAuthGuest) return;
+    final feedback = ErrorFeedbackCoordinator.shared.begin(
+      UserOperationId.academicSchedule,
+    );
     final generation = ++_loadGeneration;
     if (mounted) {
       setState(() {
@@ -361,11 +383,9 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
       }
       final accountKey = await _accountKeyLoader();
       if (accountKey == null || accountKey.trim().isEmpty) {
-        throw const AcademicAffairsException('请先登录后查看我的课表');
+        throw const CampusAuthenticationRequired(HostAuthStatus.guest);
       }
-      final scheduleMode = await campusSettingsService.scheduleModeFor(
-        accountKey,
-      );
+      final scheduleMode = await campusSettingsService.scheduleModeFor();
       if (!mounted || generation != _loadGeneration) return;
       _scheduleMode = scheduleMode;
 
@@ -447,17 +467,11 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
       semesters = academicSemestersNewestFirst(semesters);
 
       final displayPreferences = await Future.wait([
-        AcademicScheduleDisplayPreferences.readShowNonCurrent(accountKey),
-        AcademicScheduleDisplayPreferences.readHideWeekend(accountKey),
+        AcademicScheduleDisplayPreferences.readShowNonCurrent(),
+        AcademicScheduleDisplayPreferences.readHideWeekend(),
       ]);
       final showNonCurrent = displayPreferences[0];
       final hideWeekend = displayPreferences[1];
-      final liveUpdateEnabled =
-          _supportsLiveUpdate &&
-          await LiveUpdatePreferences.isEnabled(
-            accountKey,
-            academicScheduleLiveUpdateDefinition.id,
-          );
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _accountKey = accountKey;
@@ -467,11 +481,11 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
         _resetCalendarAndPager();
         _showNonCurrent = showNonCurrent;
         _hideWeekend = hideWeekend;
-        _liveUpdateEnabled = liveUpdateEnabled;
         _loading = false;
         _error = null;
       });
       scheduleAcademicCourseAlerts(accountKey, schedule);
+      feedback.succeed();
       if (initialCalendarSelection == null && currentCalendar != null) {
         if (_scheduleMatchesCalendar(schedule, currentCalendar)) {
           initialCalendarSelection = AcademicScheduleCalendarSelection(
@@ -487,13 +501,6 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
           selection: initialCalendarSelection,
         ),
       );
-      if (liveUpdateEnabled && _supportsLiveUpdate) {
-        unawaited(
-          LiveUpdateService.refreshDefinition(
-            academicScheduleLiveUpdateDefinition.id,
-          ),
-        );
-      }
     } catch (error) {
       if (!mounted || generation != _loadGeneration) return;
       if (!_isLoginRequired(error)) {
@@ -501,7 +508,10 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
           UserErrorContext.academic,
           error,
           operationId: UserOperationId.academicSchedule,
+          feedbackAttempt: feedback,
         );
+      } else if (error is AcademicAffairsAuthenticationException) {
+        feedback.fail(error);
       }
       setState(() {
         _loading = false;
@@ -740,11 +750,15 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
   }
 
   Future<void> _refreshSchedule() async {
+    if (campusAuthGuest) return;
     final scope = _scope;
     final accountKey = _accountKey ?? await _accountKeyLoader();
     if (accountKey == null || accountKey.trim().isEmpty) {
       if (mounted) {
-        setState(() => _error = const AcademicAffairsException('请先登录后查看我的课表'));
+        setState(
+          () =>
+              _error = const CampusAuthenticationRequired(HostAuthStatus.guest),
+        );
       }
       return;
     }
@@ -753,6 +767,9 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
       _refreshing = true;
       _error = null;
     });
+    final feedback = ErrorFeedbackCoordinator.shared.begin(
+      UserOperationId.academicSchedule,
+    );
     try {
       final selectedSemester = _schedule?.semesterId.trim();
       final result = await _acquireSchedule(
@@ -772,6 +789,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
         _error = null;
       });
       unawaited(_loadCalendar(generation, schedule, force: true));
+      feedback.succeed();
       if (scope == AcademicScheduleScope.personal) {
         _refreshPersonalSurfaces();
       }
@@ -782,7 +800,10 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
           UserErrorContext.academic,
           error,
           operationId: UserOperationId.academicSchedule,
+          feedbackAttempt: feedback,
         );
+      } else if (error is AcademicAffairsAuthenticationException) {
+        feedback.fail(error);
       }
       setState(() {
         _refreshing = false;
@@ -792,14 +813,8 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
   }
 
   void _refreshPersonalSurfaces() {
-    if (_liveUpdateEnabled) {
-      unawaited(
-        LiveUpdateService.refreshDefinition(
-          academicScheduleLiveUpdateDefinition.id,
-          forceRefresh: true,
-        ),
-      );
-    }
+    final account = _accountKey;
+    if (account != null) unawaited(refreshRecentCourseAlerts(account));
   }
 
   Future<void> _changeSemester(String? semesterId) async {
@@ -958,16 +973,21 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
   Widget build(BuildContext context) {
     _scheduleFeatureTour();
 
-    final body = _buildBody(context);
+    final body = CampusProtectedContent(
+      title: '课表',
+      icon: Icons.calendar_month_outlined,
+      builder: (_) => _buildBody(context),
+    );
     late final Widget page;
     {
       page = Scaffold(
         appBar: WindowControlsAwareAppBar(
           child: AppBar(
+            centerTitle: false,
             title: _buildAppBarTitle(context),
             actions: [
-              _buildMaterialSemesterButton(),
-              _buildMaterialWeekButton(),
+              if (_academicBackend == AcademicAffairsBackend.undergraduate)
+                Center(child: _buildScopeSelector(context)),
               if (_refreshing)
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
@@ -993,8 +1013,6 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
                         _toggleHideWeekend();
                       } else if (value == 'refresh') {
                         unawaited(_refreshSchedule());
-                      } else if (value == 'liveUpdate') {
-                        unawaited(_toggleLiveUpdate());
                       } else if (value == 'export') {
                         unawaited(_showExportMenu());
                       } else if (value == 'addCourse') {
@@ -1021,16 +1039,6 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
                             checked: _hideWeekend,
                             child: const Text('不显示周末'),
                           ),
-                          if (_scope == AcademicScheduleScope.personal &&
-                              _supportsLiveUpdate)
-                            CheckedPopupMenuItem<String>(
-                              value: 'liveUpdate',
-                              checked: _liveUpdateEnabled,
-                              enabled: !_liveUpdateWorking,
-                              child: Text(
-                                _liveUpdateWorking ? '正在更新实时动态' : '课程实时动态',
-                              ),
-                            ),
                           const PopupMenuDivider(),
                           const PopupMenuItem<String>(
                             value: 'export',
@@ -1218,11 +1226,23 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
     unawaited(_changeScope(nextScope));
   }
 
-  Widget _buildAppBarTitle(BuildContext context) {
-    final supportsClassSchedule =
-        _academicBackend == AcademicAffairsBackend.undergraduate;
-    if (!supportsClassSchedule) return const Text('我的课表');
+  Widget _buildAppBarTitle(BuildContext context) => FittedBox(
+    fit: BoxFit.scaleDown,
+    alignment: Alignment.centerLeft,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          key: _scheduleSemesterKey,
+          child: _buildMaterialSemesterButton(),
+        ),
+        const SizedBox(width: 4),
+        SizedBox(key: _scheduleWeekKey, child: _buildWeekTitle()),
+      ],
+    ),
+  );
 
+  Widget _buildScopeSelector(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final currentScopeLabel =
         _scope == AcademicScheduleScope.personal ? '个人' : '班级';
@@ -1231,8 +1251,6 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('我的课表'),
-        const SizedBox(width: 4),
         SizedBox(
           key: _scheduleScopeKey,
           child: Semantics(
@@ -1289,22 +1307,46 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
       key: const ValueKey('academic-schedule-semester-selector'),
       tooltip: '选择学期：${label.inline}',
       onPressed: _loading || _refreshing ? null : _showSemesterPicker,
-      icon: _ScheduleTopBarLabel(
-        primary: label.primary,
-        secondary: label.secondary,
+      icon: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label.primary,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.05,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            if (label.secondary != null)
+              Text(
+                label.secondary!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.05,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildMaterialWeekButton() {
-    final label = _weekDisplayLabel;
-    return IconButton(
-      key: const ValueKey('academic-schedule-week-selector'),
-      tooltip: '选择周次：${label.semanticLabel}',
-      onPressed: _schedule == null ? null : _showWeekPicker,
-      icon: _ScheduleTopBarLabel(
-        primary: label.primary,
-        secondary: label.secondary,
+  Widget _buildWeekTitle() {
+    final label = _weekDisplayLabel.semanticLabel;
+    return Semantics(
+      button: true,
+      child: Tooltip(
+        message: '选择周次：$label',
+        child: InkWell(
+          key: const ValueKey('academic-schedule-week-selector'),
+          borderRadius: BorderRadius.circular(8),
+          onTap: _schedule == null ? null : _showWeekPicker,
+          child: Text(label),
+        ),
       ),
     );
   }
@@ -1336,23 +1378,15 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
   }
 
   void _toggleShowNonCurrent() {
-    final accountKey = _accountKey;
-    if (accountKey == null) return;
     final value = !_showNonCurrent;
     setState(() => _showNonCurrent = value);
-    unawaited(
-      AcademicScheduleDisplayPreferences.setShowNonCurrent(accountKey, value),
-    );
+    unawaited(AcademicScheduleDisplayPreferences.setShowNonCurrent(value));
   }
 
   void _toggleHideWeekend() {
-    final accountKey = _accountKey;
-    if (accountKey == null) return;
     final value = !_hideWeekend;
     setState(() => _hideWeekend = value);
-    unawaited(
-      AcademicScheduleDisplayPreferences.setHideWeekend(accountKey, value),
-    );
+    unawaited(AcademicScheduleDisplayPreferences.setHideWeekend(value));
   }
 
   bool get _supportsWakeUpExport =>
@@ -1610,54 +1644,6 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage> {
     setState(() => _schedule = refreshed);
     _refreshPersonalSurfaces();
     return true;
-  }
-
-  Future<void> _toggleLiveUpdate() async {
-    if (_scope != AcademicScheduleScope.personal || !_supportsLiveUpdate) {
-      return;
-    }
-    final accountKey = _accountKey ?? await _accountKeyLoader();
-    if (accountKey == null || accountKey.trim().isEmpty) return;
-    if (_liveUpdateWorking) return;
-    setState(() => _liveUpdateWorking = true);
-    try {
-      final enable = !_liveUpdateEnabled;
-      if (enable) {
-        final permission =
-            await hostPermissionService.requestNotificationPermission();
-        // Apple ActivityKit is independent of the Android notification gate.
-        if (permission.supported && !permission.granted) {
-          if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('请先在系统设置中开启通知权限')));
-          }
-          return;
-        }
-        await LiveUpdatePreferences.setEnabled(
-          accountKey,
-          academicScheduleLiveUpdateDefinition.id,
-          true,
-        );
-        await LiveUpdateService.refreshDefinition(
-          academicScheduleLiveUpdateDefinition.id,
-          forceRefresh: true,
-        );
-        if (!mounted) return;
-        setState(() => _liveUpdateEnabled = true);
-      } else {
-        await LiveUpdatePreferences.setEnabled(
-          accountKey,
-          academicScheduleLiveUpdateDefinition.id,
-          false,
-        );
-        await LiveUpdateService.cancelForAccount(accountKey);
-        if (!mounted) return;
-        setState(() => _liveUpdateEnabled = false);
-      }
-    } finally {
-      if (mounted) setState(() => _liveUpdateWorking = false);
-    }
   }
 
   void _returnToCurrentWeek() {
@@ -2548,36 +2534,6 @@ _ScheduleTopBarLabelData _compactSemesterLabel(String value) {
   );
 }
 
-class _ScheduleTopBarLabel extends StatelessWidget {
-  final String primary;
-  final String? secondary;
-
-  const _ScheduleTopBarLabel({required this.primary, this.secondary});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = IconTheme.of(context).color;
-    final secondary = this.secondary;
-    final style = TextStyle(
-      color: color,
-      fontSize: 13,
-      height: 1.05,
-      fontWeight: FontWeight.w500,
-    );
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(primary, maxLines: 1, style: style),
-          if (secondary != null)
-            Text(secondary, maxLines: 1, style: style.copyWith(fontSize: 12)),
-        ],
-      ),
-    );
-  }
-}
-
 typedef _ScheduleCellTapCallback =
     void Function(
       List<AcademicPersonalScheduleEntry> entries, {
@@ -2663,6 +2619,7 @@ class _ScheduleWeekPage extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
+          key: const ValueKey('academic-schedule-week-header'),
           height: 44,
           child: Row(
             children: [
@@ -2708,7 +2665,7 @@ class _ScheduleWeekPage extends StatelessWidget {
                                 final date = weekStartDate.add(
                                   Duration(days: day - 1),
                                 );
-                                return '${date.month}/${date.day}';
+                                return '${date.day}';
                               }(),
                               style: TextStyle(
                                 fontSize: 9,
@@ -2912,16 +2869,16 @@ class _CourseBlock extends StatelessWidget {
         courseColorIndices[_scheduleCourseColorKey(entry)] ??
         stableCourseColorIndex(
           _scheduleCourseColorKey(entry),
-          colorCount: _coursePalettes.length,
+          colorCount: academicScheduleCellPalettes.length,
         );
-    final palette = _coursePaletteForIndex(colorIndex);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final background =
-        isDark ? palette.darkBackground : palette.lightBackground;
-    final cardBackground =
-        faded ? Color.lerp(background, Colors.white, 0.5)! : background;
-    final textColor =
-        faded ? Colors.white.withValues(alpha: 0.5) : Colors.white;
+    final cellColors = academicScheduleCellColors(
+      colorIndex,
+      dark: isDark,
+      nonCurrent: faded,
+    );
+    final cardBackground = cellColors.background;
+    final textColor = cellColors.foreground;
     final isMultiple = group.entries.length > 1;
     final allSources =
         mergeSources[entry] ?? <AcademicPersonalScheduleEntry>[entry];
@@ -3187,6 +3144,16 @@ class _CourseBlock extends StatelessWidget {
             ),
           ),
         ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border.all(color: cellColors.border),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -3287,83 +3254,6 @@ class _CourseBlockLineBudget {
   }
 }
 
-class _CoursePalette {
-  final Color lightBackground;
-  final Color darkBackground;
-
-  const _CoursePalette({
-    required this.lightBackground,
-    required this.darkBackground,
-  });
-}
-
-const _coursePalettes = <_CoursePalette>[
-  _CoursePalette(
-    lightBackground: Color(0xff2196f3), // Material Blue 500
-    darkBackground: Color(0xff1976d2), // Material Blue 700
-  ),
-  _CoursePalette(
-    lightBackground: Color(0xff009688), // Material Teal 500
-    darkBackground: Color(0xff00796b), // Material Teal 700
-  ),
-  _CoursePalette(
-    lightBackground: Color(0xffff5722), // Material Deep Orange 500
-    darkBackground: Color(0xffd84315), // Material Deep Orange 800
-  ),
-  _CoursePalette(
-    lightBackground: Color(0xff9c27b0), // Material Purple 500
-    darkBackground: Color(0xff7b1fa2), // Material Purple 700
-  ),
-  _CoursePalette(
-    lightBackground: Color(0xff4caf50), // Material Green 500
-    darkBackground: Color(0xff388e3c), // Material Green 700
-  ),
-  _CoursePalette(
-    lightBackground: Color(0xff3f51b5), // Material Indigo 500
-    darkBackground: Color(0xff303f9f), // Material Indigo 700
-  ),
-  _CoursePalette(
-    lightBackground: Color(0xffe91e63), // Material Pink 500
-    darkBackground: Color(0xffc2185b), // Material Pink 700
-  ),
-  _CoursePalette(
-    lightBackground: Color(0xff00acc1), // Material Cyan 600
-    darkBackground: Color(0xff0097a7), // Material Cyan 700
-  ),
-  _CoursePalette(
-    lightBackground: Color(0xfff44336), // Material Red 500
-    darkBackground: Color(0xffd32f2f), // Material Red 700
-  ),
-  _CoursePalette(
-    lightBackground: Color(0xff7cb342), // Material Light Green 600
-    darkBackground: Color(0xff558b2f), // Material Light Green 800
-  ),
-  _CoursePalette(
-    lightBackground: Color(0xff039be5), // Material Light Blue 600
-    darkBackground: Color(0xff0277bd), // Material Light Blue 800
-  ),
-  _CoursePalette(
-    lightBackground: Color(0xff673ab7), // Material Deep Purple 500
-    darkBackground: Color(0xff512da8), // Material Deep Purple 700
-  ),
-  _CoursePalette(
-    lightBackground: Color(0xff607d8b), // Material Blue Grey 500
-    darkBackground: Color(0xff546e7a), // Material Blue Grey 600
-  ),
-  _CoursePalette(
-    lightBackground: Color(0xff795548), // Material Brown 500
-    darkBackground: Color(0xff5d4037), // Material Brown 700
-  ),
-  _CoursePalette(
-    lightBackground: Color(0xff757575), // Material Grey 600
-    darkBackground: Color(0xff616161), // Material Grey 700
-  ),
-];
-
-_CoursePalette _coursePaletteForIndex(int index) {
-  return _coursePalettes[index % _coursePalettes.length];
-}
-
 String _scheduleCourseColorKey(AcademicPersonalScheduleEntry entry) {
   final code = entry.courseCode.trim();
   if (code.isNotEmpty) return code;
@@ -3400,12 +3290,17 @@ Map<String, int> _buildCourseColorIndices(
   for (final key in sortedKeys) {
     final preferredIndex = stableCourseColorIndex(
       key,
-      colorCount: _coursePalettes.length,
+      colorCount: academicScheduleCellPalettes.length,
     );
     var colorIndex = preferredIndex;
-    if (usedIndices.length < _coursePalettes.length) {
-      for (var offset = 0; offset < _coursePalettes.length; offset++) {
-        final candidate = (preferredIndex + offset) % _coursePalettes.length;
+    if (usedIndices.length < academicScheduleCellPalettes.length) {
+      for (
+        var offset = 0;
+        offset < academicScheduleCellPalettes.length;
+        offset++
+      ) {
+        final candidate =
+            (preferredIndex + offset) % academicScheduleCellPalettes.length;
         if (!usedIndices.contains(candidate)) {
           colorIndex = candidate;
           break;

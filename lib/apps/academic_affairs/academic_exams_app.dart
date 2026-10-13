@@ -5,6 +5,7 @@ import 'academic_exams_page.dart';
 
 /// 考试安排：考试安排与日程。
 final academicExamsApp = AppDefinition(
+  retainsGuestShell: true,
   metadata: AppMetadata(
     id: 'feature.academic.exams',
     name: '考试安排',

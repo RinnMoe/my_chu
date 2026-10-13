@@ -7,11 +7,14 @@ import android.content.ComponentName
 import android.content.SharedPreferences
 import android.os.Build
 import android.widget.RemoteViews
+import moe.rinn.mychu.desktopwidgets.WeekScheduleWidgetReceiver
 import moe.rinn.mychu.desktopwidgets.TodayScheduleWidgetReceiver
 
 class MyChuApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        // Retry incomplete upgrade cleanup on the next startup without blocking launch.
+        runCatching { TimeReminderEngine.resetLegacy(this) }
 
         if (
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM &&
@@ -32,6 +35,8 @@ class MyChuApplication : Application() {
             TodayScheduleWidgetReceiver::class.java,
             R.layout.today_schedule_widget_preview,
         )
+        publishWidgetPreviewOnce(preferences, widgetManager, "week_schedule_published_v1",
+            WeekScheduleWidgetReceiver::class.java, R.layout.week_schedule_widget_preview)
     }
 
     private fun publishWidgetPreviewOnce(

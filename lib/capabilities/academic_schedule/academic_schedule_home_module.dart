@@ -19,6 +19,8 @@ import '../../apps/academic_web/shuwei_schedule_importer.dart';
 import 'academic_schedule_navigation.dart';
 import 'academic_schedule_store.dart';
 import 'academic_schedule_utils.dart';
+import 'recent_schedule.dart';
+import 'recent_schedule_repository.dart';
 import '../public_holidays/public_holidays.dart';
 
 typedef AcademicScheduleHomeAccountKeyLoader = Future<String?> Function();
@@ -38,6 +40,7 @@ const _courseListHeight = _courseRowHeight * 3;
 /// `AcademicScheduleCapability` 直接创建的固定首页模块。
 class AcademicScheduleHomeModule extends StatefulWidget {
   final AcademicScheduleStore? store;
+  final RecentScheduleRepository? recentScheduleRepository;
   final ShuweiScheduleImporter? importer;
   final AcademicScheduleHomeGraduateLoader? graduateLoader;
   final AcademicScheduleHomeAccountKeyLoader? accountKeyLoader;
@@ -54,6 +57,7 @@ class AcademicScheduleHomeModule extends StatefulWidget {
     super.key,
 
     this.store,
+    this.recentScheduleRepository,
     this.importer,
     this.graduateLoader,
     this.accountKeyLoader,
@@ -84,6 +88,7 @@ class _AcademicScheduleHomeModuleState
   late final DateTime Function() _clock;
   List<AcademicPersonalScheduleEntry> _courses = const [];
   TeachingScheduleMode _scheduleMode = TeachingScheduleMode.weishui;
+  final Map<String, RecentCourse> _recentCourses = {};
   Object? _error;
   bool _loading = true;
   bool _holiday = false;
@@ -121,14 +126,13 @@ class _AcademicScheduleHomeModuleState
       source.revision.addListener(_onPublicHolidayRevision);
     }
     _clock = widget.clock ?? east8Now;
+    _recentRepository.revision.addListener(_onStoreChanged);
     AcademicScheduleStore.revision.addListener(_onStoreChanged);
     if (!widget.useSharedCalendarState) {
       TemporalChangeService.revision.addListener(_onTemporalChange);
     }
     DemoDataService.revision.addListener(_onDemoChanged);
-    if (!widget.useSharedCalendarState || !widget.calendarStateLoading) {
-      unawaited(_load());
-    }
+    unawaited(_load());
   }
 
   @override
@@ -136,6 +140,7 @@ class _AcademicScheduleHomeModuleState
     _publicHolidayRevisionSource?.revision.removeListener(
       _onPublicHolidayRevision,
     );
+    _recentRepository.revision.removeListener(_onStoreChanged);
     AcademicScheduleStore.revision.removeListener(_onStoreChanged);
     if (!widget.useSharedCalendarState) {
       TemporalChangeService.revision.removeListener(_onTemporalChange);
@@ -172,6 +177,9 @@ class _AcademicScheduleHomeModuleState
     if (!mounted) return;
     unawaited(_load());
   }
+
+  RecentScheduleRepository get _recentRepository =>
+      widget.recentScheduleRepository ?? RecentScheduleRepository.instance;
 
   void _onTemporalChange() {
     // This module remains mounted in the home layout across midnight.  Reload
@@ -253,15 +261,6 @@ class _AcademicScheduleHomeModuleState
         _clearPublicHolidayState();
       });
     }
-    if (widget.useSharedCalendarState && widget.calendarStateLoading) {
-      if (mounted && generation == _generation) {
-        setState(() {
-          _courses = const [];
-          _holiday = false;
-        });
-      }
-      return;
-    }
     try {
       final demo = DemoDataService.instance;
       if (demo.enabled) {
@@ -269,6 +268,7 @@ class _AcademicScheduleHomeModuleState
         final courses = demo.todayCourses() ?? const [];
         if (!mounted || generation != _generation) return;
         setState(() {
+          _recentCourses.clear();
           _courses = holiday ? const [] : courses;
           _scheduleMode = TeachingScheduleMode.weishui;
           _holiday = holiday;
@@ -285,16 +285,69 @@ class _AcademicScheduleHomeModuleState
         );
         return;
       }
+      final accountKey = await _accountKeyLoader();
+      if (accountKey == null || accountKey.trim().isEmpty) {
+        throw const AcademicAffairsException('请先登录后查看我的课表');
+      }
+      final repository = _recentRepository;
+      final window = await repository.read(accountKey);
+      final now = _clock();
+      if (window != null && window.covers(now)) {
+        final day = resolveRecentScheduleDay(
+          date: now,
+          window: window,
+          fresh: repository.isFresh(accountKey, window),
+        );
+        final rows = groupRecentCourseRows(day.courses);
+        if (!mounted || generation != _generation) return;
+        setState(() {
+          _recentCourses
+            ..clear()
+            ..addEntries(rows.map((course) => MapEntry(course.id, course)));
+          _courses =
+              rows
+                  .map(
+                    (course) => AcademicPersonalScheduleEntry(
+                      sourceId: course.id,
+                      courseSequence: course.id,
+                      courseCode: '',
+                      courseName: course.name,
+                      teacher: '',
+                      location: course.location.split(' · ').first,
+                      weekday: now.weekday,
+                      startPeriod: course.startPeriod ?? 1,
+                      endPeriod: course.endPeriod ?? 1,
+                      weeksText: '',
+                      weeks: const [],
+                      practiceWeeks: const [],
+                    ),
+                  )
+                  .toList();
+          _holiday = false;
+          _calendarUnavailable = false;
+          _projectionNow = now;
+          _loading = false;
+          _error = null;
+        });
+        unawaited(_loadPublicHolidays(generation, now, force: forcePublic));
+        return;
+      }
+      _recentCourses.clear();
+      if (widget.useSharedCalendarState && widget.calendarStateLoading) {
+        if (mounted && generation == _generation) {
+          setState(() {
+            _courses = const [];
+            _holiday = false;
+          });
+        }
+        return;
+      }
       if (widget.useSharedCalendarState) {
         final state = widget.calendarState;
         if (state == null || (state.teachingWeek == null && !state.isHoliday)) {
           calendarUnavailable = true;
           throw const AcademicCalendarException('当前教学周暂不可用');
         }
-      }
-      final accountKey = await _accountKeyLoader();
-      if (accountKey == null || accountKey.trim().isEmpty) {
-        throw const AcademicAffairsException('请先登录后查看我的课表');
       }
       final backend = await AcademicAffairsBackendResolver.resolveCurrent();
       var schedule = await _store.readCachedCurrentSchedule(accountKey);
@@ -319,11 +372,12 @@ class _AcademicScheduleHomeModuleState
         if (widget.useSharedCalendarState) {
           state = widget.calendarState!;
         } else {
-          state = forceWeek && widget.calendarStateLoader == null
-              ? await AcademicCalendarService().fetchCurrentCalendarState(
-                  force: true,
-                )
-              : await _calendarStateLoader();
+          state =
+              forceWeek && widget.calendarStateLoader == null
+                  ? await AcademicCalendarService().fetchCurrentCalendarState(
+                    force: true,
+                  )
+                  : await _calendarStateLoader();
         }
         currentWeek = state.teachingWeek;
         holiday = state.isHoliday;
@@ -344,31 +398,39 @@ class _AcademicScheduleHomeModuleState
         }
         throw const AcademicCalendarException('当前教学周暂不可用');
       }
-      final scheduleMode = await campusSettingsService.scheduleModeFor(
-        accountKey,
+      final scheduleMode = await campusSettingsService.scheduleModeFor();
+      final academicNow = now;
+      final day = resolveRecentScheduleDay(
+        date: academicNow,
+        academic: schedule,
+        teachingWeek: CurrentTeachingWeek(
+          term: currentWeek?.term ?? state.term,
+          week: currentWeek?.week ?? state.calendarWeek ?? 1,
+          termStartDate: currentWeek?.termStartDate ?? state.termStartDate,
+        ),
+        teaching: teachingScheduleFor(scheduleMode),
+        holiday: holiday,
       );
-      final now = state.fetchedAt;
-      final scheduleWeek = currentWeek == null
-          ? null
-          : scheduleWeekForTeachingWeek(schedule, currentWeek);
-      final courses = holiday || (currentWeek != null && scheduleWeek == null)
-          ? const <AcademicPersonalScheduleEntry>[]
-          : filterScheduleEntriesForDay(
-              schedule.entries,
-              weekday: now.weekday,
-              week: scheduleWeek,
-            );
+      final courses = <AcademicPersonalScheduleEntry>[
+        for (final course in day.courses)
+          ...schedule.entries.where(
+            (entry) =>
+                academicScheduleEntryKey(entry) == course.academicEntryKey,
+          ),
+      ];
       if (!mounted || generation != _generation) return;
       setState(() {
         _courses = courses;
         _scheduleMode = scheduleMode;
         _holiday = holiday;
         _calendarUnavailable = false;
-        _projectionNow = now;
+        _projectionNow = academicNow;
         _loading = false;
         _error = null;
       });
-      unawaited(_loadPublicHolidays(generation, now, force: forcePublic));
+      unawaited(
+        _loadPublicHolidays(generation, academicNow, force: forcePublic),
+      );
     } catch (error) {
       if (!mounted || generation != _generation) return;
       if (!calendarUnavailable) {
@@ -391,6 +453,7 @@ class _AcademicScheduleHomeModuleState
   }
 
   Future<void> _retry() async {
+    await _recentRepository.refresh();
     if (_calendarUnavailable &&
         widget.useSharedCalendarState &&
         widget.onRetryCalendarState != null) {
@@ -424,14 +487,18 @@ class _AcademicScheduleHomeModuleState
     final active = <AcademicPersonalScheduleEntry>[];
     for (final entry in _courses) {
       final time = teaching.range(entry.startPeriod, entry.endPeriod);
-      if (time == null) continue;
-      if (time.endAt(today).isAfter(now)) active.add(entry);
+      final end = _recentCourses[entry.sourceId]?.end ?? time?.endAt(today);
+      if (end != null && end.isAfter(now)) active.add(entry);
     }
     if (active.isNotEmpty) {
       active.sort((left, right) {
-        final leftTime = teaching.range(left.startPeriod, left.endPeriod)!;
-        final rightTime = teaching.range(right.startPeriod, right.endPeriod)!;
-        return leftTime.startAt(today).compareTo(rightTime.startAt(today));
+        final leftTime =
+            _recentCourses[left.sourceId]?.start ??
+            teaching.range(left.startPeriod, left.endPeriod)!.startAt(today);
+        final rightTime =
+            _recentCourses[right.sourceId]?.start ??
+            teaching.range(right.startPeriod, right.endPeriod)!.startAt(today);
+        return leftTime.compareTo(rightTime);
       });
       return active.take(2).toList(growable: false);
     }
@@ -468,6 +535,7 @@ class _AcademicScheduleHomeModuleState
     } else {
       content = _AcademicScheduleCourseList(
         courses: visibleCourses,
+        recentCourses: _recentCourses,
         scheduleMode: _scheduleMode,
         now: now,
         expanded: _expanded,
@@ -743,6 +811,7 @@ class _AcademicScheduleHomeHoliday extends StatelessWidget {
 }
 
 class _AcademicScheduleCourseList extends StatelessWidget {
+  final Map<String, RecentCourse> recentCourses;
   final List<AcademicPersonalScheduleEntry> courses;
   final TeachingScheduleMode scheduleMode;
   final DateTime now;
@@ -751,6 +820,7 @@ class _AcademicScheduleCourseList extends StatelessWidget {
   final ValueChanged<AcademicPersonalScheduleEntry> onTap;
 
   const _AcademicScheduleCourseList({
+    required this.recentCourses,
     required this.courses,
     required this.scheduleMode,
     required this.now,
@@ -770,6 +840,7 @@ class _AcademicScheduleCourseList extends StatelessWidget {
             height: _courseRowHeight,
             child: AcademicScheduleCourseRow(
               entry: courses[index],
+              recentCourse: recentCourses[courses[index].sourceId],
               scheduleMode: scheduleMode,
               now: now,
               onTap: () => onTap(courses[index]),
@@ -828,6 +899,7 @@ class _AcademicScheduleHomeToggle extends StatelessWidget {
 }
 
 class AcademicScheduleCourseRow extends StatelessWidget {
+  final RecentCourse? recentCourse;
   final AcademicPersonalScheduleEntry entry;
   final TeachingScheduleMode scheduleMode;
   final DateTime now;
@@ -835,13 +907,17 @@ class AcademicScheduleCourseRow extends StatelessWidget {
 
   const AcademicScheduleCourseRow({
     super.key,
+    this.recentCourse,
     required this.entry,
     required this.scheduleMode,
     required this.now,
     required this.onTap,
   });
 
-  bool get ended => _isEnded(entry, now);
+  bool get ended =>
+      recentCourse == null
+          ? _isEnded(entry, now)
+          : !recentCourse!.end.isAfter(now);
 
   @override
   Widget build(BuildContext context) {
@@ -893,7 +969,12 @@ class AcademicScheduleCourseRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _durationLabel(entry, scheduleMode),
+                  recentCourse == null
+                      ? _durationLabel(entry, scheduleMode)
+                      : [
+                        recentCourse!.periodLabel.replaceAll('–', '-'),
+                        recentCourse!.timeLabel.replaceAll('–', '-'),
+                      ].where((part) => part.isNotEmpty).join(' '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelSmall?.copyWith(

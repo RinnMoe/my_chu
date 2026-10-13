@@ -4,6 +4,7 @@ import '../app.dart';
 import 'academic_syllabus_page.dart';
 
 final academicSyllabusApp = AppDefinition(
+  retainsGuestShell: true,
   metadata: AppMetadata(
     id: 'feature.academic.syllabus',
     name: '全校排课查询',

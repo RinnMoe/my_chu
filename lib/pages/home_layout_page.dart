@@ -2,20 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../apps/app.dart';
 import '../apps/app_service.dart';
-import '../services/auth_service.dart';
 import '../services/home_layout_service.dart';
 import 'quick_apps_editor_sheet.dart';
 import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// 首页管理页（独立打开时使用，带标题栏）。
 class HomeLayoutPage extends StatelessWidget {
-  final String? accountKey;
-
-  const HomeLayoutPage({super.key, this.accountKey});
+  const HomeLayoutPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final body = HomeLayoutPanel(accountKey: accountKey);
+    const body = HomeLayoutPanel();
 
     return Scaffold(
       appBar: WindowControlsAwareAppBar(
@@ -28,9 +25,7 @@ class HomeLayoutPage extends StatelessWidget {
 
 /// 首页管理内容面板：供独立页与“页面管理”Tab 复用。
 class HomeLayoutPanel extends StatefulWidget {
-  final String? accountKey;
-
-  const HomeLayoutPanel({super.key, this.accountKey});
+  const HomeLayoutPanel({super.key});
 
   @override
   State<HomeLayoutPanel> createState() => _HomeLayoutPanelState();
@@ -40,7 +35,6 @@ class _HomeLayoutPanelState extends State<HomeLayoutPanel>
     with AutomaticKeepAliveClientMixin {
   static const _maxQuickApps = 8;
 
-  String _accountKey = 'anonymous';
   List<AppDefinition> _quickAppCandidates = const [];
   QuickAppsConfig _quickAppsConfig = const QuickAppsConfig();
   bool _loading = true;
@@ -66,15 +60,10 @@ class _HomeLayoutPanelState extends State<HomeLayoutPanel>
 
   Future<void> _load() async {
     final generation = ++_loadGeneration;
-    final accountKey =
-        widget.accountKey ??
-        (await AuthService.getCurrentAccount())?.accountKey ??
-        'anonymous';
     if (!mounted || generation != _loadGeneration) return;
-    final projection = await AppService.loadQuickAppsProjection(accountKey);
+    final projection = await AppService.loadQuickAppsProjection();
     if (!mounted || generation != _loadGeneration) return;
     setState(() {
-      _accountKey = accountKey;
       _quickAppCandidates = projection.candidates;
       _quickAppsConfig = projection.config;
       _loading = false;
@@ -88,15 +77,15 @@ class _HomeLayoutPanelState extends State<HomeLayoutPanel>
   }
 
   Future<void> _toggleEnabled(bool enabled) async {
-    await HomeLayoutService.setQuickAppsEnabled(_accountKey, enabled);
+    await HomeLayoutService.setQuickAppsEnabled(enabled);
   }
 
   Future<void> _openEditor() async {
-    await showQuickAppsEditorSheet(context, accountKey: _accountKey);
+    await showQuickAppsEditorSheet(context);
   }
 
   Future<void> _openSortMode() async {
-    await showQuickAppsSortModeSheet(context, accountKey: _accountKey);
+    await showQuickAppsSortModeSheet(context);
   }
 
   @override

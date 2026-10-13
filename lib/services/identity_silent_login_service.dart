@@ -141,6 +141,28 @@ class IdentitySilentLoginService {
     }
   }
 
+  /// Resolves a server-confirmed uid while validating an interactive session.
+  /// A secondary-only success has no proven uid and must create a new owner.
+  static Future<({IdentityProbeStatus status, String? uid})>
+  probeInteractiveIdentity(String authCookies) async {
+    final client = _newClient();
+    final jar =
+        ScopedCookieJar()
+          ..seed(CampusServiceEndpoints.idsAuthUri, authCookies)
+          ..seed(CampusServiceEndpoints.identityRealmUri, authCookies);
+    String? uid;
+    try {
+      final status = await _probeUnifiedSession(
+        client,
+        jar,
+        onUid: (value) => uid = value,
+      );
+      return (status: status, uid: uid);
+    } finally {
+      client.close(force: true);
+    }
+  }
+
   static Future<IdentitySilentLoginResult> _recover({
     String? accountKey,
   }) async {
@@ -476,8 +498,9 @@ class IdentitySilentLoginService {
   /// `personalInfo/common/getUserInfo` 探针：统一会话有效时返回已认证。
   static Future<IdentityProbeStatus> _probeUnifiedSession(
     HttpClient client,
-    ScopedCookieJar jar,
-  ) async {
+    ScopedCookieJar jar, {
+    void Function(String)? onUid,
+  }) async {
     final uri = _probeUri;
     try {
       final request = await client.getUrl(uri).timeout(_connectionTimeout);
@@ -503,6 +526,11 @@ class IdentitySilentLoginService {
         fields: {'result': probe.name},
       );
       if (probe == IdentityProbeStatus.authenticated) {
+        final decoded = _tryDecodeJson(body);
+        if (decoded is Map && decoded['datas'] is Map) {
+          final uid = (decoded['datas'] as Map)['uid']?.toString().trim();
+          if (uid != null && uid.isNotEmpty) onUid?.call(uid);
+        }
         return IdentityProbeStatus.authenticated;
       }
       // `getUserInfo` uses the personalInfo path session, which may not be

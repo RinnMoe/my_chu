@@ -1,3 +1,4 @@
+import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -32,7 +33,11 @@ class PortalNoticesPanel extends StatefulWidget {
   State<PortalNoticesPanel> createState() => PortalNoticesPanelState();
 }
 
-class PortalNoticesPanelState extends State<PortalNoticesPanel> {
+class PortalNoticesPanelState extends State<PortalNoticesPanel>
+    with CampusAuthRefresh<PortalNoticesPanel> {
+  @override
+  Future<void> onCampusAuthChanged() => _retryCurrentMode();
+
   static const _pageSize = 10;
 
   final MobileCampusNoticeService _service = MobileCampusNoticeService();

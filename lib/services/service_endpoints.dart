@@ -235,6 +235,9 @@ class CampusServiceEndpoints {
   static const graduateAcademicAffairsBase = 'https://yjs.chd.edu.cn';
   static const campusAppBase = 'https://gwwzxy.chd.edu.cn';
   static const roomisBase = 'https://roomis.chd.edu.cn';
+  static final roomisSchedulesUri = Uri.parse(
+    'https://roomis-api.chd.edu.cn/api/users/self/schedules',
+  );
   static const opacBase = 'http://opac.chd.edu.cn';
   static const qualityAssuranceBase = 'https://jxzlpj.chd.edu.cn';
   static const mobileCampusBase = 'https://app.chd.edu.cn';
@@ -441,6 +444,8 @@ class CampusServiceEndpoints {
     'yjs.chd.edu.cn': CampusServices.graduateAcademicAffairs,
     'gwwzxy.chd.edu.cn': CampusServices.campusApp,
     'roomis.chd.edu.cn': CampusServices.roomReservation,
+    'roomis-api.chd.edu.cn': CampusServices.roomisSchedule,
+    'roomis-mobile.chd.edu.cn': CampusServices.roomisSchedule,
     'opac.chd.edu.cn': CampusServices.libraryOpac,
     'jxzlpj.chd.edu.cn': CampusServices.qualityAssurance,
     'app.chd.edu.cn': CampusServices.mobileCampus,
@@ -584,6 +589,37 @@ class CampusServiceEndpoints {
       seedUri: roomisSpacesUri,
       validationUri: roomisBuildingsUri,
     ),
+    // ROOMIS actual-date schedules have an independent OIDC Bearer session.
+    CampusServiceDefinition(
+      id: CampusServices.roomisSchedule,
+      host: 'roomis-api.chd.edu.cn',
+      additionalHosts: const ['roomis-mobile.chd.edu.cn'],
+      allowedPaths: const [
+        '/api/users/self/schedules',
+        '/api/userinfo',
+        '/login/identity',
+      ],
+      startUri: Uri.parse(
+        'https://identity.chd.edu.cn/auth/realms/chd/protocol/openid-connect/auth',
+      ),
+      seedUri: roomisSchedulesUri,
+      validationUri: Uri.parse('https://roomis-api.chd.edu.cn/api/userinfo'),
+      sessionRefreshAfter: const Duration(minutes: 30),
+      authFailurePolicy: const StatusAuthFailure({401}),
+      sessionMaterializer: OidcCodeMaterializer(
+        authorizationUri: Uri.parse(
+          'https://identity.chd.edu.cn/auth/realms/chd/protocol/openid-connect/auth',
+        ),
+        tokenUri: Uri.parse(
+          'https://identity.chd.edu.cn/auth/realms/chd/protocol/openid-connect/token',
+        ),
+        redirectUri: Uri.parse(
+          'https://roomis-mobile.chd.edu.cn/login/identity',
+        ),
+        conversionUri: Uri.parse('https://roomis.chd.edu.cn/identity/tokens'),
+        clientId: 'roomis-h5',
+      ),
+    ),
     // 图书馆服务（OPAC）：普通 CAS 换票，“收 Cookie”收尾。
     CampusServiceDefinition(
       id: CampusServices.libraryOpac,
@@ -707,6 +743,7 @@ class CampusServiceEndpoints {
       CampusServiceId(value: 'graduate-academic-affairs') => '研究生教务服务',
       CampusServiceId(value: 'campus-app') => '校园应用服务',
       CampusServiceId(value: 'room-reservation') => '教室管理服务',
+      CampusServiceId(value: 'roomis-schedule') => 'ROOMIS 排程服务',
       CampusServiceId(value: 'library-opac') => '图书馆服务',
       CampusServiceId(value: 'quality-assurance') => '评教服务',
       CampusServiceId(value: 'mobile-campus') => '移动校园服务',

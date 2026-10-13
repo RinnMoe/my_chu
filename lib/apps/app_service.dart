@@ -39,42 +39,28 @@ class QuickAppsProjection {
 class AppService {
   /// 持久化键保持稳定（历史版本写入）。
   static const _statesKey = 'plugins.v1.states';
-  static const _recentKey = 'plugins.v1.recent';
-  static const _recentKeyPrefix = 'plugins.v1.recent.';
-  static String _recentKeyFor(String accountKey) =>
-      '$_recentKeyPrefix$accountKey';
+  static const _recentKey = 'preferences.v1.recent';
+  static String _recentKeyFor() => 'preferences.v1.recent';
 
   /// Returns recently used app ids, most recent first.
-  static Future<List<String>> getRecentAppIds(String accountKey) async {
+  static Future<List<String>> getRecentAppIds() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getStringList(_recentKeyFor(accountKey)) ?? const [];
+    return prefs.getStringList(_recentKeyFor()) ?? const [];
   }
 
   /// Records a successful launch so 首页/应用 can order recent apps.
-  static Future<void> recordUsage(
-    String id, {
-    required String accountKey,
-  }) async {
+  static Future<void> recordUsage(String id) async {
     final prefs = await SharedPreferences.getInstance();
-    final current = prefs.getStringList(_recentKeyFor(accountKey)) ?? const [];
+    final current = prefs.getStringList(_recentKeyFor()) ?? const [];
     final next = <String>[id, ...current.where((item) => item != id)];
-    await prefs.setStringList(
-      _recentKeyFor(accountKey),
-      next.take(12).toList(),
-    );
+    await prefs.setStringList(_recentKeyFor(), next.take(12).toList());
     _notifyChanged();
   }
 
   /// 清空旧版全局最近使用与全部账号作用域最近使用。
   static Future<void> clearAllRecent() async {
     final prefs = await SharedPreferences.getInstance();
-    final keys =
-        prefs
-            .getKeys()
-            .where(
-              (key) => key == _recentKey || key.startsWith(_recentKeyPrefix),
-            )
-            .toList();
+    final keys = prefs.getKeys().where((key) => key == _recentKey).toList();
     for (final key in keys) {
       await prefs.remove(key);
     }
@@ -145,7 +131,7 @@ class AppService {
   }
 
   /// 读取常用应用配置；首次读取时按注册表 `defaultPinned` 生成默认选择。
-  static Future<QuickAppsConfig> getQuickAppsConfig(String accountKey) async {
+  static Future<QuickAppsConfig> getQuickAppsConfig() async {
     final demo = DemoDataService.instance;
     if (demo.enabled) {
       final candidates = await getQuickAppCandidates();
@@ -155,23 +141,20 @@ class AppService {
         limit: demo.config.quickAppCount,
       );
     }
-    final stored = await HomeLayoutService.readQuickApps(accountKey);
+    final stored = await HomeLayoutService.readQuickApps();
     if (stored.initialized) return stored;
 
     final candidates = await getQuickAppCandidates();
     return HomeLayoutService.initializeQuickAppsIfNeeded(
-      accountKey,
       _defaultQuickAppsConfig(stored, candidates),
     );
   }
 
   /// Loads catalog state, Quick Apps configuration, and recent usage once for
   /// surfaces that render the full Quick Apps projection.
-  static Future<QuickAppsProjection> loadQuickAppsProjection(
-    String accountKey,
-  ) async {
+  static Future<QuickAppsProjection> loadQuickAppsProjection() async {
     final catalogFuture = loadCatalog();
-    final recentFuture = getRecentAppIds(accountKey);
+    final recentFuture = getRecentAppIds();
     final demo = DemoDataService.instance;
 
     if (demo.enabled) {
@@ -191,7 +174,7 @@ class AppService {
 
     final results = await Future.wait<Object>([
       catalogFuture,
-      HomeLayoutService.readQuickApps(accountKey),
+      HomeLayoutService.readQuickApps(),
       recentFuture,
     ]);
     final catalog = results[0] as AppCatalogSnapshot;
@@ -202,7 +185,6 @@ class AppService {
         stored.initialized
             ? stored
             : await HomeLayoutService.initializeQuickAppsIfNeeded(
-              accountKey,
               _defaultQuickAppsConfig(stored, candidates),
             );
 

@@ -70,11 +70,10 @@ class HostPermissionService {
       HostPermissionPurpose(
         permission: Permission.notification,
         title: '通知权限申请',
-        message: '用于在成绩、待办等重要信息更新时发送系统提醒。',
+        message: '用于发送课前、考试和待办截止的时间提醒。',
       );
 
   static const List<HostPermissionPurpose> initialHomePurposes = [
-    notificationPurpose,
     locationPurpose,
     HostPermissionPurpose(
       permission: Permission.microphone,
@@ -201,19 +200,24 @@ class HostPermissionService {
   Future<HostPermissionFeatureResult> requestNotificationPermission({
     HostPermissionPurposePresenter? presentPurpose,
   }) {
-    if (kIsWeb || _hostPlatform != HostPlatform.android) {
+    if (kIsWeb ||
+        (_hostPlatform != HostPlatform.android &&
+            _hostPlatform != HostPlatform.apple)) {
       return Future.value(HostPermissionFeatureResult.unsupported);
     }
     return _serialize(
-      () => _requestFeatureLocked(
-        [notificationPurpose],
-        presentPurpose: presentPurpose,
-      ),
+      () => _requestFeatureLocked([
+        notificationPurpose,
+      ], presentPurpose: presentPurpose),
     );
   }
 
   Future<bool> isNotificationPermissionGranted() async {
-    if (kIsWeb || _hostPlatform != HostPlatform.android) return false;
+    if (kIsWeb ||
+        (_hostPlatform != HostPlatform.android &&
+            _hostPlatform != HostPlatform.apple)) {
+      return false;
+    }
     try {
       return (await _checkPermission(Permission.notification)).isGranted;
     } catch (_) {

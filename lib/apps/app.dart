@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../capabilities/live_update.dart';
 import '../services/development_mode_service.dart';
 
 export '../services/development_mode_service.dart' show DevelopmentFlag;
@@ -167,23 +166,26 @@ typedef AppOpenAction = Future<bool> Function(BuildContext context);
 
 class AppDefinition {
   final AppMetadata metadata;
+  final bool requiresCampusAccount;
+  final bool retainsGuestShell;
   final WidgetBuilder? pageBuilder;
   final AppOpenAction? openAction;
-  final List<SystemLiveActivityDefinition> systemLiveActivityDefinitions;
 
   WidgetBuilder? get builder => pageBuilder;
 
   const AppDefinition({
     required this.metadata,
+    this.requiresCampusAccount = true,
+    this.retainsGuestShell = false,
     required WidgetBuilder builder,
-    this.systemLiveActivityDefinitions = const [],
   }) : pageBuilder = builder,
        openAction = null;
 
   AppDefinition.action({
     required this.metadata,
+    this.requiresCampusAccount = true,
+    this.retainsGuestShell = false,
     required AppOpenAction action,
-    this.systemLiveActivityDefinitions = const [],
   }) : pageBuilder = null,
        openAction = action {
     if (metadata.showInNavigation) {

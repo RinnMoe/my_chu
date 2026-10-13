@@ -1,0 +1,9 @@
+<resources>
+    <color name="widget_course_0">#73342F</color>
+    <color name="widget_course_1">#284777</color>
+    <color name="widget_course_2">#355032</color>
+    <color name="widget_course_3">#51416D</color>
+    <color name="widget_course_4">#684A26</color>
+    <color name="widget_course_5">#235650</color>
+    <color name="widget_course_text">#F5F5F5</color>
+</resources>

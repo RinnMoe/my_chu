@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../capabilities/campus_places/campus_registry.dart';
-import '../services/auth_service.dart';
 import '../services/campus_settings_service.dart';
 
 typedef CampusSelectionSaved = void Function(String campusId);
@@ -11,7 +10,6 @@ typedef CampusSelectionSaved = void Function(String campusId);
 /// Campus selector used by onboarding. The profile settings sheet has its own
 /// presentation so onboarding keeps its card layout and actions.
 class CampusSelectionPanel extends StatefulWidget {
-  final String accountKey;
   final String title;
   final String message;
   final String? note;
@@ -25,7 +23,6 @@ class CampusSelectionPanel extends StatefulWidget {
 
   const CampusSelectionPanel({
     super.key,
-    required this.accountKey,
     required this.title,
     required this.message,
     this.note,
@@ -44,7 +41,6 @@ class CampusSelectionPanel extends StatefulWidget {
 
 class _CampusSelectionPanelState extends State<CampusSelectionPanel> {
   late final CampusSettingsService _service;
-  late final int _sessionRevision;
   List<CampusEntry> _campuses = const [];
   String? _selectedCampusId;
   bool _loading = true;
@@ -52,38 +48,15 @@ class _CampusSelectionPanelState extends State<CampusSelectionPanel> {
   bool _defaultFallback = false;
   Object? _loadError;
   String? _saveError;
-  bool _closedForStaleSession = false;
 
   @override
   void initState() {
     super.initState();
     _service = widget.service ?? campusSettingsService;
-    _sessionRevision = AuthService.sessionRevision;
-    AuthService.sessionRevisionNotifier.addListener(_onSessionRevisionChanged);
     unawaited(_load());
   }
 
-  @override
-  void dispose() {
-    AuthService.sessionRevisionNotifier.removeListener(
-      _onSessionRevisionChanged,
-    );
-    super.dispose();
-  }
-
-  void _onSessionRevisionChanged() {
-    if (!mounted || _closedForStaleSession) return;
-    if (AuthService.sessionRevision == _sessionRevision) return;
-    _closedForStaleSession = true;
-    widget.onClosed?.call();
-  }
-
-  Future<bool> _isCurrentSession() async {
-    if (AuthService.sessionRevision != _sessionRevision) return false;
-    final account = await AuthService.getCurrentAccount();
-    return account?.accountKey == widget.accountKey &&
-        AuthService.sessionRevision == _sessionRevision;
-  }
+  Future<bool> _isCurrentSession() async => mounted;
 
   Future<void> _load() async {
     if (mounted) {
@@ -95,8 +68,8 @@ class _CampusSelectionPanelState extends State<CampusSelectionPanel> {
     }
     try {
       final campuses = await _service.enabledCampuses();
-      final stored = await _service.readStored(widget.accountKey);
-      final current = await _service.read(widget.accountKey);
+      final stored = await _service.readStored();
+      final current = await _service.read();
       if (!mounted || !(await _isCurrentSession())) return;
       final hasCurrent =
           stored != null &&
@@ -130,9 +103,6 @@ class _CampusSelectionPanelState extends State<CampusSelectionPanel> {
   Future<void> _save() async {
     final selected = _selectedCampusId;
     if (_saving || selected == null || !await _isCurrentSession()) {
-      if (AuthService.sessionRevision != _sessionRevision) {
-        _onSessionRevisionChanged();
-      }
       return;
     }
     setState(() {
@@ -140,7 +110,7 @@ class _CampusSelectionPanelState extends State<CampusSelectionPanel> {
       _saveError = null;
     });
     try {
-      final saved = await _service.set(widget.accountKey, selected);
+      final saved = await _service.set(selected);
       if (!mounted || !(await _isCurrentSession())) return;
       if (!saved) {
         setState(() {

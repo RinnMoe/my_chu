@@ -22,11 +22,9 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <!-- Android 13+ 通知横幅/声音需要运行时权限 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Android 16.1+ 实时动态推广通知需要普通权限 -->
-    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <!-- Optional special access used only for user-enabled scheduled reminders. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <!-- 重启后恢复课程实时动态闹钟 -->
+    <!-- 重启后恢复定时提醒和桌面组件 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <application
         android:name=".MyChuApplication"
@@ -45,6 +43,11 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/today_schedule_widget_info" />
         </receiver>
+        <receiver android:name=".desktopwidgets.WeekScheduleWidgetReceiver"
+            android:exported="true" android:label="@string/week_schedule_widget_label">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/week_schedule_widget_info" />
+        </receiver>
         <receiver
             android:name=".desktopwidgets.DesktopWidgetPackageReplacedReceiver"
             android:exported="false">
@@ -54,7 +57,13 @@
         </receiver>
         <receiver
             android:name=".desktopwidgets.DesktopWidgetRefreshReceiver"
-            android:exported="false" />
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
         <activity
             android:name="androidx.glance.appwidget.action.ActionTrampolineActivity"
             android:exported="false" />
@@ -102,24 +111,16 @@
                 android:resource="@xml/file_paths" />
         </provider>
         <receiver
-            android:name=".LiveUpdateAlarmReceiver"
+            android:name=".TimeReminderReceiver"
             android:exported="false" />
-        <receiver
-            android:name=".ScheduledAlertReceiver"
-            android:exported="false" />
-        <receiver
-            android:name=".LiveUpdateBootReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
         <receiver
             android:name=".TemporalRecoveryReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
         <!-- Don't delete the meta-data below.

@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// 常用应用排序模式。
 enum QuickAppsSortMode { recent, manual }
 
-/// 首页常用应用的账号作用域唯一状态源。
+/// 首页常用应用的设备全局唯一状态源。
 ///
 /// [initialized] 只用于区分“从未生成过配置”与“用户已清空选择”：
 /// 前者由 `AppService` 按注册表默认值生成一次，后者不再补默认值。
@@ -68,72 +68,55 @@ class QuickAppsConfig {
   }
 }
 
-/// 常用应用配置的账号作用域持久化状态。
+/// 常用应用配置的设备全局持久化状态。
 class HomeLayoutService {
-  static const _quickAppsKeyPrefix = 'home.v2.quick_apps.';
-
   /// 显式 Quick Apps 配置变化时递增，供依赖该配置的页面重载。
   /// 首次读取时自动生成 defaultPinned 初始值不会递增。
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
-  static String _quickAppsKey(String accountKey) =>
-      '$_quickAppsKeyPrefix$accountKey';
+  static String _quickAppsKey() => 'preferences.v1.quick_apps';
 
-  static Future<QuickAppsConfig> readQuickApps(String accountKey) async {
+  static Future<QuickAppsConfig> readQuickApps() async {
     final prefs = await SharedPreferences.getInstance();
-    return _readQuickApps(prefs, accountKey);
+    return _readQuickApps(prefs);
   }
 
-  static QuickAppsConfig _readQuickApps(
-    SharedPreferences prefs,
-    String accountKey,
-  ) {
-    final raw = prefs.getString(_quickAppsKey(accountKey));
+  static QuickAppsConfig _readQuickApps(SharedPreferences prefs) {
+    final raw = prefs.getString(_quickAppsKey());
     if (raw == null || raw.isEmpty) return const QuickAppsConfig();
     final decoded = jsonDecode(raw);
     if (decoded is! Map<String, dynamic>) return const QuickAppsConfig();
     return QuickAppsConfig.fromJson(decoded);
   }
 
-  /// Persists generated defaults only if the account has not been initialized.
+  /// Persists generated defaults only if preferences have not been initialized.
   /// This is a first-read materialization, not an explicit user configuration
   /// change, so it does not notify [revision].
   static Future<QuickAppsConfig> initializeQuickAppsIfNeeded(
-    String accountKey,
     QuickAppsConfig defaults,
   ) async {
     final prefs = await SharedPreferences.getInstance();
-    final current = _readQuickApps(prefs, accountKey);
+    final current = _readQuickApps(prefs);
     if (current.initialized) return current;
 
     final initialized = defaults.copyWith(initialized: true);
-    await prefs.setString(
-      _quickAppsKey(accountKey),
-      jsonEncode(initialized.toJson()),
-    );
+    await prefs.setString(_quickAppsKey(), jsonEncode(initialized.toJson()));
     return initialized;
   }
 
-  static Future<void> saveQuickApps(
-    String accountKey,
-    QuickAppsConfig config,
-  ) async {
-    await _writeQuickApps(accountKey, config.copyWith(initialized: true));
+  static Future<void> saveQuickApps(QuickAppsConfig config) async {
+    await _writeQuickApps(config.copyWith(initialized: true));
   }
 
-  static Future<void> setQuickAppsEnabled(
-    String accountKey,
-    bool enabled,
-  ) async {
-    final config = await readQuickApps(accountKey);
-    await saveQuickApps(accountKey, config.copyWith(enabled: enabled));
+  static Future<void> setQuickAppsEnabled(bool enabled) async {
+    final config = await readQuickApps();
+    await saveQuickApps(config.copyWith(enabled: enabled));
   }
 
-  static Future<void> addQuickApp(String accountKey, String appId) async {
-    final config = await readQuickApps(accountKey);
+  static Future<void> addQuickApp(String appId) async {
+    final config = await readQuickApps();
     if (config.selectedAppIds.contains(appId)) return;
     await saveQuickApps(
-      accountKey,
       config.copyWith(
         selectedAppIds: [...config.selectedAppIds, appId],
         manualOrder: [...config.manualOrder, appId],
@@ -141,10 +124,9 @@ class HomeLayoutService {
     );
   }
 
-  static Future<void> removeQuickApp(String accountKey, String appId) async {
-    final config = await readQuickApps(accountKey);
+  static Future<void> removeQuickApp(String appId) async {
+    final config = await readQuickApps();
     await saveQuickApps(
-      accountKey,
       config.copyWith(
         selectedAppIds: config.selectedAppIds
             .where((id) => id != appId)
@@ -156,34 +138,21 @@ class HomeLayoutService {
     );
   }
 
-  static Future<void> setQuickAppsOrder(
-    String accountKey,
-    List<String> order,
-  ) async {
-    final config = await readQuickApps(accountKey);
+  static Future<void> setQuickAppsOrder(List<String> order) async {
+    final config = await readQuickApps();
     await saveQuickApps(
-      accountKey,
       config.copyWith(manualOrder: order, sortMode: QuickAppsSortMode.manual),
     );
   }
 
-  static Future<void> setQuickAppsSortMode(
-    String accountKey,
-    QuickAppsSortMode sortMode,
-  ) async {
-    final config = await readQuickApps(accountKey);
-    await saveQuickApps(accountKey, config.copyWith(sortMode: sortMode));
+  static Future<void> setQuickAppsSortMode(QuickAppsSortMode sortMode) async {
+    final config = await readQuickApps();
+    await saveQuickApps(config.copyWith(sortMode: sortMode));
   }
 
-  static Future<void> _writeQuickApps(
-    String accountKey,
-    QuickAppsConfig config,
-  ) async {
+  static Future<void> _writeQuickApps(QuickAppsConfig config) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _quickAppsKey(accountKey),
-      jsonEncode(config.toJson()),
-    );
+    await prefs.setString(_quickAppsKey(), jsonEncode(config.toJson()));
     revision.value++;
   }
 }

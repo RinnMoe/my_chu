@@ -23,6 +23,7 @@ internal data class TodayScheduleCourse(
     val startPeriod: Int,
     val endPeriod: Int,
     val endAt: Instant?,
+    val startAt: Instant? = null,
 )
 
 internal data class TodayScheduleWidgetData(
@@ -30,6 +31,7 @@ internal data class TodayScheduleWidgetData(
     val status: TodayScheduleStatus,
     val courses: List<TodayScheduleCourse> = emptyList(),
     val currentWeek: Int? = null,
+    val sourceLabel: String? = null,
 )
 
 internal object TodayScheduleSnapshotParser {
@@ -47,6 +49,7 @@ internal object TodayScheduleSnapshotParser {
         source: String,
         businessDate: LocalDate,
         now: Instant? = null,
+        academicOnly: Boolean = false,
     ): TodayScheduleWidgetData {
         val root = JSONObject(source)
         if (root.optInt("schemaVersion", -1) != 1 ||
@@ -56,6 +59,9 @@ internal object TodayScheduleSnapshotParser {
         }
         val schedule = root.optJSONObject("schedule")
             ?: throw JSONException("Missing schedule")
+        if (!academicOnly && schedule.optString("status") != "signedOut") {
+            parseRecent(root, businessDate, now)?.let { return it }
+        }
         val status = when (schedule.optString("status")) {
             "signedOut" -> TodayScheduleStatus.SIGNED_OUT
             "noSchedule" -> TodayScheduleStatus.NO_SCHEDULE
@@ -143,7 +149,40 @@ internal object TodayScheduleSnapshotParser {
             status,
             courses,
             currentWeek,
+            if (!academicOnly && root.has("recentSchedule")) "课程可能未反映调休，打开更新" else null,
         )
+    }
+
+    private fun parseRecent(root: JSONObject, date: LocalDate, now: Instant?): TodayScheduleWidgetData? {
+        val recent = root.optJSONObject("recentSchedule") ?: return null
+        val first = LocalDate.parse(recent.getString("startDate"))
+        val last = LocalDate.parse(recent.getString("endDate"))
+        if (last != first.plusDays(6)) throw JSONException("Invalid recent range")
+        if (date < first || date > last) return null
+        val fetched = Instant.parse(recent.getString("fetchedAt"))
+        val raw = recent.getJSONArray("courses")
+        val courses = ArrayList<TodayScheduleCourse>()
+        for (index in 0 until raw.length()) {
+            val item = raw.getJSONObject(index)
+            val start = Instant.parse(item.getString("start"))
+            val end = Instant.parse(item.getString("end"))
+            val day = start.atOffset(east8).toLocalDate()
+            if (!end.isAfter(start) || day < first || day > last) throw JSONException("Invalid recent course time")
+            val name = item.getString("name").trim()
+            if (name.isEmpty() || item.getString("id").isBlank()) throw JSONException("Invalid recent course")
+            if (day != date || (now != null && !end.isAfter(now))) continue
+            courses.add(TodayScheduleCourse(
+                courseName = name, location = item.getString("location"),
+                displayTime = "${start.atOffset(east8).toLocalTime().toString().take(5)}–${end.atOffset(east8).toLocalTime().toString().take(5)}",
+                startPeriod = item.optInt("startPeriod", 0),
+                endPeriod = item.optInt("endPeriod", 0),
+                startAt = start, endAt = end,
+            ))
+        }
+        courses.sortBy { it.startAt }
+        val fresh = recent.optBoolean("fresh", false) && fetched.atOffset(east8).toLocalDate() == date
+        return TodayScheduleWidgetData(date, TodayScheduleStatus.READY, courses,
+            sourceLabel = if (fresh) null else "课程待更新 · 打开更新")
     }
 
     private fun periodLabel(start: Int, end: Int): String =

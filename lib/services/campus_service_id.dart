@@ -32,6 +32,7 @@ class CampusServices {
   );
   static const campusApp = CampusServiceId('campus-app');
   static const roomReservation = CampusServiceId('room-reservation');
+  static const roomisSchedule = CampusServiceId('roomis-schedule');
   static const libraryOpac = CampusServiceId('library-opac');
   static const qualityAssurance = CampusServiceId('quality-assurance');
   static const mobileCampus = CampusServiceId('mobile-campus');
@@ -49,6 +50,7 @@ class CampusServices {
     graduateAcademicAffairs,
     campusApp,
     roomReservation,
+    roomisSchedule,
     libraryOpac,
     qualityAssurance,
     mobileCampus,

@@ -42,8 +42,6 @@
 		<string>iosamap</string>
 		<string>baidumap</string>
 	</array>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSExceptionDomains</key>

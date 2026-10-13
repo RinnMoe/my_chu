@@ -19,6 +19,9 @@ export 'app_log_event.dart'
 /// Shared structured runtime log. The same event buffer powers the Debug log
 /// page and the public diagnostics export.
 class AppLogger {
+  /// Optional live-event projection; never replays the diagnostic buffer.
+  static void Function(AppLogEvent)? reliabilityObserver;
+
   static List<AppLogEvent> get entries => sharedAppLogBuffer.entries;
 
   static void info(String message) => _legacy('INFO', message);
@@ -111,6 +114,11 @@ class AppLogger {
       );
     }
     sharedAppLogBuffer.add(event);
+    try {
+      reliabilityObserver?.call(event);
+    } on Object {
+      // Monitoring must not interfere with logging or recurse on its failures.
+    }
   }
 
   static void clear() {

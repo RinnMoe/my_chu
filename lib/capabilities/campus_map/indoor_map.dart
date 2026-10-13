@@ -8,6 +8,7 @@ typedef IndoorAssetTextLoader = Future<String> Function(String path);
 
 Future<String> _loadIndoorAsset(String path) => rootBundle.loadString(path);
 
+const String wh1BuildingPlaceId = "weishui.osm.way.831073210";
 const String wx3BuildingPlaceId = "weishui.osm.way.1234004781";
 const String wx2BuildingPlaceId = "weishui.osm.way.1234004782";
 const String wm2BuildingPlaceId = "weishui.osm.way.440689410";
@@ -175,6 +176,7 @@ class IndoorViewState {
 /// lazily when a building or one of its classrooms is selected.
 class CampusIndoorMapRepository {
   static const Map<String, String> _manifestAssets = <String, String>{
+    wh1BuildingPlaceId: "assets/maps/indoor/wh1/indoor_building_manifest.json",
     wx3BuildingPlaceId: "assets/maps/indoor/wx3/indoor_building_manifest.json",
     wx2BuildingPlaceId: "assets/maps/indoor/wx2/indoor_building_manifest.json",
     wm2BuildingPlaceId: "assets/maps/indoor/wm2/indoor_building_manifest.json",

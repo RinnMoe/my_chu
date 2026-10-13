@@ -2,7 +2,6 @@
 import { FlutterAbility, FlutterEngine } from '@ohos/flutter_ohos';
 import AbilityConstant from '@ohos.app.ability.AbilityConstant';
 import { GeneratedPluginRegistrant } from '../plugins/GeneratedPluginRegistrant';
-import MychuHarmonyNotificationPlugin from '../plugins/MychuHarmonyNotificationPlugin';
 import MychuHarmonyLocationPlugin from '../plugins/MychuHarmonyLocationPlugin';
 import MychuHarmonyFileSharePlugin from '../plugins/MychuHarmonyFileSharePlugin';
 import MychuHarmonyQrScannerPlugin from '../plugins/MychuHarmonyQrScannerPlugin';
@@ -87,7 +86,6 @@ export default class EntryAbility extends FlutterAbility {
   configureFlutterEngine(flutterEngine: FlutterEngine) {
     super.configureFlutterEngine(flutterEngine)
     GeneratedPluginRegistrant.registerWith(flutterEngine)
-    flutterEngine.getPlugins()?.add(new MychuHarmonyNotificationPlugin())
     flutterEngine.getPlugins()?.add(new MychuHarmonyLocationPlugin())
     flutterEngine.getPlugins()?.add(new MychuHarmonyFileSharePlugin())
     flutterEngine.getPlugins()?.add(new MychuHarmonyQrScannerPlugin())

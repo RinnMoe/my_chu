@@ -33,7 +33,7 @@ class MainActivity : FlutterActivity() {
     private val APP_LAUNCH_CHANNEL = "mychu/app_launch"
     private val DESKTOP_WIDGET_CHANNEL = "mychu/desktop_widgets"
     private var appLaunchChannel: MethodChannel? = null
-    private var pendingTargetAppId: String? = null
+    private var pendingTargetAppId: Any? = null
     private var pendingWidgetLaunchRequest: String? = null
     private var temporalChangeChannel: TemporalChangeChannel? = null
     private val desktopWidgetScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -41,17 +41,9 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        LiveUpdateChannel.register(
-            context = this,
-            flutterEngine = flutterEngine,
-        )
-        VivoSuperXDemoChannel.register(
-            context = this,
-            flutterEngine = flutterEngine,
-        )
         PlatformCompatibilityChannel.register(this, flutterEngine)
         AndroidDeviceCompatibilityChannel.register(this, flutterEngine)
-        ScheduledAlertChannel.register(this, flutterEngine)
+        TimeReminderEngine.register(this, flutterEngine)
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             DESKTOP_WIDGET_CHANNEL,
@@ -230,8 +222,15 @@ class MainActivity : FlutterActivity() {
                 val target = intent.getStringExtra(EXTRA_TARGET_APP_ID)?.trim()
                 if (!target.isNullOrEmpty()) {
                     pendingWidgetLaunchRequest = null
-                    pendingTargetAppId = target
-                    appLaunchChannel?.invokeMethod("openTarget", target)
+                    val payload: Any = if (intent.hasExtra("reminderOwner")) mapOf(
+                        "source" to "timeReminder", "targetAppId" to target,
+                        "owner" to intent.getStringExtra("reminderOwner"),
+                        "category" to intent.getStringExtra("reminderCategory"),
+                        "eventId" to intent.getStringExtra("reminderEvent"),
+                        "validUntil" to intent.getLongExtra("reminderUntil", 0),
+                    ) else target
+                    pendingTargetAppId = payload
+                    appLaunchChannel?.invokeMethod("openTarget", payload)
                 }
             }
             ACTION_OPEN_WIDGET_TARGET -> {

@@ -1,7 +1,7 @@
 name: mychu
 description: 长安大学第三方校园助手
 publish_to: 'none'
-version: 1.0.1+12
+version: 1.1.0+13
 
 environment:
   sdk: ^3.7.0
@@ -29,7 +29,6 @@ dependencies:
   permission_handler: ^11.3.1
   geolocator: ^14.0.2
   html: ^0.15.6
-  flutter_local_notifications: ^22.2.0
   http: ^1.6.0
   crypto: ^3.0.7
   aptabase_flutter: ^0.5.0
@@ -68,6 +67,10 @@ flutter:
     - assets/maps/campuses.json
     - assets/maps/place_code_rules.json
     - assets/maps/weishui/places.json
+    # WH1 geometry is registered separately from the outdoor semantic catalog.
+    - assets/maps/indoor/wh1/indoor_building_manifest.json
+    - assets/maps/indoor/wh1/mapbox/wh1_indoor_runtime.geojson
+    - assets/maps/indoor/wh1/mapbox/wh1_indoor_interaction.geojson
     # WX3 indoor geometry stays separate from the outdoor semantic catalog.
     - assets/maps/indoor/wx3/indoor_building_manifest.json
     - assets/maps/indoor/wx3/mapbox/wx3_indoor_runtime.geojson

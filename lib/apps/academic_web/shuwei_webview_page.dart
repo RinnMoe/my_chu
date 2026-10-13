@@ -1,3 +1,4 @@
+import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -31,7 +32,11 @@ class ShuweiWebViewPage extends StatefulWidget {
   State<ShuweiWebViewPage> createState() => _ShuweiWebViewPageState();
 }
 
-class _ShuweiWebViewPageState extends State<ShuweiWebViewPage> {
+class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
+    with CampusAuthRefresh<ShuweiWebViewPage> {
+  @override
+  Future<void> onCampusAuthChanged() => _refreshAfterAppResume();
+
   // 直接进入 home.action：避免先加载 eams/ 再跳转产生的连发请求，
   // 首次打开与“刷新”行为一致，不再触发“不要过快点击”风控。
   static final _undergraduateEntry =

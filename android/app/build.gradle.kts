@@ -29,6 +29,25 @@ fun readDartDefine(name: String): String? {
         ?.substringAfter("=")
 }
 
+// Android Studio's Gradle builds do not forward environment variables to Dart.
+// Explicit Flutter defines take precedence; local configuration supplies the default.
+if (readDartDefine("MAPBOX_PUBLIC_ACCESS_TOKEN") == null) {
+    val publicToken = providers.gradleProperty("MAPBOX_PUBLIC_ACCESS_TOKEN").orNull
+        ?: providers.environmentVariable("MAPBOX_PUBLIC_ACCESS_TOKEN").orNull
+    if (!publicToken.isNullOrBlank()) {
+        require(publicToken.startsWith("pk.") && publicToken.length > 3) {
+            "MAPBOX_PUBLIC_ACCESS_TOKEN must be a public pk.* token, not a downloads secret."
+        }
+        val encodedToken = Base64.getEncoder().encodeToString(
+            "MAPBOX_PUBLIC_ACCESS_TOKEN=$publicToken".toByteArray(StandardCharsets.UTF_8),
+        )
+        val existing = project.findProperty("dart-defines")?.toString().orEmpty()
+        project.extensions.extraProperties.set(
+            "dart-defines", listOf(existing, encodedToken).filter { it.isNotEmpty() }.joinToString(","),
+        )
+    }
+}
+
 val configuredBuildChannel = System.getenv("MYCHU_BUILD_CHANNEL")
     ?.trim()
     ?.lowercase()
@@ -173,7 +192,7 @@ flutter {
 }
 
 dependencies {
-    // flutter_local_notifications 需要 core library desugaring。
+    // Glance 等原生依赖使用 core library desugaring。
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     // Android 设备品牌、厂商系统与市场机型名识别。
     implementation("com.github.getActivity:DeviceCompat:2.6")

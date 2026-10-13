@@ -1,9 +1,9 @@
+import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../services/auth_service.dart';
 import '../../services/user_error_message.dart';
 import '../information_portal/information_portal_models.dart';
 import '../information_portal/information_portal_service.dart';
@@ -115,12 +115,19 @@ class PortalPersonalStatusPanel extends StatefulWidget {
 }
 
 class PortalPersonalStatusPanelState extends State<PortalPersonalStatusPanel>
-    with AutomaticKeepAliveClientMixin {
-  static const _balanceHiddenKeyPrefix = 'information_portal.balance_hidden.v1';
+    with
+        AutomaticKeepAliveClientMixin,
+        CampusAuthRefresh<PortalPersonalStatusPanel> {
+  @override
+  Future<void> onCampusAuthChanged() => _load();
+
+  @override
+  bool get campusAuthPageActive => widget.active;
+
+  static const _balanceHiddenKey = 'preferences.v1.balance_hidden';
 
   Map<PortalInfoKind, PortalPersonalInfo>? _data;
   String? _error;
-  String? _accountId;
   bool _balanceHidden = false;
   bool _loading = false;
 
@@ -146,14 +153,10 @@ class PortalPersonalStatusPanelState extends State<PortalPersonalStatusPanel>
   Future<void> refresh({bool force = false}) => _load(force: force);
 
   Future<void> _initializeBalanceHidden() async {
-    final accountId = (await AuthService.getCurrentAccount())?.id;
     final prefs = await SharedPreferences.getInstance();
-    final hidden =
-        prefs.getBool('$_balanceHiddenKeyPrefix.${accountId ?? 'anonymous'}') ??
-        false;
+    final hidden = prefs.getBool(_balanceHiddenKey) ?? false;
     if (!mounted) return;
     setState(() {
-      _accountId = accountId;
       _balanceHidden = hidden;
     });
   }
@@ -189,12 +192,8 @@ class PortalPersonalStatusPanelState extends State<PortalPersonalStatusPanel>
 
   Future<void> _setBalanceHidden(bool hidden) async {
     setState(() => _balanceHidden = hidden);
-    final accountId = _accountId ?? (await AuthService.getCurrentAccount())?.id;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(
-      '$_balanceHiddenKeyPrefix.${accountId ?? 'anonymous'}',
-      hidden,
-    );
+    await prefs.setBool(_balanceHiddenKey, hidden);
   }
 
   @override

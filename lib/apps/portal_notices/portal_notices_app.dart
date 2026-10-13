@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../app.dart';
-import '../../pages/notifications_page.dart';
+import 'portal_notices_page.dart';
+import '../../widgets/apple_window_controls.dart';
 
 /// 通知公告：校园通知与公告，支持关键词搜索、栏目与类型筛选。
 final portalNoticesApp = AppDefinition(
@@ -14,5 +15,11 @@ final portalNoticesApp = AppDefinition(
     developmentFlag: DevelopmentFlag.none,
     removable: false,
   ),
-  builder: (_) => const NotificationsPage(initialTabIndex: 1),
+  builder:
+      (_) => Scaffold(
+        appBar: WindowControlsAwareAppBar(
+          child: AppBar(title: const Text('校园公告')),
+        ),
+        body: const PortalNoticesPanel(),
+      ),
 );

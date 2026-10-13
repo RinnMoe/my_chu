@@ -1,3 +1,6 @@
+import '../capabilities/academic_schedule/recent_schedule_repository.dart';
+import '../services/host_auth_state.dart';
+import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -15,7 +18,6 @@ import '../services/auth_service.dart';
 import '../services/credential_sync_service.dart';
 import '../services/home_layout_service.dart';
 import '../services/home_focus_service.dart';
-import '../services/in_app_notification_service.dart';
 import '../services/logger_service.dart';
 import '../services/weather_service.dart';
 import '../services/campus_settings_service.dart';
@@ -23,7 +25,6 @@ import '../services/demo_data_service.dart';
 import '../services/temporal_change_service.dart';
 import '../services/platform_environment.dart';
 import '../capabilities/east8_time.dart';
-import '../capabilities/alert_center.dart';
 import '../capabilities/dev_visibility.dart';
 import '../capabilities/academic_schedule/academic_schedule_capability.dart';
 import '../capabilities/academic_schedule/academic_schedule_store.dart';
@@ -32,7 +33,6 @@ import '../capabilities/public_holidays/public_holidays.dart';
 import '../capabilities/skeleton_block.dart';
 import 'home_focus_section.dart';
 import 'app_sheet.dart';
-import 'notifications_page.dart';
 import 'quick_apps_editor_sheet.dart';
 import '../widgets/feature_icon_tile.dart';
 
@@ -63,7 +63,10 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
+  @override
+  Future<void> onCampusAuthChanged() => _load();
+
   Account? _account;
   List<AppDefinition> _quickAppCandidates = [];
   List<String> _recentIds = [];
@@ -74,7 +77,6 @@ class _HomePageState extends State<HomePage> {
   int _homeFocusGeneration = 0;
   int _weatherGeneration = 0;
   int _teachingWeekGeneration = 0;
-  int _unreadGeneration = 0;
   int _quickAppsGeneration = 0;
   bool _loading = true;
   bool _teachingWeekLoading = true;
@@ -91,7 +93,6 @@ class _HomePageState extends State<HomePage> {
       _academicCalendarState?.teachingWeek?.week ??
       _academicCalendarState?.calendarWeek;
   bool get _isAcademicHoliday => _academicCalendarState?.isHoliday ?? false;
-  int _unreadCount = 0;
   WeatherInfo? _weather;
   Timer? _focusRefreshTimer;
   late final PublicHolidayProvider _publicHolidayProvider;
@@ -111,15 +112,13 @@ class _HomePageState extends State<HomePage> {
     appCatalogNotifier.addListener(_onQuickAppsSourceChanged);
     HomeLayoutService.revision.addListener(_onQuickAppsSourceChanged);
     CredentialSyncService.statusNotifier.addListener(_onCredentialSyncChanged);
-    InAppNotificationService.revision.addListener(_loadUnread);
-    InAppNotificationService.revision.addListener(
-      _onHomeFocusNotificationRevision,
-    );
-    AlertSubscriptionStore.revision.addListener(_onAlertSubscriptionChanged);
     MobileCampusNoticeService.noticesRevision.addListener(_onHomeFocusRevision);
     AppRemoteServicesService.revision.addListener(_onHomeFocusRevision);
     CampusSettingsService.revision.addListener(_onCampusSettingsChanged);
     TemporalChangeService.revision.addListener(_onTemporalChange);
+    RecentScheduleRepository.instance.revision.addListener(
+      _onHomeFocusRevision,
+    );
     DemoDataService.revision.addListener(_load);
     _load();
   }
@@ -130,7 +129,6 @@ class _HomePageState extends State<HomePage> {
     _homeFocusGeneration++;
     _weatherGeneration++;
     _teachingWeekGeneration++;
-    _unreadGeneration++;
     _quickAppsGeneration++;
     _publicHolidayRevisionSource?.revision.removeListener(
       _onPublicHolidayRevision,
@@ -140,17 +138,15 @@ class _HomePageState extends State<HomePage> {
     CredentialSyncService.statusNotifier.removeListener(
       _onCredentialSyncChanged,
     );
-    InAppNotificationService.revision.removeListener(_loadUnread);
-    InAppNotificationService.revision.removeListener(
-      _onHomeFocusNotificationRevision,
-    );
-    AlertSubscriptionStore.revision.removeListener(_onAlertSubscriptionChanged);
     MobileCampusNoticeService.noticesRevision.removeListener(
       _onHomeFocusRevision,
     );
     AppRemoteServicesService.revision.removeListener(_onHomeFocusRevision);
     CampusSettingsService.revision.removeListener(_onCampusSettingsChanged);
     TemporalChangeService.revision.removeListener(_onTemporalChange);
+    RecentScheduleRepository.instance.revision.removeListener(
+      _onHomeFocusRevision,
+    );
     DemoDataService.revision.removeListener(_load);
     _focusRefreshTimer?.cancel();
     if (widget.publicHolidayProvider == null) {
@@ -169,16 +165,6 @@ class _HomePageState extends State<HomePage> {
     unawaited(_loadHomeFocus(evaluateAlerts: false));
   }
 
-  void _onHomeFocusNotificationRevision() {
-    // Notification revisions are real source events. Bypass the HomeFocus
-    // source cache so a published, read, or resolved item is reflected now.
-    unawaited(_loadHomeFocus(force: true, evaluateAlerts: false));
-  }
-
-  void _onAlertSubscriptionChanged() {
-    unawaited(_loadHomeFocus(force: true, evaluateAlerts: false));
-  }
-
   void _onCampusSettingsChanged() {
     unawaited(_loadWeather());
   }
@@ -195,42 +181,6 @@ class _HomePageState extends State<HomePage> {
     await _refreshTeachingWeek(force: true);
     if (!mounted) return;
     await _loadHomeFocus(force: true, evaluateAlerts: false);
-  }
-
-  Future<void> _loadUnread() async {
-    final generation = ++_unreadGeneration;
-    String? accountKey;
-    try {
-      final account = await AuthService.getCurrentAccount();
-      if (!_isCurrentRequest(generation, _unreadGeneration)) {
-        return;
-      }
-      accountKey = account?.accountKey ?? 'anonymous';
-      if (accountKey != (_account?.accountKey ?? 'anonymous')) return;
-      final unread =
-          account == null
-              ? 0
-              : await InAppNotificationService.unreadCount(account.accountKey);
-      if (!_isCurrentRequest(generation, _unreadGeneration) ||
-          accountKey != (_account?.accountKey ?? 'anonymous')) {
-        return;
-      }
-      setState(() => _unreadCount = unread);
-    } catch (error) {
-      if (!_isCurrentRequest(generation, _unreadGeneration) ||
-          (accountKey != null &&
-              accountKey != (_account?.accountKey ?? 'anonymous'))) {
-        return;
-      }
-      AppLogger.recordSafeFailure(
-        level: 'WARN',
-        code: 'home.notifications.unread.failed',
-        message: '首页未读通知数量加载失败',
-        error: error,
-        domain: 'home',
-        fields: const {'stage': 'unread'},
-      );
-    }
   }
 
   void _onCredentialSyncChanged() {
@@ -258,7 +208,10 @@ class _HomePageState extends State<HomePage> {
     late final int quickAppsGeneration;
     var accountChanged = false;
     try {
-      final account = await AuthService.getCurrentAccount();
+      final account =
+          HostAuthState.snapshot.value.status == HostAuthStatus.storageError
+              ? null
+              : await AuthService.getCurrentAccount();
       if (!_isCurrentRequest(generation, _bootstrapGeneration)) {
         return;
       }
@@ -270,7 +223,6 @@ class _HomePageState extends State<HomePage> {
         _homeFocusGeneration++;
         _weatherGeneration++;
         _teachingWeekGeneration++;
-        _unreadGeneration++;
         setState(() {
           _account = account;
           _quickAppCandidates = [];
@@ -282,12 +234,11 @@ class _HomePageState extends State<HomePage> {
           _weatherLoading = true;
           _academicCalendarState = null;
           _teachingWeekLoading = true;
-          _unreadCount = 0;
           _loading = true;
         });
       }
       quickAppsGeneration = ++_quickAppsGeneration;
-      final projection = await AppService.loadQuickAppsProjection(accountKey);
+      final projection = await AppService.loadQuickAppsProjection();
       if (!_isCurrentRequest(generation, _bootstrapGeneration) ||
           accountKey != (_account?.accountKey ?? 'anonymous')) {
         return;
@@ -301,7 +252,6 @@ class _HomePageState extends State<HomePage> {
         }
         _loading = false;
       });
-      if (accountChanged) unawaited(_loadUnread());
       // This bootstrap warm-up also evaluates account-scoped Portal Personal
       // alerts. Demo mode must not read a real account's personal data.
       if (!DemoDataService.instance.enabled) {
@@ -439,9 +389,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _refreshAll() async {
+    await RecentScheduleRepository.instance.refresh();
     await Future.wait<void>([
       _loadHomeFocus(force: true),
-      _loadUnread(),
       _refreshTeachingWeek(),
       _loadWeather(),
       _reloadQuickAppsProjection(),
@@ -462,7 +412,7 @@ class _HomePageState extends State<HomePage> {
       }
       accountKey = account?.accountKey ?? 'anonymous';
       if (accountKey != (_account?.accountKey ?? 'anonymous')) return;
-      final projection = await AppService.loadQuickAppsProjection(accountKey);
+      final projection = await AppService.loadQuickAppsProjection();
       if (!_isCurrentRequest(generation, _quickAppsGeneration) ||
           accountKey != (_account?.accountKey ?? 'anonymous')) {
         return;
@@ -500,7 +450,7 @@ class _HomePageState extends State<HomePage> {
       accountKey = account?.accountKey ?? 'anonymous';
       if (accountKey != (_account?.accountKey ?? 'anonymous')) return;
       if (mounted) setState(() => _weatherLoading = true);
-      final campus = await campusSettingsService.selectedCampus(accountKey);
+      final campus = await campusSettingsService.selectedCampus();
       if (!_isCurrentRequest(generation, _weatherGeneration) ||
           accountKey != (_account?.accountKey ?? 'anonymous')) {
         return;
@@ -559,6 +509,10 @@ class _HomePageState extends State<HomePage> {
       final account = await AuthService.getCurrentAccount();
       if (!_isCurrentRequest(generation, _teachingWeekGeneration)) return;
       accountKey = account?.accountKey ?? 'anonymous';
+      if (account == null) {
+        setState(() => _teachingWeekLoading = false);
+        return;
+      }
       if (accountKey != (_account?.accountKey ?? 'anonymous')) {
         if (mounted && _isCurrentRequest(generation, _teachingWeekGeneration)) {
           setState(() => _teachingWeekLoading = false);
@@ -679,13 +633,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _openNotifications() {
-    Navigator.push(
-      context,
-      MaterialPageRoute<void>(builder: (_) => const NotificationsPage()),
-    );
-  }
-
   void _openApp(AppDefinition plugin) {
     openAppDefinition(context, plugin);
   }
@@ -737,20 +684,14 @@ class _HomePageState extends State<HomePage> {
     if (!mounted || action == null) return;
     switch (action) {
       case _QuickAppAction.removeFromHome:
-        await HomeLayoutService.removeQuickApp(
-          _account?.accountKey ?? 'anonymous',
-          metadata.id,
-        );
+        await HomeLayoutService.removeQuickApp(metadata.id);
       case _QuickAppAction.details:
         await showAppDetailSheet(context, plugin);
     }
   }
 
   Future<void> _showQuickAppsEditor() async {
-    await showQuickAppsEditorSheet(
-      context,
-      accountKey: _account?.accountKey ?? 'anonymous',
-    );
+    await showQuickAppsEditorSheet(context);
   }
 
   /// 首页固定设计间距：Header → Focus 24~36、Focus → Quick Apps 32~48、
@@ -911,8 +852,6 @@ class _HomePageState extends State<HomePage> {
               weather: _weather,
               teachingWeekLoading: _teachingWeekLoading,
               weatherLoading: _weatherLoading,
-              unreadCount: _unreadCount,
-              onOpenNotifications: _openNotifications,
             ),
             SizedBox(
               height: focusVisible ? _headerToFocusGap : _emptyFocusToAppsGap,
@@ -957,8 +896,6 @@ class _HomePageState extends State<HomePage> {
           weather: _weather,
           teachingWeekLoading: _teachingWeekLoading,
           weatherLoading: _weatherLoading,
-          unreadCount: _unreadCount,
-          onOpenNotifications: _openNotifications,
         ),
         focusVisible: focusVisible,
       );
@@ -981,8 +918,6 @@ class _GreetingHeader extends StatelessWidget {
   final WeatherInfo? weather;
   final bool teachingWeekLoading;
   final bool weatherLoading;
-  final int unreadCount;
-  final VoidCallback onOpenNotifications;
 
   const _GreetingHeader({
     required this.title,
@@ -995,8 +930,6 @@ class _GreetingHeader extends StatelessWidget {
     this.weather,
     this.teachingWeekLoading = false,
     this.weatherLoading = false,
-    required this.unreadCount,
-    required this.onOpenNotifications,
   });
 
   @override
@@ -1057,13 +990,10 @@ class _GreetingHeader extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         IconButton(
-          tooltip: '通知',
-          onPressed: onOpenNotifications,
-          icon: Badge(
-            isLabelVisible: unreadCount > 0,
-            label: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
-            child: const Icon(Icons.notifications_outlined),
-          ),
+          key: const ValueKey('home-campus-notices'),
+          tooltip: '通知公告',
+          icon: const Icon(Icons.notifications_outlined),
+          onPressed: () => openTargetId(context, 'feature.portal.notices'),
         ),
       ],
     );

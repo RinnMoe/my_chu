@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Stores whether the user accepted the current user agreement.
@@ -5,13 +6,17 @@ class PrivacyAgreementService {
   PrivacyAgreementService._();
 
   /// Bump when a new agreement must be explicitly accepted.
-  static const int currentVersion = 2;
+  static const int currentVersion = 3;
   static const String versionKey = 'privacy.agreement.version';
   static const String _legacyMigrationKey =
       'privacy.agreement.legacy_v7_migrated';
   static const String _legacyConsentKey = 'privacy.consent.sdk_list';
   static const String _legacyVersionKey = 'privacy.consent.sdk_list.version';
   static const int _legacyConsentVersion = 7;
+
+  /// Notifies protected pages immediately when the agreement is accepted or
+  /// withdrawn, so they can refresh or clear account-scoped in-memory data.
+  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
   static Future<bool> isAccepted() async {
     final preferences = await SharedPreferences.getInstance();
@@ -24,6 +29,7 @@ class PrivacyAgreementService {
     await _migrateLegacyV7(preferences);
     final saved = await preferences.setInt(versionKey, currentVersion);
     if (!saved) throw StateError('无法保存隐私协议状态');
+    revision.value++;
   }
 
   static Future<void> clear() async {
@@ -33,6 +39,7 @@ class PrivacyAgreementService {
     if (!removed && preferences.containsKey(versionKey)) {
       throw StateError('无法清除隐私协议状态');
     }
+    revision.value++;
   }
 
   static Future<void> _migrateLegacyV7(SharedPreferences preferences) async {
@@ -47,7 +54,8 @@ class PrivacyAgreementService {
         (preferences.getInt(_legacyVersionKey) ?? 0) >= _legacyConsentVersion;
 
     if (legacyAccepted) {
-      final saved = await preferences.setInt(versionKey, currentVersion - 1);
+      // Preserve the historical acceptance; never promote it on a later bump.
+      final saved = await preferences.setInt(versionKey, 1);
       if (!saved) throw StateError('无法迁移既有隐私协议状态');
     }
 

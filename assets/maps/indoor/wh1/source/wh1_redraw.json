@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "buildingId": "WH1",
+  "campusId": "weishui",
+  "buildingPlaceId": "weishui.osm.way.831073210",
+  "parentBuildingPlaceId": "weishui.hongyuan",
+  "displayName": "鸿远教学楼一区",
+  "coordinateFrame": {
+    "originWgs84": [108.8952317, 34.36929296363636],
+    "rotationDegrees": 19.1,
+    "units": "meters",
+    "registration": "WH1 semantic footprint; rotation follows the upper plan edge"
+  },
+  "sourceFloorplans": {
+    "1": "source/WH1_F1_reference.png",
+    "2": "source/WH1_F2_reference.png",
+    "3": "source/WH1_F3_reference.png"
+  },
+  "floors": [
+    {
+      "floor": 1,
+      "rooms": [
+        {"code": "WH1102", "center": [-26.9, 31.0], "size": [19.0, 8.0]},
+        {"code": "WH1101", "center": [16.0, 31.0], "size": [18.0, 8.0]},
+        {"code": "WH1104", "center": [25.0, 20.0], "size": [4.0, 8.8]},
+        {"code": "WH1103", "center": [-37.25, -5.0], "size": [19.5, 14.0]}
+      ],
+      "facilities": [
+        {"id": "stair-northwest", "kind": "stair", "name": "楼梯间", "center": [-39.5, 31.0], "size": [4.2, 8.0]},
+        {"id": "stair-northeast", "kind": "stair", "name": "楼梯间", "center": [27.4, 33.6], "size": [3.2, 5.5]},
+        {"id": "stair-north-core", "kind": "stair", "name": "楼梯间", "center": [-11.5, 18.8], "size": [6.0, 8.0]},
+        {"id": "stair-south-core", "kind": "stair", "name": "楼梯间", "center": [-12.3, 1.2], "size": [5.0, 5.5]},
+        {"id": "stair-east-south", "kind": "stair", "name": "楼梯间", "center": [25.0, -16.5], "size": [4.8, 5.0]},
+        {"id": "restroom-female", "kind": "restroom_female", "name": "女卫", "center": [-16.6, 22.0], "size": [4.0, 3.2]},
+        {"id": "restroom-male", "kind": "restroom_male", "name": "男卫", "center": [-16.6, 18.3], "size": [4.0, 3.2]},
+        {"id": "self-study-east-upper", "kind": "self_study", "name": "自习区", "center": [25.1, 11.5], "size": [4.6, 8.0]},
+        {"id": "self-study-east-lower", "kind": "self_study", "name": "自习区", "center": [25.1, 2.0], "size": [4.6, 8.0]},
+        {"id": "electrical-room", "kind": "electrical_room", "name": "强弱电配电室", "center": [25.0, -7.0], "size": [4.8, 4.0]},
+        {"id": "lobby", "kind": "lobby", "name": "大厅", "center": [-5.5, 31.0], "size": [21.0, 8.0]}
+      ],
+      "voids": []
+    },
+    {
+      "floor": 2,
+      "rooms": [
+        {"code": "WH1203", "center": [-26.8, 31.0], "size": [18.8, 8.0]},
+        {"code": "WH1206", "center": [-10.8, 31.0], "size": [13.0, 8.0]},
+        {"code": "WH1201", "center": [15.7, 31.0], "size": [18.5, 8.0]},
+        {"code": "WH1205", "center": [25.0, 20.0], "size": [4.5, 8.0]},
+        {"code": "WH1204", "center": [-37.0, -5.0], "size": [19.0, 14.0]}
+      ],
+      "facilities": [
+        {"id": "stair-northwest", "kind": "stair", "name": "楼梯间", "center": [-39.5, 31.0], "size": [4.2, 8.0]},
+        {"id": "stair-northeast", "kind": "stair", "name": "楼梯间", "center": [27.4, 33.6], "size": [3.2, 5.5]},
+        {"id": "stair-north-core", "kind": "stair", "name": "楼梯间", "center": [-11.5, 18.8], "size": [6.0, 8.0]},
+        {"id": "stair-south-core", "kind": "stair", "name": "楼梯间", "center": [-12.0, 0.8], "size": [6.0, 5.0]},
+        {"id": "stair-east-south", "kind": "stair", "name": "楼梯间", "center": [25.5, -16.0], "size": [4.8, 4.0]},
+        {"id": "restroom-female", "kind": "restroom_female", "name": "女卫", "center": [-16.6, 22.0], "size": [4.0, 3.2]},
+        {"id": "restroom-male", "kind": "restroom_male", "name": "男卫", "center": [-16.6, 18.3], "size": [4.0, 3.2]},
+        {"id": "self-study-west", "kind": "self_study", "name": "自习区", "center": [-37.0, 3.0], "size": [18.4, 1.2]},
+        {"id": "self-study-west-connector", "kind": "self_study", "name": "自习区", "center": [-24.8, -5.0], "size": [4.5, 14.0]},
+        {"id": "self-study-classroom", "kind": "self_study_classroom", "name": "自习教室", "center": [26.5, -21.0], "size": [8.0, 5.0]},
+        {"id": "teacher-lounge", "kind": "teacher_lounge", "name": "教师休息室", "center": [1.25, 31.0], "size": [9.5, 8.0]},
+        {"id": "duty-room", "kind": "duty_room", "name": "后勤值班室", "center": [25.5, -10.5], "size": [5.0, 3.5]}
+      ],
+      "voids": [
+        [[-4.0, 3.0], [21.0, 3.0], [21.0, 21.0], [17.0, 21.0], [17.0, 18.5], [11.0, 18.5], [11.0, 21.0], [-4.0, 21.0], [-4.0, 3.0]]
+      ]
+    },
+    {
+      "floor": 3,
+      "rooms": [
+        {"code": "WH1302", "center": [-26.8, 31.0], "size": [18.8, 8.0]},
+        {"code": "WH1309", "center": [-10.8, 31.0], "size": [13.0, 8.0]},
+        {"code": "WH1310", "center": [1.5, 31.0], "size": [10.5, 8.0]},
+        {"code": "WH1301", "center": [16.25, 31.0], "size": [18.5, 8.0]},
+        {"code": "WH1308", "center": [25.0, 20.0], "size": [4.5, 8.0]},
+        {"code": "WH1307", "center": [26.0, 7.2], "size": [3.8, 12.8]},
+        {"code": "WH1306", "center": [26.5, -5.8], "size": [4.2, 10.0]},
+        {"code": "WH1303", "center": [-37.0, -5.0], "size": [19.0, 14.0]},
+        {"code": "WH1304", "center": [18.4, -20.5], "size": [5.8, 8.0]},
+        {"code": "WH1305", "center": [24.4, -20.5], "size": [5.8, 8.0]}
+      ],
+      "facilities": [
+        {"id": "stair-northwest", "kind": "stair", "name": "楼梯间", "center": [-39.5, 31.0], "size": [4.2, 8.0]},
+        {"id": "stair-northeast", "kind": "stair", "name": "楼梯间", "center": [27.4, 33.6], "size": [3.2, 5.5]},
+        {"id": "stair-north-core", "kind": "stair", "name": "楼梯间", "center": [-11.5, 18.8], "size": [6.0, 8.0]},
+        {"id": "stair-south-core", "kind": "stair", "name": "楼梯间", "center": [-12.0, 0.8], "size": [6.0, 5.0]},
+        {"id": "stair-east-south", "kind": "stair", "name": "楼梯间", "center": [26.3, -14.0], "size": [4.0, 3.0]},
+        {"id": "restroom-female", "kind": "restroom_female", "name": "女卫", "center": [-16.6, 22.0], "size": [4.0, 3.2]},
+        {"id": "restroom-male", "kind": "restroom_male", "name": "男卫", "center": [-16.6, 18.3], "size": [4.0, 3.2]},
+        {"id": "self-study-west", "kind": "self_study", "name": "自习区", "center": [-37.0, 3.0], "size": [18.4, 1.2]},
+        {"id": "self-study-west-connector", "kind": "self_study", "name": "自习区", "center": [-24.0, -6.5], "size": [4.0, 11.0]},
+        {"id": "self-study-classroom", "kind": "self_study_classroom", "name": "自习教室", "center": [29.4, -20.5], "size": [3.2, 8.5]}
+      ],
+      "voids": [
+        [[-4.0, 3.0], [21.0, 3.0], [21.0, 21.0], [17.0, 21.0], [17.0, 18.5], [11.0, 18.5], [11.0, 21.0], [-4.0, 21.0], [-4.0, 3.0]]
+      ]
+    }
+  ]
+}

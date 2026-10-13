@@ -74,12 +74,6 @@ class AppRegistry {
     final plugin = builtInById(id);
     if (plugin != null) return plugin;
 
-    // Saved todo notifications can outlive the build that wrote them: history
-    // is retained per account, and records without expiresAt do not expire.
-    // Keep old links opening the current personal-data app.
-    if (id == 'feature.tronclass') {
-      return builtInById('feature.portal.personal');
-    }
     return null;
   }
 }

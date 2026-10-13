@@ -1,3 +1,4 @@
+import '../academic_schedule/recent_schedule.dart';
 import 'dart:convert';
 
 enum DesktopWidgetScheduleStatus {
@@ -86,14 +87,31 @@ class DesktopWidgetScheduleV1 {
   final DesktopWidgetScheduleStatus status;
   final String? semesterId;
   final int? currentWeek;
+  final String? firstWeekStartDate;
+  final int? maxWeek;
   final List<DesktopWidgetOccurrenceV1> occurrences;
 
   DesktopWidgetScheduleV1({
     required this.status,
     this.semesterId,
     this.currentWeek,
+    this.firstWeekStartDate,
+    this.maxWeek,
     List<DesktopWidgetOccurrenceV1> occurrences = const [],
   }) : occurrences = List.unmodifiable(occurrences) {
+    if ((firstWeekStartDate == null) != (maxWeek == null) ||
+        (maxWeek != null && maxWeek! < 1)) {
+      throw ArgumentError('周课表日期元数据无效');
+    }
+    if (firstWeekStartDate != null) {
+      final date = DateTime.tryParse(firstWeekStartDate!);
+      if (date == null ||
+          date.toIso8601String().substring(0, 10) != firstWeekStartDate ||
+          date.weekday != DateTime.monday ||
+          status != DesktopWidgetScheduleStatus.ready) {
+        throw ArgumentError('周课表首周必须从周一开始');
+      }
+    }
     if (status != DesktopWidgetScheduleStatus.ready && occurrences.isNotEmpty) {
       throw ArgumentError('只有 ready 课表可以包含课程 occurrence');
     }
@@ -116,6 +134,8 @@ class DesktopWidgetScheduleV1 {
     'status': status.name,
     if (semesterId != null) 'semesterId': semesterId,
     if (currentWeek != null) 'currentWeek': currentWeek,
+    if (firstWeekStartDate != null) 'firstWeekStartDate': firstWeekStartDate,
+    if (maxWeek != null) 'maxWeek': maxWeek,
     'occurrences': [for (final value in occurrences) value.toJson()],
   };
 
@@ -130,9 +150,13 @@ class DesktopWidgetScheduleV1 {
     );
     final semesterId = json['semesterId'];
     final currentWeek = json['currentWeek'];
+    final firstWeekStartDate = json['firstWeekStartDate'];
+    final maxWeek = json['maxWeek'];
     final rawOccurrences = json['occurrences'];
     if ((semesterId != null && semesterId is! String) ||
         (currentWeek != null && currentWeek is! int) ||
+        (firstWeekStartDate != null && firstWeekStartDate is! String) ||
+        (maxWeek != null && maxWeek is! int) ||
         rawOccurrences is! List) {
       throw const FormatException('桌面课表字段无效');
     }
@@ -149,6 +173,8 @@ class DesktopWidgetScheduleV1 {
         status: status,
         semesterId: semesterId as String?,
         currentWeek: currentWeek as int?,
+        firstWeekStartDate: firstWeekStartDate as String?,
+        maxWeek: maxWeek as int?,
         occurrences: occurrences,
       );
     } on ArgumentError {
@@ -163,10 +189,14 @@ class DesktopWidgetSnapshotV1 {
 
   final DateTime generatedAt;
   final DesktopWidgetScheduleV1 schedule;
+  final RecentScheduleWindow? recentSchedule;
+  final bool recentScheduleFresh;
 
   DesktopWidgetSnapshotV1({
     required this.generatedAt,
     required this.schedule,
+    this.recentSchedule,
+    this.recentScheduleFresh = false,
   });
 
   Map<String, Object?> toJson() => {
@@ -174,6 +204,10 @@ class DesktopWidgetSnapshotV1 {
     'generatedAt': generatedAt.toUtc().toIso8601String(),
     'timezoneOffsetMinutes': timezoneOffsetMinutes,
     'schedule': schedule.toJson(),
+    'recentSchedule':
+        recentSchedule == null
+            ? null
+            : {...recentSchedule!.toJson(), 'fresh': recentScheduleFresh},
   };
 
   String encode() => jsonEncode(toJson());
@@ -185,8 +219,7 @@ class DesktopWidgetSnapshotV1 {
     }
     final generatedAtText = json['generatedAt'];
     final rawSchedule = json['schedule'];
-    if (generatedAtText is! String ||
-        rawSchedule is! Map) {
+    if (generatedAtText is! String || rawSchedule is! Map) {
       throw const FormatException('桌面 Widget snapshot 字段无效');
     }
     final generatedAt = DateTime.tryParse(generatedAtText);
@@ -198,6 +231,15 @@ class DesktopWidgetSnapshotV1 {
       schedule: DesktopWidgetScheduleV1.fromJson(
         Map<String, dynamic>.from(rawSchedule),
       ),
+      recentSchedule:
+          json['recentSchedule'] == null
+              ? null
+              : RecentScheduleWindow.fromJson(
+                Map<String, dynamic>.from(json['recentSchedule'] as Map),
+              ),
+      recentScheduleFresh:
+          json['recentSchedule'] is Map &&
+          (json['recentSchedule'] as Map)['fresh'] == true,
     );
   }
 

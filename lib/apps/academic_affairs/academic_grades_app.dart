@@ -5,6 +5,7 @@ import 'academic_grades_page.dart';
 
 /// 成绩查询：成绩、绩点与学分。
 final academicGradesApp = AppDefinition(
+  retainsGuestShell: true,
   metadata: AppMetadata(
     id: 'feature.academic.grades',
     name: '成绩',

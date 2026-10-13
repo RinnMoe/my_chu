@@ -1,3 +1,4 @@
+import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'package:flutter/material.dart';
 
 import '../../capabilities/authenticated_web_view_capability.dart';
@@ -13,7 +14,11 @@ class WozaichangdaPage extends StatefulWidget {
   State<WozaichangdaPage> createState() => _WozaichangdaPageState();
 }
 
-class _WozaichangdaPageState extends State<WozaichangdaPage> {
+class _WozaichangdaPageState extends State<WozaichangdaPage>
+    with CampusAuthRefresh<WozaichangdaPage> {
+  @override
+  Future<void> onCampusAuthChanged() => _fetchApps();
+
   List<WozaichangdaCategory> _categories = [];
   bool _loading = true;
   String? _error;

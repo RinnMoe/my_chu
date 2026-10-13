@@ -141,6 +141,28 @@ class TokenFromRedirect extends SessionMaterializer {
   }
 }
 
+/// Public-client authorization code followed by a service token conversion.
+/// The inherited header artifact policy keeps tokens inside the host store.
+class OidcCodeMaterializer extends TokenFromRedirect {
+  final Uri authorizationUri;
+  final Uri tokenUri;
+  final Uri redirectUri;
+  final Uri conversionUri;
+  final String clientId;
+
+  const OidcCodeMaterializer({
+    required this.authorizationUri,
+    required this.tokenUri,
+    required this.redirectUri,
+    required this.conversionUri,
+    required this.clientId,
+  }) : super(
+         queryParameter: 'access_token',
+         headerName: 'Authorization',
+         prefix: 'Bearer ',
+       );
+}
+
 class WebViewSessionMaterializer extends SessionMaterializer {
   final bool ephemeral;
 

@@ -1,3 +1,4 @@
+import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'package:flutter/material.dart';
 
 import '../../capabilities/east8_time.dart';
@@ -21,7 +22,13 @@ class PortalTodosView extends StatefulWidget {
 }
 
 class _PortalTodosViewState extends State<PortalTodosView>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, CampusAuthRefresh<PortalTodosView> {
+  @override
+  Future<void> onCampusAuthChanged() => _retry();
+
+  @override
+  bool get campusAuthPageActive => widget.active;
+
   List<TronclassTodo>? _todos;
   String? _error;
   bool _loading = false;

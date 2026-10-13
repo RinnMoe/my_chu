@@ -1,3 +1,6 @@
+import '../services/host_auth_state.dart';
+import '../widgets/campus_auth_boundary.dart';
+import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
@@ -96,7 +99,11 @@ class AuthenticatedWebViewCapability {
       autoCompleteAuthentication: autoCompleteAuthentication,
     );
 
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CampusAuthBoundary(title: title, builder: (_) => page),
+      ),
+    );
   }
 
   static Future<void> openSessionForService(
@@ -112,7 +119,11 @@ class AuthenticatedWebViewCapability {
       showBottomBar: showBottomBar,
     );
 
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CampusAuthBoundary(title: title, builder: (_) => page),
+      ),
+    );
   }
 
   static Widget pageForService({
@@ -234,7 +245,11 @@ class _PreparedWebViewLoad {
   final Map<String, String> headers;
 }
 
-class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage> {
+class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
+    with CampusAuthRefresh<AuthenticatedWebViewPage> {
+  @override
+  Future<void> onCampusAuthChanged() => _refreshAfterAppResume();
+
   static final UnmodifiableListView<UserScript> _privacyUserScripts =
       UnmodifiableListView([
         UserScript(
@@ -698,7 +713,9 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage> {
     }
     try {
       final account = await AuthService.getCurrentAccount();
-      if (account == null) throw StateError('请先登录');
+      if (account == null) {
+        throw const CampusAuthenticationRequired(HostAuthStatus.guest);
+      }
       final requestedUri =
           widget.url == null ? null : Uri.tryParse(widget.url!);
       final originalUri =
@@ -1021,7 +1038,9 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage> {
                 }
                 await _runOnLoadStopScript(controller);
                 await _updateNavigationState(controller);
-                _loadAttempt?.succeed();
+                if (_error == null && !_authenticationGateActive) {
+                  _loadAttempt?.succeed();
+                }
               },
               onReceivedError: (controller, request, error) {
                 if (!mounted || request.isForMainFrame != true) return;

@@ -5,6 +5,7 @@ import 'classroom_usage_page.dart';
 
 /// 空教室查询：只读查询各时段空教室，凭证由统一身份层提供。
 final classroomUsageApp = AppDefinition(
+  retainsGuestShell: true,
   metadata: AppMetadata(
     id: 'feature.classroom.usage',
     name: '空教室查询',

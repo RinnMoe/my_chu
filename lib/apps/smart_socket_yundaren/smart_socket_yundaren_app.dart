@@ -4,6 +4,7 @@ import '../app.dart';
 import 'smart_socket_yundaren_page.dart';
 
 final smartSocketYundarenApp = AppDefinition(
+  requiresCampusAccount: false,
   metadata: AppMetadata(
     id: 'feature.smart_socket.yundaren',
     name: '云达人',

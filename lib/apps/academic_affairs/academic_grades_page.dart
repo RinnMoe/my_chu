@@ -1,3 +1,5 @@
+import 'package:mychu/widgets/campus_auth_boundary.dart';
+import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -22,7 +24,11 @@ class AcademicGradesPage extends StatefulWidget {
   State<AcademicGradesPage> createState() => _AcademicGradesPageState();
 }
 
-class _AcademicGradesPageState extends State<AcademicGradesPage> {
+class _AcademicGradesPageState extends State<AcademicGradesPage>
+    with CampusAuthRefresh<AcademicGradesPage> {
+  @override
+  Future<void> onCampusAuthChanged() => _reloadGrades();
+
   AcademicGradeReport? _grades;
   Object? _error;
   String? _selectedTerm;
@@ -50,6 +56,7 @@ class _AcademicGradesPageState extends State<AcademicGradesPage> {
   }
 
   Future<void> _load() async {
+    if (campusAuthGuest) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -76,6 +83,7 @@ class _AcademicGradesPageState extends State<AcademicGradesPage> {
   }
 
   Future<void> _reloadGrades() async {
+    if (campusAuthGuest) return;
     final service = AcademicAffairsService();
     final result = await captureAcademicSection(
       widget.gradeLoader ?? service.fetchGrades,
@@ -127,7 +135,11 @@ class _AcademicGradesPageState extends State<AcademicGradesPage> {
 
     return Scaffold(
       appBar: WindowControlsAwareAppBar(child: AppBar(title: const Text('成绩'))),
-      body: view,
+      body: CampusProtectedContent(
+        title: '成绩',
+        icon: Icons.school_outlined,
+        builder: (_) => view,
+      ),
     );
   }
 }

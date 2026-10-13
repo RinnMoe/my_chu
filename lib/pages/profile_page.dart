@@ -1,3 +1,5 @@
+import '../capabilities/host_login.dart';
+import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -31,7 +33,11 @@ class ProfilePage extends StatefulWidget {
 
 enum _AccountPhase { loading, signedIn, signedOut, failed }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends State<ProfilePage>
+    with CampusAuthRefresh<ProfilePage> {
+  @override
+  Future<void> onCampusAuthChanged() => _load();
+
   _AccountPhase _accountPhase = _AccountPhase.loading;
   Account? _account;
   CampusNetworkStatus? _networkStatus;
@@ -47,6 +53,7 @@ class _ProfilePageState extends State<ProfilePage> {
     CampusSettingsService.revision.addListener(_updateCampusLabel);
     _themeLabel = _labelFor(themePreferencesNotifier.value);
     _load();
+    _loadCampusLabel();
     _loadNetworkStatus();
     _loadVersion();
   }
@@ -74,30 +81,26 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _updateCampusLabel() {
-    final accountKey = _account?.accountKey;
-    if (!mounted || accountKey == null) return;
-    unawaited(_loadCampusLabel(accountKey));
+    if (!mounted) return;
+    unawaited(_loadCampusLabel());
   }
 
-  Future<void> _loadCampusLabel(String accountKey) async {
-    final campusId = await campusSettingsService.read(accountKey);
+  Future<void> _loadCampusLabel() async {
+    final campusId = await campusSettingsService.read();
     final campus = await campusSettingsService.campusFor(campusId);
     final label = campus?.displayName ?? '渭水校区';
-    if (!mounted ||
-        _account?.accountKey != accountKey ||
-        label == _campusLabel) {
+    if (!mounted || label == _campusLabel) {
       return;
     }
     setState(() => _campusLabel = label);
   }
 
   Future<void> _showCampusSettingsSheet() async {
-    final accountKey = _account?.accountKey;
-    if (accountKey == null || !mounted) return;
+    if (!mounted) return;
 
-    await showCampusSettingsSheet(context, accountKey: accountKey);
-    if (mounted && _account?.accountKey == accountKey) {
-      await _loadCampusLabel(accountKey);
+    await showCampusSettingsSheet(context);
+    if (mounted) {
+      await _loadCampusLabel();
     }
   }
 
@@ -115,7 +118,7 @@ class _ProfilePageState extends State<ProfilePage> {
           _account = account;
           _accountPhase = _AccountPhase.signedIn;
         });
-        unawaited(_loadCampusLabel(account.accountKey));
+        unawaited(_loadCampusLabel());
         if (!PortalIdentityService.hasDisplayName(account.name) ||
             account.uid == null ||
             !PortalIdentityService.hasIdentity(account.identity)) {
@@ -366,7 +369,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 ],
               ),
               const SizedBox(height: 8),
-              SignOutAction(onPressed: _confirmSignOut),
+              if (_account != null)
+                SignOutAction(onPressed: _confirmSignOut)
+              else
+                FilledButton.icon(
+                  onPressed: () => HostLogin.open(context),
+                  icon: const Icon(Icons.login),
+                  label: const Text('登录校园账号'),
+                ),
             ],
           ),
         ),

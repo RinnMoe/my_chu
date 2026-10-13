@@ -1,3 +1,4 @@
+import 'host_auth_state.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -15,6 +16,7 @@ import 'logger_service.dart';
 import 'login_required_notifier.dart';
 import 'mobile_campus_request_signer.dart';
 import 'federated_session.dart';
+import 'oidc_code_session.dart';
 import 'network_self_service_auth_service.dart';
 import 'persistent_campus_cookie_jar.dart';
 import 'scoped_cookie_jar.dart';
@@ -237,6 +239,7 @@ class CampusSessionService {
     CampusServiceId serviceId, {
     bool forceRefresh = false,
   }) async {
+    HostAuthState.requireRequestsAllowed();
     final account = await AuthService.getCurrentAccount();
     if (account == null) return null;
     var sessionRevision = AuthService.sessionRevision;
@@ -799,6 +802,12 @@ class CampusSessionService {
     final (CampusServiceSession? session, bool authExpired) =
         exchangeOverride != null
             ? await exchangeOverride!(account, definition, authCookies)
+            : materializer is OidcCodeMaterializer
+            ? await _exchangeOidcCodeSession(
+              definition,
+              materializer,
+              authCookies,
+            )
             : materializer.containsWebViewSessionMaterializer
             ? await _exchangeQualityAssuranceSession(authCookies)
             : await _exchangeFederatedSessionWithState(definition, authCookies);
@@ -855,6 +864,23 @@ class CampusSessionService {
           ? session
           : session.withMaterializationStamp(committed.stamp!),
       false,
+    );
+  }
+
+  static Future<(CampusServiceSession?, bool)> _exchangeOidcCodeSession(
+    CampusServiceDefinition definition,
+    OidcCodeMaterializer policy,
+    String cookies,
+  ) async {
+    final result = await OidcCodeSession.acquire(definition, policy, cookies);
+    return (
+      result.token == null
+          ? null
+          : CampusServiceSession(
+            cookieHeader: '',
+            headers: {'Authorization': 'Bearer ${result.token}'},
+          ),
+      result.authExpired,
     );
   }
 

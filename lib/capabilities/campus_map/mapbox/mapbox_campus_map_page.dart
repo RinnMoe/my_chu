@@ -5,7 +5,6 @@ import "package:flutter/material.dart";
 
 import "../../campus_places/campus_places.dart";
 import "../../external_navigation/external_navigation.dart";
-import "../../../services/auth_service.dart";
 import "../../../services/campus_settings_service.dart";
 import "../../../services/host_platform.dart";
 import "../../../pages/host_permission_purpose_overlay.dart";
@@ -107,10 +106,7 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
   }
 
   Future<void> _initializeController() async {
-    final account = await AuthService.getCurrentAccount();
-    final campusId = await campusSettingsService.read(
-      account?.accountKey ?? "anonymous",
-    );
+    final campusId = await campusSettingsService.read();
     if (!mounted) return;
     await _controller.initialize(preferredCampusId: campusId);
   }

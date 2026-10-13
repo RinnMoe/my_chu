@@ -2,6 +2,7 @@ import fs from '@ohos.file.fs';
 import { formBindingData } from '@kit.FormKit';
 
 export const TODAY_SCHEDULE_FORM = 'today_schedule';
+export const WEEK_SCHEDULE_FORM = 'week_schedule';
 export const SCHEDULE_TARGET_ID = 'feature.academic.schedule';
 
 const SNAPSHOT_FILE = 'desktop_widget_snapshot_v1.json';
@@ -34,6 +35,7 @@ const EMPTY_SNAPSHOT_PAYLOAD: DesktopWidgetSnapshotPayload = {
 const EMPTY_SNAPSHOT = JSON.stringify(EMPTY_SNAPSHOT_PAYLOAD);
 
 export interface DesktopWidgetOccurrence {
+  endAt?: string;
   id: string;
   date: string;
   courseName: string;
@@ -48,11 +50,22 @@ export interface DesktopWidgetOccurrence {
 export interface DesktopWidgetSchedule {
   status: string;
   currentWeek: number | null;
+  firstWeekStartDate: string | null;
+  maxWeek: number | null;
   occurrences: Array<DesktopWidgetOccurrence>;
 }
 
 export interface DesktopWidgetSnapshot {
   schedule: DesktopWidgetSchedule;
+  recentSchedule: DesktopWidgetRecentSchedule | null;
+}
+
+export interface DesktopWidgetRecentSchedule {
+  startDate: string;
+  endDate: string;
+  fetchedAt: string;
+  fresh: boolean;
+  occurrences: Array<DesktopWidgetOccurrence>;
 }
 
 export interface DesktopWidgetFormRegistration {
@@ -113,6 +126,8 @@ export function parseDesktopWidgetSnapshot(
 
     const statusValue = schedule['status'];
     const weekValue = schedule['currentWeek'];
+    const firstWeekValue = schedule['firstWeekStartDate'];
+    const maxWeekValue = schedule['maxWeek'];
     const rawOccurrences = schedule['occurrences'];
     if (typeof statusValue !== 'string' || !Array.isArray(rawOccurrences) ||
       !['signedOut', 'noSchedule', 'calendarUnavailable', 'ready']
@@ -123,6 +138,18 @@ export function parseDesktopWidgetSnapshot(
     if (weekValue !== undefined && weekValue !== null &&
       (typeof weekValue !== 'number' || !Number.isInteger(weekValue) || weekValue < 1)) {
       return null;
+    }
+
+    const firstWeekPresent = firstWeekValue !== undefined && firstWeekValue !== null;
+    const maxWeekPresent = maxWeekValue !== undefined && maxWeekValue !== null;
+    if (firstWeekPresent !== maxWeekPresent) return null;
+    if (firstWeekPresent) {
+      if (statusValue !== 'ready' || typeof firstWeekValue !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(firstWeekValue) || typeof maxWeekValue !== 'number' ||
+        !Number.isInteger(maxWeekValue) || maxWeekValue < 1) return null;
+      const firstWeekDate = new Date(`${firstWeekValue}T00:00:00Z`);
+      if (isNaN(firstWeekDate.getTime()) || firstWeekDate.toISOString().slice(0, 10) !== firstWeekValue ||
+        firstWeekDate.getUTCDay() !== 1) return null;
     }
 
     const occurrences: Array<DesktopWidgetOccurrence> = [];
@@ -161,16 +188,60 @@ export function parseDesktopWidgetSnapshot(
       });
     }
 
+    const recent = parseRecentSchedule(root['recentSchedule']);
     return {
+      recentSchedule: recent,
       schedule: {
         status: statusValue,
         currentWeek: typeof weekValue === 'number' ? weekValue : null,
+        firstWeekStartDate: typeof firstWeekValue === 'string' ? firstWeekValue : null,
+        maxWeek: typeof maxWeekValue === 'number' ? maxWeekValue : null,
         occurrences: occurrences,
       },
     };
   } catch (_) {
     return null;
   }
+}
+
+function parseRecentSchedule(value: Object | undefined): DesktopWidgetRecentSchedule | null {
+  const raw = asRecord(value);
+  if (raw === null) return null;
+  const first = raw['startDate'];
+  const last = raw['endDate'];
+  const fetched = raw['fetchedAt'];
+  const items = raw['courses'];
+  if (typeof first !== 'string' || typeof last !== 'string' ||
+    typeof fetched !== 'string' || !Array.isArray(items) ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(first) || !/^\d{4}-\d{2}-\d{2}$/.test(last) ||
+    Date.parse(last) - Date.parse(first) !== 6 * 86400000 || isNaN(Date.parse(fetched))) return null;
+  const occurrences: Array<DesktopWidgetOccurrence> = [];
+  for (const entry of items as Array<Object>) {
+    const item = asRecord(entry);
+    if (item === null) return null;
+    const id = item['id'];
+    const name = item['name'];
+    const location = item['location'];
+    const start = item['start'];
+    const end = item['end'];
+    if (typeof id !== 'string' || id.length === 0 || typeof name !== 'string' || name.length === 0 ||
+      typeof location !== 'string' || typeof start !== 'string' || typeof end !== 'string' ||
+      isNaN(Date.parse(start)) || isNaN(Date.parse(end)) || Date.parse(end) <= Date.parse(start)) return null;
+    const startText = new Date(Date.parse(start) + EAST8_OFFSET_MS).toISOString();
+    const endText = new Date(Date.parse(end) + EAST8_OFFSET_MS).toISOString();
+    const date = startText.slice(0, 10);
+    if (date < first || date > last) return null;
+    occurrences.push({
+      id: id, date: date, courseName: name, location: location,
+      startPeriod: typeof item['startPeriod'] === 'number' ? item['startPeriod'] as number : 0,
+      endPeriod: typeof item['endPeriod'] === 'number' ? item['endPeriod'] as number : 0,
+      periodLabel: '', startTime: startText.slice(11, 16), endTime: endText.slice(11, 16),
+      endAt: end,
+    });
+  }
+  occurrences.sort((a: DesktopWidgetOccurrence, b: DesktopWidgetOccurrence) =>
+    a.date.localeCompare(b.date) || (a.startTime ?? '').localeCompare(b.startTime ?? ''));
+  return { startDate: first, endDate: last, fetchedAt: fetched, fresh: raw['fresh'] === true, occurrences: occurrences };
 }
 
 function atomicWrite(path: string, source: string): void {
@@ -225,7 +296,7 @@ function readRegistrations(filesDir: string): Array<DesktopWidgetFormRegistratio
       const dimension = item['dimension'];
       if (typeof formId !== 'string' || formId.length === 0 ||
         typeof formName !== 'string' ||
-        formName !== TODAY_SCHEDULE_FORM ||
+        (formName !== TODAY_SCHEDULE_FORM && formName !== WEEK_SCHEDULE_FORM) ||
         typeof dimension !== 'number') {
         continue;
       }
@@ -277,16 +348,19 @@ export function createDesktopWidgetFormData(
   dimension: number,
 ): formBindingData.FormBindingData {
   let source = EMPTY_SNAPSHOT;
+  let sourceAvailable = false;
   try {
     source = fs.readTextSync(`${filesDir}/${SNAPSHOT_FILE}`);
+    sourceAvailable = true;
   } catch (_) {
     // A newly added card renders an empty state until the host publishes V1.
   }
   const snapshot = parseDesktopWidgetSnapshot(source);
   return formBindingData.createFormBindingData({
     formName: formName,
+    renderedAt: Date.now(),
     snapshot: snapshot === null ? EMPTY_SNAPSHOT : source,
-    snapshotAvailable: snapshot !== null,
+    snapshotAvailable: sourceAvailable && snapshot !== null,
     formDimension: dimension,
   });
 }

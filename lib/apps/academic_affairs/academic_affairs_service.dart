@@ -5,8 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html_parser;
 
-import '../../capabilities/alert_center.dart';
-import '../../capabilities/alert_models.dart';
+import '../../services/time_reminder_service.dart';
 import '../../capabilities/east8_time.dart';
 import '../../capabilities/persistent_summary_cache.dart';
 import '../../capabilities/text_utils.dart';
@@ -22,82 +21,6 @@ typedef AcademicAffairsDocumentLoader =
     Future<Document> Function(Uri uri, {required String method, String? body});
 
 class AcademicAffairsService {
-  static const _gradesChangedProviderId = 'academic.grades.changed';
-  static const _examsSoonProviderId = 'academic.exams.soon';
-
-  /// 成绩更新提醒提供者（订阅制）：指纹变化时经 [AlertCenterService] 评估。
-  static final AlertProvider gradeAlertProvider = AlertProvider(
-    id: _gradesChangedProviderId,
-    source: '教务',
-    title: '成绩有更新',
-    kind: AlertKind.event,
-    severity: AlertSeverity.info,
-    evaluate: (params, data) {
-      final report = data;
-      if (report is! AcademicGradeReport) return const [];
-      if (report.majorGrades.isEmpty && report.minorGrades.isEmpty) {
-        return const [];
-      }
-      return [
-        AlertDraft(
-          fingerprintKey: gradeFingerprint(report).toString(),
-          title: '成绩有更新',
-          body: '成绩单有新变化，打开教务系统查看详情',
-          deeplinkAppId: 'feature.academic.grades',
-        ),
-      ];
-    },
-  );
-
-  /// 考试临近提醒提供者（订阅制）：进入提醒窗口的考试才提醒。
-  static final AlertProvider examsSoonAlertProvider = AlertProvider(
-    id: _examsSoonProviderId,
-    source: '教务',
-    title: '考试临近',
-    kind: AlertKind.deadline,
-    severity: AlertSeverity.warning,
-    params: const [
-      AlertParamSpec(
-        key: 'leadTimeHours',
-        label: '提前提醒',
-        type: AlertParamType.hours,
-        defaultValue: 72,
-        min: 1,
-        max: 336,
-        unit: '小时',
-      ),
-    ],
-    evaluate: (params, data) {
-      final exams =
-          data is List
-              ? data.whereType<AcademicExam>().toList()
-              : const <AcademicExam>[];
-      if (exams.isEmpty) return const [];
-      final hours = (params['leadTimeHours'] as num?)?.toDouble() ?? 72;
-      final lead = Duration(hours: hours.round());
-      final now = east8Now();
-      final windowEnd = now.add(lead);
-      final drafts = <AlertDraft>[];
-      for (final exam in exams) {
-        final start = academicExamStart(exam, requireExplicitTime: true);
-        if (start == null) continue;
-        if (start.isBefore(now) || start.isAfter(windowEnd)) continue;
-        drafts.add(
-          AlertDraft(
-            fingerprintKey: 'exam:${exam.courseSequence}:${exam.examDate}',
-            title: '考试临近',
-            body:
-                '${exam.courseName.ifEmpty(exam.courseSequence)}'
-                ' · ${start.month}月${start.day}日'
-                '${exam.location.isNotEmpty ? ' · ${exam.location}' : ''}',
-            deeplinkAppId: 'feature.academic.exams',
-          ),
-        );
-      }
-      return drafts;
-    },
-  );
-
   static final _client = CampusSession.client(CampusServices.academicAffairs);
   static final _graduateClient = CampusSession.client(
     CampusServices.graduateAcademicAffairs,
@@ -111,15 +34,6 @@ class AcademicAffairsService {
     fromJson: AcademicGradeReport.fromJson,
     toJson: (report) => report.toJson(),
     fingerprint: gradeFingerprint,
-    onChanged: (accountKey, previous, fresh) {
-      unawaited(
-        AlertCenterService.evaluate(
-          accountKey,
-          _gradesChangedProviderId,
-          fresh,
-        ),
-      );
-    },
   );
 
   /// Test hook for [fetchGrades] to run with a fake account key instead of
@@ -432,61 +346,56 @@ class AcademicAffairsService {
     String? batchId, [
     bool evaluateAlerts = true,
   ]) async {
+    final owner = await _tryCurrentAccountKey();
+    final revision = AuthService.sessionRevision;
     final backend = await _resolveBackend();
     if (backend == AcademicAffairsBackend.graduate) {
       final exams = await _fetchGraduateExams(semesterId);
-      if (evaluateAlerts) _evaluateExamsSoon(exams);
+      if (evaluateAlerts &&
+          (batchId == null || batchId == '0') &&
+          owner != null &&
+          revision == AuthService.sessionRevision) {
+        unawaited(scheduleExamReminders(owner, exams));
+      }
       return exams;
     }
     final exams = await _fetchExams(
       semesterId: semesterId,
       batchId: batchId ?? '0',
     );
-    if (evaluateAlerts) _evaluateExamsSoon(exams);
+    if (evaluateAlerts &&
+        (batchId == null || batchId == '0') &&
+        owner != null &&
+        revision == AuthService.sessionRevision) {
+      unawaited(scheduleExamReminders(owner, exams));
+    }
     return exams;
   }
 
-  static Future<void> evaluateExamAlerts(
+  static Future<void> scheduleExamReminders(
     String accountKey,
     List<AcademicExam> exams,
-  ) async {
-    await Future.wait<void>([
-      AlertCenterService.evaluate(accountKey, _examsSoonProviderId, exams),
-      AlertCenterService.rebuildScheduled(accountKey, _examsSoonProviderId, (
-        params,
-      ) {
-        final hours = (params['leadTimeHours'] as num?)?.round() ?? 72;
-        final lead = Duration(hours: hours.clamp(1, 336));
-        final drafts = <ScheduledAlertDraft>[];
-        for (final exam in exams) {
-          final start = academicExamStart(exam, requireExplicitTime: true);
-          if (start == null) continue;
-          drafts.add(
-            ScheduledAlertDraft(
-              eventId: 'exam:${exam.courseSequence}:${exam.examDate}',
-              triggerAt: east8WallClockToUtcInstant(start.subtract(lead)),
-              title: '考试临近：${exam.courseName.ifEmpty(exam.courseSequence)}',
-              body: [
-                exam.arrangement,
-                if (exam.location.isNotEmpty) exam.location,
-              ].join(' · '),
-              deeplinkAppId: 'feature.academic.exams',
-              validUntil: east8WallClockToUtcInstant(start),
-            ),
-          );
-        }
-        return drafts;
-      }),
-    ]);
-  }
+  ) => TimeReminderService.replaceEvents(
+    accountKey,
+    TimeReminderCategory.exam,
+    () => examReminderEvents(exams),
+  );
 
-  void _evaluateExamsSoon(List<AcademicExam> exams) {
-    unawaited(() async {
-      final accountKey = await _tryCurrentAccountKey();
-      if (accountKey == null) return;
-      await evaluateExamAlerts(accountKey, exams);
-    }());
-  }
+  static List<TimeReminderEvent> examReminderEvents(
+    List<AcademicExam> exams,
+  ) => [
+    for (final exam in exams)
+      if (academicExamStart(exam, requireExplicitTime: true) case final start?)
+        TimeReminderEvent(
+          id: 'exam:${exam.courseSequence}:${exam.examDate}:${exam.arrangement}',
+          at: east8WallClockToUtcInstant(start),
+          title: '考试提醒：${exam.courseName.ifEmpty(exam.courseSequence)}',
+          body: [
+            exam.arrangement,
+            if (exam.location.isNotEmpty) exam.location,
+          ].join(' · '),
+        ),
+  ];
 
   /// 考试批次选项（期末教务处/期中/期末学院等），供考试页批次筛选。
   Future<List<AcademicExamBatchOption>> fetchExamBatches() async {

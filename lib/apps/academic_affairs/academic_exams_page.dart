@@ -1,3 +1,5 @@
+import 'package:mychu/widgets/campus_auth_boundary.dart';
+import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -28,7 +30,12 @@ class AcademicExamsPage extends StatefulWidget {
   State<AcademicExamsPage> createState() => _AcademicExamsPageState();
 }
 
-class _AcademicExamsPageState extends State<AcademicExamsPage> {
+class _AcademicExamsPageState extends State<AcademicExamsPage>
+    with CampusAuthRefresh<AcademicExamsPage> {
+  @override
+  Future<void> onCampusAuthChanged() =>
+      _semesters.isEmpty ? _load() : _reloadExams();
+
   final TextEditingController _queryController = TextEditingController();
   List<AcademicExam>? _exams;
   List<AcademicSemesterOption> _semesters = const [];
@@ -56,6 +63,7 @@ class _AcademicExamsPageState extends State<AcademicExamsPage> {
   }
 
   Future<void> _load() async {
+    if (campusAuthGuest) return;
     final generation = ++_requestGeneration;
     setState(() {
       _loading = true;
@@ -111,6 +119,7 @@ class _AcademicExamsPageState extends State<AcademicExamsPage> {
   }
 
   Future<void> _reloadExams() async {
+    if (campusAuthGuest) return;
     if (_exams == null) return;
     final generation = ++_requestGeneration;
     setState(() {
@@ -186,7 +195,11 @@ class _AcademicExamsPageState extends State<AcademicExamsPage> {
       appBar: WindowControlsAwareAppBar(
         child: AppBar(title: const Text('考试安排')),
       ),
-      body: view,
+      body: CampusProtectedContent(
+        title: '考试安排',
+        icon: Icons.event_note_outlined,
+        builder: (_) => view,
+      ),
     );
   }
 }

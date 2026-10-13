@@ -1,18 +1,12 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../services/demo_data_service.dart';
-import '../services/live_update_service.dart';
-import '../services/vivo_superx_demo_service.dart';
-import 'live_update_demo_page.dart';
-import 'vivo_superx_demo_page.dart';
 import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// 数据 Demo 配置页。
 ///
 /// 这里不重复渲染业务组件，只维护全局 Demo 总开关和参数。开启后，首页、
-/// 课表卡片和通知中心会在各自原始位置直接读取
+/// 课表卡片会在各自原始位置直接读取
 /// [DemoDataService] 的替换数据。
 class DataDemoPage extends StatefulWidget {
   const DataDemoPage({super.key});
@@ -22,12 +16,6 @@ class DataDemoPage extends StatefulWidget {
 }
 
 class _DataDemoPageState extends State<DataDemoPage> {
-  void _pushDemoPage(Widget page) {
-    unawaited(
-      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page)),
-    );
-  }
-
   DemoDataService get _service => DemoDataService.instance;
 
   DemoDataConfig get _config => _service.config;
@@ -87,7 +75,7 @@ class _DataDemoPageState extends State<DataDemoPage> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                subtitle: const Text('开启后直接替换首页、课表卡片和通知中心的数据'),
+                subtitle: const Text('开启后直接替换首页、课表卡片的数据'),
                 value: _service.enabled,
                 onChanged: _setEnabled,
               ),
@@ -167,58 +155,6 @@ class _DataDemoPageState extends State<DataDemoPage> {
           ),
         ),
         const SizedBox(height: 16),
-        _ConfigSection(
-          title: '通知',
-
-          child: Column(
-            children: [
-              _ConfigSwitch(
-                title: '成绩更新提醒',
-                value: _config.gradeNotification,
-                onChanged:
-                    (value) =>
-                        _update(_config.copyWith(gradeNotification: value)),
-              ),
-              _ConfigSwitch(
-                title: '余额不足提醒',
-                value: _config.balanceNotification,
-                onChanged:
-                    (value) =>
-                        _update(_config.copyWith(balanceNotification: value)),
-              ),
-              _ConfigSwitch(
-                title: '课程实时动态',
-                value: _config.liveUpdateNotification,
-                onChanged:
-                    (value) => _update(
-                      _config.copyWith(liveUpdateNotification: value),
-                    ),
-              ),
-              _ConfigSwitch(
-                title: '系统横幅',
-                value: _config.systemBanner,
-                onChanged:
-                    (value) => _update(_config.copyWith(systemBanner: value)),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        const SizedBox(height: 16),
-        if (LiveUpdateService.isSupported)
-          OutlinedButton.icon(
-            onPressed: () => _pushDemoPage(const LiveUpdateDemoPage()),
-            icon: const Icon(Icons.notifications_active_outlined),
-            label: const Text('打开实时动态 Demo'),
-          ),
-        if (LiveUpdateService.isSupported && VivoSuperXDemoService.isSupported)
-          const SizedBox(height: 8),
-        if (VivoSuperXDemoService.isSupported)
-          OutlinedButton.icon(
-            onPressed: () => _pushDemoPage(const VivoSuperXDemoPage()),
-            icon: const Icon(Icons.notifications_active_outlined),
-            label: const Text('打开 vivo 原子通知 Demo'),
-          ),
       ],
     );
   }

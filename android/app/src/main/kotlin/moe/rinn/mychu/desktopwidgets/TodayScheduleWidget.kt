@@ -2,11 +2,7 @@ package moe.rinn.mychu.desktopwidgets
 
 import android.content.Context
 import android.content.Intent
-import android.app.AlarmManager
-import android.app.PendingIntent
-import android.os.Build
 import java.time.Instant
-import java.time.ZoneOffset
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.LocalContext
@@ -63,7 +59,7 @@ internal class TodayScheduleWidget : GlanceAppWidget() {
             WidgetSnapshotStore(context.applicationContext).readToday(now)
         }
         try {
-            scheduleNextRefresh(context.applicationContext, data, now)
+            DesktopWidgetScheduler.schedule(context.applicationContext, now)
         } catch (_: RuntimeException) {
             // Alarm scheduling is best-effort; the widget can still render cached courses.
         }
@@ -75,44 +71,9 @@ internal class TodayScheduleWidget : GlanceAppWidget() {
 
 internal class TodayScheduleWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget = TodayScheduleWidget()
-}
-
-private fun scheduleNextRefresh(
-    context: Context,
-    data: TodayScheduleWidgetData,
-    now: Instant,
-) {
-    val alarmManager = context.getSystemService(AlarmManager::class.java)
-    val intent = Intent(context, DesktopWidgetRefreshReceiver::class.java)
-        .setAction(DesktopWidgetRefreshReceiver.ACTION_REFRESH)
-    val flags = PendingIntent.FLAG_UPDATE_CURRENT or
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
-    val operation = PendingIntent.getBroadcast(context, 460201, intent, flags)
-    alarmManager.cancel(operation)
-    if (data.status != TodayScheduleStatus.READY) return
-
-    val midnight = data.businessDate.plusDays(1).atStartOfDay().toInstant(ZoneOffset.ofHours(8))
-    val nextEnd = data.courses.mapNotNull { it.endAt }
-        .filter { it.isAfter(now) }
-        .minOrNull()
-    val nextRefresh = minOf(midnight, nextEnd ?: midnight)
-    if (!nextRefresh.isAfter(now)) return
-    val canScheduleExactly = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-        alarmManager.canScheduleExactAlarms()
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && canScheduleExactly) {
-        alarmManager.setExactAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            nextRefresh.toEpochMilli(),
-            operation,
-        )
-    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        alarmManager.setAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            nextRefresh.toEpochMilli(),
-            operation,
-        )
-    } else {
-        alarmManager.set(AlarmManager.RTC_WAKEUP, nextRefresh.toEpochMilli(), operation)
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        super.onDeleted(context, appWidgetIds)
+        runCatching { DesktopWidgetScheduler.schedule(context.applicationContext) }
     }
 }
 
@@ -139,9 +100,10 @@ private fun TodayScheduleContent(data: TodayScheduleWidgetData) {
             horizontalPadding = if (compact) 10.dp else 16.dp,
         ) {
             if (data.status == TodayScheduleStatus.READY && data.courses.isEmpty()) {
-                Box(
+                Column(
                     modifier = GlanceModifier.fillMaxSize().clickable(scheduleClick),
-                    contentAlignment = Alignment.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = "今天没有课了~",
@@ -151,6 +113,13 @@ private fun TodayScheduleContent(data: TodayScheduleWidgetData) {
                         ),
                         maxLines = 1,
                     )
+                    data.sourceLabel?.let { source ->
+                        Text(
+                            text = source,
+                            style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 10.sp),
+                            maxLines = 2,
+                        )
+                    }
                 }
             } else {
                 Column(
@@ -167,7 +136,7 @@ private fun TodayScheduleContent(data: TodayScheduleWidgetData) {
                         verticalAlignment = Alignment.Bottom,
                     ) {
                         Text(
-                            text = data.currentWeek?.let { "第${it}周" } ?: "第—周",
+                            text = data.sourceLabel ?: (data.currentWeek?.let { "第${it}周" } ?: "今日课表"),
                             modifier = GlanceModifier.defaultWeight(),
                             style = TextStyle(
                                 color = GlanceTheme.colors.onSurface,

@@ -1,8 +1,11 @@
+import '../academic_schedule/recent_schedule.dart';
+import '../academic_schedule/recent_schedule_repository.dart';
 import '../../apps/academic_affairs/academic_affairs_models.dart';
 import '../../apps/academic_calendar/academic_calendar_service.dart';
 import '../../capabilities/academic_schedule/academic_schedule_store.dart';
 import '../../capabilities/east8_time.dart';
 import '../../services/auth_service.dart';
+import '../../services/privacy_agreement_service.dart';
 import '../../services/campus_settings_service.dart';
 import '../../services/teaching_schedule_service.dart';
 import 'desktop_widget_models.dart';
@@ -119,6 +122,12 @@ DesktopWidgetScheduleV1 projectDesktopWidgetSchedule({
     status: DesktopWidgetScheduleStatus.ready,
     semesterId: schedule.semesterId.trim(),
     currentWeek: currentWeek,
+    firstWeekStartDate:
+        firstWeekStart.weekday == DateTime.monday
+            ? _formatDate(firstWeekStart)
+            : null,
+    maxWeek:
+        firstWeekStart.weekday == DateTime.monday ? schedule.maxWeek : null,
     occurrences: occurrences,
   );
 }
@@ -142,6 +151,8 @@ class DesktopWidgetProjectionService {
   final DesktopWidgetTermStartReader _readTermStartDate;
   final DesktopWidgetScheduleModeReader _readScheduleMode;
   final DateTime Function() _clock;
+  final Future<RecentScheduleWindow?> Function(String)? _readRecentSchedule;
+  final bool Function(String, RecentScheduleWindow)? _isRecentFresh;
 
   DesktopWidgetProjectionService({
     required DesktopWidgetAccountKeyReader readAccountKey,
@@ -149,11 +160,15 @@ class DesktopWidgetProjectionService {
     required DesktopWidgetTermStartReader readTermStartDate,
     required DesktopWidgetScheduleModeReader readScheduleMode,
     DateTime Function()? clock,
+    Future<RecentScheduleWindow?> Function(String)? readRecentSchedule,
+    bool Function(String, RecentScheduleWindow)? isRecentFresh,
   }) : _readAccountKey = readAccountKey,
        _readSchedule = readSchedule,
        _readTermStartDate = readTermStartDate,
        _readScheduleMode = readScheduleMode,
-       _clock = clock ?? DateTime.now;
+       _clock = clock ?? DateTime.now,
+       _readRecentSchedule = readRecentSchedule,
+       _isRecentFresh = isRecentFresh;
 
   factory DesktopWidgetProjectionService.forHost() {
     final scheduleStore = AcademicScheduleStore();
@@ -161,16 +176,25 @@ class DesktopWidgetProjectionService {
     final campusSettings = CampusSettingsService();
     return DesktopWidgetProjectionService(
       readAccountKey:
-          () async => (await AuthService.getCurrentAccount())?.accountKey,
+          () async =>
+              await PrivacyAgreementService.isAccepted()
+                  ? (await AuthService.getCurrentAccount())?.accountKey
+                  : null,
       readSchedule: scheduleStore.readCachedCurrentSchedule,
       readTermStartDate: calendarService.readCachedTermStartDateForSemester,
-      readScheduleMode: campusSettings.scheduleModeFor,
+      readScheduleMode: (_) => campusSettings.scheduleModeFor(),
+      readRecentSchedule: RecentScheduleRepository.instance.read,
+      isRecentFresh: RecentScheduleRepository.instance.isFresh,
     );
   }
 
   Future<DesktopWidgetSnapshotV1> build() async {
     final now = _clock();
     final accountKey = (await _readAccountKey())?.trim();
+    final recent =
+        accountKey == null || accountKey.isEmpty
+            ? null
+            : await _readRecentSchedule?.call(accountKey);
     DesktopWidgetScheduleV1 scheduleProjection;
     if (accountKey == null || accountKey.isEmpty) {
       scheduleProjection = projectDesktopWidgetSchedule(
@@ -180,44 +204,57 @@ class DesktopWidgetProjectionService {
         teachingSchedule: teachingScheduleFor(TeachingScheduleMode.weishui),
       );
     } else {
-      final schedule = await _readSchedule(accountKey);
-      if (schedule == null) {
-        scheduleProjection = projectDesktopWidgetSchedule(
-          signedIn: true,
-          schedule: null,
-          termStartDate: null,
-          teachingSchedule: teachingScheduleFor(TeachingScheduleMode.weishui),
-        );
-      } else {
-        final termStartDate = await _readTermStartDate(
-          accountKey,
-          schedule.semesterLabel,
-        );
-        if (termStartDate == null) {
+      try {
+        final schedule = await _readSchedule(accountKey);
+        if (schedule == null) {
           scheduleProjection = projectDesktopWidgetSchedule(
             signedIn: true,
-            schedule: schedule,
+            schedule: null,
             termStartDate: null,
             teachingSchedule: teachingScheduleFor(TeachingScheduleMode.weishui),
           );
         } else {
-          final mode = await _readScheduleMode(accountKey);
-          scheduleProjection = projectDesktopWidgetSchedule(
-            signedIn: true,
-            schedule: schedule,
-            termStartDate: termStartDate,
-            teachingSchedule: teachingScheduleFor(mode),
-            currentWeek: desktopWidgetTeachingWeekForInstant(
-              now,
-              termStartDate,
-            ),
+          final termStartDate = await _readTermStartDate(
+            accountKey,
+            schedule.semesterLabel,
           );
+          if (termStartDate == null) {
+            scheduleProjection = projectDesktopWidgetSchedule(
+              signedIn: true,
+              schedule: schedule,
+              termStartDate: null,
+              teachingSchedule: teachingScheduleFor(
+                TeachingScheduleMode.weishui,
+              ),
+            );
+          } else {
+            final mode = await _readScheduleMode(accountKey);
+            scheduleProjection = projectDesktopWidgetSchedule(
+              signedIn: true,
+              schedule: schedule,
+              termStartDate: termStartDate,
+              teachingSchedule: teachingScheduleFor(mode),
+              currentWeek: desktopWidgetTeachingWeekForInstant(
+                now,
+                termStartDate,
+              ),
+            );
+          }
         }
+      } catch (_) {
+        scheduleProjection = DesktopWidgetScheduleV1(
+          status: DesktopWidgetScheduleStatus.calendarUnavailable,
+        );
       }
     }
+
     return DesktopWidgetSnapshotV1(
       generatedAt: now.toUtc(),
       schedule: scheduleProjection,
+      recentSchedule: recent,
+      recentScheduleFresh:
+          recent != null &&
+          (_isRecentFresh?.call(accountKey!, recent) ?? false),
     );
   }
 }

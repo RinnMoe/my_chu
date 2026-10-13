@@ -42,6 +42,19 @@ internal class WidgetSnapshotStore(context: Context) {
         }
     }
 
+    fun readWeek(now: Instant = Instant.now()): WeekScheduleWidgetData {
+        if (!snapshotFile.exists() || snapshotFile.length() > MAX_SNAPSHOT_BYTES) {
+            return WeekScheduleSnapshotParser.unavailable(now)
+        }
+        return try {
+            atomicFile.openRead().bufferedReader(StandardCharsets.UTF_8).use {
+                WeekScheduleSnapshotParser.parse(it.readText(), now)
+            }
+        } catch (_: Exception) {
+            WeekScheduleSnapshotParser.unavailable(now)
+        }
+    }
+
     private companion object {
         const val SNAPSHOT_FILE_NAME = "desktop_widget_snapshot_v1.json"
         const val MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024

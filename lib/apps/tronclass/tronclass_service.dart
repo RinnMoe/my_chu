@@ -2,11 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show ValueChanged;
+import 'package:flutter/foundation.dart' show ValueChanged, visibleForTesting;
 
 import '../../capabilities/account_scoped_cache.dart';
-import '../../capabilities/alert_center.dart';
-import '../../capabilities/alert_models.dart';
+import '../../services/time_reminder_service.dart';
 import '../../capabilities/east8_time.dart';
 import '../../capabilities/in_app_download/in_app_download.dart';
 import '../../services/auth_service.dart';
@@ -21,95 +20,7 @@ const _mobileUserAgent =
 
 /// 畅课数据服务：待办列表与课件下载，全部通过 `CampusSession` 共享会话调用。
 class TronclassService {
-  static const _newTodosProviderId = 'tronclass.todos.new';
-  static const _todoDeadlineProviderId = 'tronclass.todo.deadline';
-
-  /// Todo alerts open the embedded todo view in the personal-data app.
   static const todosTargetAppId = 'feature.portal.personal';
-
-  /// Older persisted todo notifications use this unregistered target.
-  /// They can remain active across cold starts, so Focus still recognizes
-  /// this ID for deduplicating historical todo alerts; AppRegistry resolves
-  /// their navigation target to the current personal-data app.
-  static const legacyTodosTargetAppId = 'feature.tronclass';
-
-  /// Whether an app ID targets a current or historical todo notification.
-  static bool isTodoAlertTarget(String? appId) =>
-      appId == todosTargetAppId || appId == legacyTodosTargetAppId;
-
-  /// 新待办事件提醒（订阅制）：首次评估只记录基线，待办集合变化才提醒。
-  static final AlertProvider newTodosAlertProvider = AlertProvider(
-    id: _newTodosProviderId,
-    source: '畅课',
-    title: '课程有新的待办',
-    kind: AlertKind.event,
-    severity: AlertSeverity.info,
-    baselineOnFirstEvaluation: true,
-    evaluate: (params, data) {
-      final todos =
-          data is List
-              ? data.whereType<TronclassTodo>().toList()
-              : const <TronclassTodo>[];
-      if (todos.isEmpty) return const [];
-      final key = [for (final todo in todos) todo.id]..sort();
-      return [
-        AlertDraft(
-          fingerprintKey: key.join('|'),
-          title: '课程有新的待办',
-          body: '当前共 ${todos.length} 项待办，点击查看',
-          deeplinkAppId: todosTargetAppId,
-        ),
-      ];
-    },
-  );
-
-  /// 待办截止提醒提供者（订阅制）：进入提醒窗口的待办才提醒。
-  static final AlertProvider todoDeadlineAlertProvider = AlertProvider(
-    id: _todoDeadlineProviderId,
-    source: '畅课',
-    title: '待办即将截止',
-    kind: AlertKind.deadline,
-    severity: AlertSeverity.warning,
-    params: const [
-      AlertParamSpec(
-        key: 'leadTimeHours',
-        label: '提前提醒',
-        type: AlertParamType.hours,
-        defaultValue: 24,
-        min: 1,
-        max: 168,
-        unit: '小时',
-      ),
-    ],
-    evaluate: (params, data) {
-      final todos =
-          data is List
-              ? data.whereType<TronclassTodo>().toList()
-              : const <TronclassTodo>[];
-      if (todos.isEmpty) return const [];
-      final hours = (params['leadTimeHours'] as num?)?.toDouble() ?? 24;
-      final lead = Duration(hours: hours.round());
-      final now = east8Now();
-      final drafts = <AlertDraft>[];
-      for (final todo in todos) {
-        final endTime = todo.endTime;
-        if (endTime == null || !endTime.isAfter(now)) continue;
-        final remaining = endTime.difference(now);
-        if (remaining > lead) continue;
-        drafts.add(
-          AlertDraft(
-            fingerprintKey: 'todo:${todo.id}',
-            title: '待办即将截止',
-            body:
-                '${todo.title} · ${todo.courseName} · '
-                '${_formatDeadline(endTime)}',
-            deeplinkAppId: todosTargetAppId,
-          ),
-        );
-      }
-      return drafts;
-    },
-  );
 
   TronclassService({String? baseUrl})
     : baseUrl = (baseUrl ?? defaultBaseUrl).replaceFirst(RegExp(r'/+$'), '');
@@ -126,35 +37,27 @@ class TronclassService {
   static final AccountScopedCache<List<TronclassTodo>> _todosCache =
       AccountScopedCache<List<TronclassTodo>>(ttl: _summaryTtl);
 
-  static Future<void> evaluateTodoAlerts(
+  static Future<void> scheduleTodoReminders(
     String accountKey,
     List<TronclassTodo> todos,
-  ) async {
-    await Future.wait<void>([
-      AlertCenterService.evaluate(accountKey, _newTodosProviderId, todos),
-      AlertCenterService.evaluate(accountKey, _todoDeadlineProviderId, todos),
-      AlertCenterService.rebuildScheduled(accountKey, _todoDeadlineProviderId, (
-        params,
-      ) {
-        final hours = (params['leadTimeHours'] as num?)?.round() ?? 24;
-        final lead = Duration(hours: hours.clamp(1, 168));
-        return [
-          for (final todo in todos)
-            if (todo.endTime != null)
-              ScheduledAlertDraft(
-                eventId: 'todo:${todo.id}',
-                triggerAt: east8WallClockToUtcInstant(
-                  todo.endTime!.subtract(lead),
-                ),
-                title: '待办即将截止：${todo.title}',
-                body: '${todo.courseName} · ${_formatDeadline(todo.endTime!)}',
-                deeplinkAppId: todosTargetAppId,
-                validUntil: east8WallClockToUtcInstant(todo.endTime!),
-              ),
-        ];
-      }),
-    ]);
-  }
+  ) => TimeReminderService.replaceEvents(
+    accountKey,
+    TimeReminderCategory.deadline,
+    () => todoReminderEvents(todos),
+  );
+
+  static List<TimeReminderEvent> todoReminderEvents(
+    List<TronclassTodo> todos,
+  ) => [
+    for (final todo in todos)
+      if (todo.endTime != null && todo.submitRate < 100)
+        TimeReminderEvent(
+          id: 'todo:${todo.id}',
+          at: east8WallClockToUtcInstant(todo.endTime!),
+          title: '待办即将截止：${todo.title}',
+          body: '${todo.courseName} · ${_formatDeadline(todo.endTime!)}',
+        ),
+  ];
 
   final String baseUrl;
 
@@ -167,13 +70,14 @@ class TronclassService {
     if (account == null) {
       throw const TronclassException('请先登录后再读取畅课待办');
     }
+    final revision = AuthService.sessionRevision;
     final todos = await _todosCache.load(
       account.accountKey,
       _loadTodos,
       force: force,
     );
-    if (evaluateAlerts) {
-      unawaited(evaluateTodoAlerts(account.accountKey, todos));
+    if (evaluateAlerts && revision == AuthService.sessionRevision) {
+      unawaited(scheduleTodoReminders(account.accountKey, todos));
     }
     return todos;
   }
@@ -274,6 +178,24 @@ class TronclassService {
     if (activities is! List) {
       throw const TronclassException('课件活动响应格式异常');
     }
+    final files = parseCoursewareActivities(activities, course: course);
+    onProgress?.call(
+      TronclassCoursewareProgress(
+        completed: activities.length,
+        total: activities.length,
+        found: files.length,
+        failed: 0,
+      ),
+    );
+    onFilesUpdated?.call(List<TronclassCoursewareFile>.unmodifiable(files));
+    return files;
+  }
+
+  @visibleForTesting
+  static List<TronclassCoursewareFile> parseCoursewareActivities(
+    List<dynamic> activities, {
+    required TronclassCourse course,
+  }) {
     final files = <TronclassCoursewareFile>[];
     final seenKeys = <String>{};
     for (final rawActivity in activities) {
@@ -297,7 +219,8 @@ class TronclassService {
           throw const TronclassException('课件活动响应格式异常');
         }
         final upload = Map<String, dynamic>.from(rawUpload);
-        if (upload['allow_download'] != true) continue;
+        // 与 TronClass++ 一致：使用 reference_id 获取 preview=true 的文件链接，
+        // 不按网页下载按钮的 allow_download 标记过滤可读取的附件。
         final file = TronclassCoursewareFile.fromJson(
           upload,
           course: course,
@@ -313,15 +236,6 @@ class TronclassService {
     }
 
     files.sort(_compareCoursewareFiles);
-    onProgress?.call(
-      TronclassCoursewareProgress(
-        completed: activities.length,
-        total: activities.length,
-        found: files.length,
-        failed: 0,
-      ),
-    );
-    onFilesUpdated?.call(List<TronclassCoursewareFile>.unmodifiable(files));
     return files;
   }
 

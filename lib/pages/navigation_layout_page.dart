@@ -3,16 +3,13 @@ import 'package:flutter/material.dart';
 import '../apps/app.dart';
 import '../apps/app_service.dart';
 import '../capabilities/dev_visibility.dart';
-import '../services/auth_service.dart';
 import '../services/navigation_layout_service.dart';
 import '../widgets/adaptive_navigation_layout_row.dart';
 import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// 底栏管理页（独立打开时使用，带标题栏）。
 class NavigationLayoutPage extends StatelessWidget {
-  final String? accountKey;
-
-  const NavigationLayoutPage({super.key, this.accountKey});
+  const NavigationLayoutPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -20,16 +17,14 @@ class NavigationLayoutPage extends StatelessWidget {
       appBar: WindowControlsAwareAppBar(
         child: AppBar(title: const Text('底栏管理')),
       ),
-      body: NavigationLayoutPanel(accountKey: accountKey),
+      body: const NavigationLayoutPanel(),
     );
   }
 }
 
 /// 底栏管理内容面板：供独立页与“页面管理”Tab 复用。
 class NavigationLayoutPanel extends StatefulWidget {
-  final String? accountKey;
-
-  const NavigationLayoutPanel({super.key, this.accountKey});
+  const NavigationLayoutPanel({super.key});
 
   @override
   State<NavigationLayoutPanel> createState() => _NavigationLayoutPanelState();
@@ -37,7 +32,6 @@ class NavigationLayoutPanel extends StatefulWidget {
 
 class _NavigationLayoutPanelState extends State<NavigationLayoutPanel>
     with AutomaticKeepAliveClientMixin {
-  String _accountKey = 'anonymous';
   List<_NavRowItem> _middle = [];
   Set<String> _enabledAppIds = {};
   Set<String> _enabledHostIds = {};
@@ -62,11 +56,7 @@ class _NavigationLayoutPanelState extends State<NavigationLayoutPanel>
   }
 
   Future<void> _load() async {
-    final accountKey =
-        widget.accountKey ??
-        (await AuthService.getCurrentAccount())?.accountKey ??
-        'anonymous';
-    final layout = await NavigationLayoutService.read(accountKey);
+    final layout = await NavigationLayoutService.read();
     final plugins = await AppService.getManagedApps();
 
     final eligible = <String, AppDefinition>{
@@ -124,7 +114,6 @@ class _NavigationLayoutPanelState extends State<NavigationLayoutPanel>
 
     if (!mounted) return;
     setState(() {
-      _accountKey = accountKey;
       _middle = middle;
       _enabledAppIds = enabledAppIds;
       _enabledHostIds = enabledHostIds;
@@ -140,7 +129,6 @@ class _NavigationLayoutPanelState extends State<NavigationLayoutPanel>
     items.insert(to, moved);
     setState(() => _middle = items);
     await NavigationLayoutService.setOrder(
-      _accountKey,
       // 只持久化已启用（宿主页 + 已开启的应用 Tab）的键，避免重排时把
       // 未启用的应用行误写入顺序。
       [
@@ -151,7 +139,7 @@ class _NavigationLayoutPanelState extends State<NavigationLayoutPanel>
   }
 
   Future<void> _toggleHost(String hostKey, bool enabled) async {
-    final layout = await NavigationLayoutService.read(_accountKey);
+    final layout = await NavigationLayoutService.read();
     final order = List<String>.from(layout.order);
     if (enabled) {
       if (!order.contains(hostKey)) {
@@ -170,13 +158,12 @@ class _NavigationLayoutPanelState extends State<NavigationLayoutPanel>
     } else {
       order.remove(hostKey);
     }
-    await NavigationLayoutService.setOrder(_accountKey, order);
+    await NavigationLayoutService.setOrder(order);
     await _load();
   }
 
   Future<void> _toggleApp(AppDefinition plugin, bool enabled) async {
     final ok = await NavigationLayoutService.setAppEnabled(
-      _accountKey,
       plugin.metadata.id,
       enabled,
     );

@@ -42,6 +42,8 @@ class DiagnosticLogBuffer {
     int? statusCode,
     bool? renderProcessCrashed,
     int? attempt,
+    bool completeAttempt = false,
+    Duration? duration,
   }) {
     RuntimeErrorReporter.markRecorded(error);
     final event = DiagnosticLogEvent(
@@ -51,6 +53,10 @@ class DiagnosticLogBuffer {
       statusCode: statusCode,
       renderProcessCrashed: renderProcessCrashed,
       attempt: attempt,
+      fields: {
+        if (completeAttempt) 'phase': 'complete',
+        if (duration != null) 'durationms': duration.inMilliseconds,
+      },
     );
     if (_shared) {
       AppLogger.record(event);
@@ -83,6 +89,7 @@ class ErrorFeedbackAttempt {
   final ErrorFeedbackCoordinator _coordinator;
   final UserOperationId operation;
   bool _completed = false;
+  final Stopwatch _stopwatch = Stopwatch()..start();
 
   bool get completed => _completed;
 
@@ -94,18 +101,34 @@ class ErrorFeedbackAttempt {
   }) {
     if (_completed) return;
     _completed = true;
+    _stopwatch.stop();
     _coordinator.recordFailure(
       operation,
       error,
       statusCode: statusCode,
       renderProcessCrashed: renderProcessCrashed,
       attempt: attempt,
+      completeAttempt: true,
+      duration: _stopwatch.elapsed,
     );
   }
 
   void succeed() {
     if (_completed) return;
     _completed = true;
+    _stopwatch.stop();
+    if (_coordinator.diagnostics._shared) {
+      AppLogger.event(
+        level: 'INFO',
+        code: 'user.operation.succeeded',
+        message: '用户操作完成',
+        operation: operation,
+        fields: {
+          'phase': 'complete',
+          'durationms': _stopwatch.elapsedMilliseconds,
+        },
+      );
+    }
   }
 }
 
@@ -129,6 +152,8 @@ class ErrorFeedbackCoordinator {
     int? statusCode,
     bool? renderProcessCrashed,
     int? attempt,
+    bool completeAttempt = false,
+    Duration? duration,
   }) {
     diagnostics.recordFailure(
       operation: operation,
@@ -136,6 +161,8 @@ class ErrorFeedbackCoordinator {
       statusCode: statusCode,
       renderProcessCrashed: renderProcessCrashed,
       attempt: attempt,
+      completeAttempt: completeAttempt,
+      duration: duration,
     );
   }
 

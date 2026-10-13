@@ -1,3 +1,4 @@
+import '../services/time_reminder_service.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,8 @@ import 'package:flutter/services.dart';
 import '../services/app_remote_services_service.dart';
 import '../services/logger_service.dart';
 import '../services/privacy_agreement_service.dart';
+import '../capabilities/academic_schedule/recent_schedule_repository.dart';
+import '../capabilities/desktop_widgets/desktop_widget_bridge.dart';
 import '../services/usage_analytics_service.dart';
 import 'privacy_policy_page.dart';
 import 'package:mychu/widgets/apple_window_controls.dart';
@@ -118,10 +121,17 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       } catch (error) {
         AppLogger.warn('匿名统计队列清理失败 (${error.runtimeType})');
       }
-      try {
-        await PrivacyAgreementService.clear();
-      } catch (error) {
-        AppLogger.warn('用户协议状态清理失败 (${error.runtimeType})');
+      for (final clear in <Future<void> Function()>[
+        PrivacyAgreementService.clear,
+        RecentScheduleRepository.instance.clear,
+        DesktopWidgetSyncService.clearSchedule,
+        TimeReminderService.clearAll,
+      ]) {
+        try {
+          await clear();
+        } catch (error) {
+          AppLogger.warn('Privacy cleanup failed (${error.runtimeType})');
+        }
       }
     } finally {
       final exit = widget.onExit;

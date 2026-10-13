@@ -11,7 +11,8 @@ import '../apps/app_service.dart';
 /// The bar is `首页` (fixed first) + a reorderable middle + `我的` (fixed
 /// last). The middle holds the host tabs `应用`/`课表`/`地图` and any user-enabled
 /// app tabs. App tab order is the single source of truth: an app id
-/// present in [NavigationTabLayout.order] is enabled.
+/// present in [NavigationTabLayout.order] is enabled. Development-only host tabs
+/// may be injected into the resolved runtime order without being persisted.
 class NavigationTabLayout {
   final List<String> order;
 
@@ -30,15 +31,16 @@ class NavigationTabLayout {
   }
 }
 
-/// Account-scoped bottom navigation layout, scoped by `accountKey`.
+/// Device-wide bottom navigation layout.
 class NavigationLayoutService {
   static const hostHomeKey = 'home';
   static const hostAppsKey = 'apps';
   static const hostMapKey = 'map';
   static const hostProfileKey = 'profile';
 
-  /// 应用 Tab 上限为 2；课表和地图不占该配额，但全部可见项仍受
-  /// [maxTotalTabs]（6）约束。
+  /// User-configured app tabs are capped at 2; schedule and map do not use that
+  /// quota. Persisted destinations remain within [maxTotalTabs] (6); ephemeral
+  /// development destinations are added only to the runtime order.
   static const maxAppTabs = 2;
   static const maxTotalTabs = 6;
   static const academicScheduleKey = 'feature.academic.schedule';
@@ -47,50 +49,30 @@ class NavigationLayoutService {
   static const defaultMiddle = [hostAppsKey, ...defaultAppTabs, hostMapKey];
   static const defaultOrder = defaultMiddle;
 
-  static const _keyPrefix = 'nav.v2.tabs.';
-  static const _legacyKeyPrefix = 'nav.v1.tabs.';
-
   /// Bumped whenever the layout changes so the shell can rebuild.
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
-  static String _key(String accountKey) => '$_keyPrefix$accountKey';
-  static String _legacyKey(String accountKey) => '$_legacyKeyPrefix$accountKey';
+  static String _key() => 'preferences.v1.navigation';
 
-  static Future<NavigationTabLayout> read(
-    String accountKey, {
-    Set<String>? validAppIds,
-  }) async {
+  static Future<NavigationTabLayout> read({Set<String>? validAppIds}) async {
     final validNavigationAppIds = validAppIds ?? await _validNavigationAppIds();
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key(accountKey));
+    final raw = prefs.getString(_key());
     if (raw != null) {
       final normalized = _decodeOrDefault(raw, validNavigationAppIds);
       if (raw != jsonEncode(normalized.toJson())) {
-        await _write(accountKey, normalized);
+        await _write(normalized);
       }
       return normalized;
     }
 
-    final legacyRaw = prefs.getString(_legacyKey(accountKey));
-    if (legacyRaw == null) {
-      return _decodeOrDefault('', validNavigationAppIds);
-    }
-
-    // Migrate each account lazily on its first read. The migration preserves
-    // valid stored tabs, restores the mandatory schedule tab, and trims only
-    // optional entries when an old layout exceeds the total-tab limit.
-    final migrated = _withDefaultAppTabs(
-      _decodeOrDefault(legacyRaw, validNavigationAppIds),
-      validNavigationAppIds,
-    );
-    await _write(accountKey, migrated);
-    return migrated;
+    return _decodeOrDefault('', validNavigationAppIds);
   }
 
   /// Reorders the middle section. The `apps` host key is always kept;
   /// `map` is optional; the schedule host is always present. App ids are
   /// capped at [maxAppTabs]; `home`/`profile` are rejected.
-  static Future<void> setOrder(String accountKey, List<String> keys) async {
+  static Future<void> setOrder(List<String> keys) async {
     final validNavigationAppIds = await _validNavigationAppIds();
     final middle = _normalized(
       NavigationTabLayout(
@@ -98,19 +80,15 @@ class NavigationLayoutService {
       ),
       validNavigationAppIds,
     );
-    await _write(accountKey, middle);
+    await _write(middle);
   }
 
   /// Enables or disables an app tab. Host tabs use [setOrder]. Returns false
   /// when the app tab cap would be exceeded. The schedule host is mandatory.
-  static Future<bool> setAppEnabled(
-    String accountKey,
-    String pluginId,
-    bool enabled,
-  ) async {
+  static Future<bool> setAppEnabled(String pluginId, bool enabled) async {
     if (pluginId == academicScheduleKey) return true;
     final validNavigationAppIds = await _validNavigationAppIds();
-    final layout = await read(accountKey, validAppIds: validNavigationAppIds);
+    final layout = await read(validAppIds: validNavigationAppIds);
     final order = List<String>.from(layout.order);
     final present = order.contains(pluginId);
     if (enabled) {
@@ -125,20 +103,20 @@ class NavigationLayoutService {
     } else {
       order.remove(pluginId);
     }
-    await _write(accountKey, NavigationTabLayout(order: order));
+    await _write(NavigationTabLayout(order: order));
     return true;
   }
 
-  static Future<void> clear(String accountKey) async {
+  static Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_key(accountKey));
-    await prefs.remove(_legacyKey(accountKey));
+    await prefs.remove(_key());
     revision.value++;
   }
 
   /// Full tab key order: `首页` first, `我的` last.
   static List<String> resolveTabKeys(NavigationTabLayout layout) {
-    return [hostHomeKey, ...layout.order, hostProfileKey];
+    final middle = layout.order;
+    return [hostHomeKey, ...middle, hostProfileKey];
   }
 
   static NavigationTabLayout _normalized(
@@ -200,11 +178,6 @@ class NavigationLayoutService {
     return _normalized(NavigationTabLayout.fromJson(decoded), validAppIds);
   }
 
-  static NavigationTabLayout _withDefaultAppTabs(
-    NavigationTabLayout layout,
-    Set<String> validAppIds,
-  ) => _normalized(layout, validAppIds);
-
   static Future<Set<String>> _validNavigationAppIds() async {
     final valid = <String>{};
     for (final plugin in AppRegistry.builtIns) {
@@ -227,12 +200,9 @@ class NavigationLayoutService {
   static bool _isHostRoot(String key) =>
       key == hostHomeKey || key == hostProfileKey;
 
-  static Future<void> _write(
-    String accountKey,
-    NavigationTabLayout layout,
-  ) async {
+  static Future<void> _write(NavigationTabLayout layout) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key(accountKey), jsonEncode(layout.toJson()));
+    await prefs.setString(_key(), jsonEncode(layout.toJson()));
     revision.value++;
   }
 }

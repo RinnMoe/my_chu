@@ -1,9 +1,11 @@
+import '../capabilities/host_login.dart';
+import '../services/auth_service.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../capabilities/academic_schedule/academic_schedule_capability.dart';
-import '../services/auth_service.dart';
+import '../widgets/campus_auth_boundary.dart';
 import '../services/root_navigation_service.dart';
 import 'app.dart';
 import 'app_registry.dart';
@@ -33,15 +35,18 @@ Future<void> openAppDefinition(
   BuildContext context,
   AppDefinition plugin, {
   WidgetBuilder? pageBuilder,
-  @visibleForTesting Future<String> Function()? accountKeyResolver,
 }) async {
   if (!AppService.isVisibleInCurrentMode(plugin)) return;
-  if (!context.mounted) return;
-  final accountKey = await (accountKeyResolver ?? _resolveCurrentAccountKey)();
   if (!context.mounted) return;
 
   final action = plugin.openAction;
   if (action != null) {
+    if (plugin.requiresCampusAccount &&
+        await AuthService.getCurrentAccount() == null) {
+      if (!context.mounted || !await HostLogin.open(context)) return;
+      if (!context.mounted) return;
+    }
+    if (!context.mounted) return;
     var opened = false;
     try {
       opened = await action(context);
@@ -49,24 +54,35 @@ Future<void> openAppDefinition(
       return;
     }
     if (!opened) return;
-    _recordAppUsage(plugin, accountKey);
+    _recordAppUsage(plugin);
     return;
   }
 
   final builder = pageBuilder ?? plugin.pageBuilder;
   if (builder == null) return;
-  unawaited(Navigator.push(context, MaterialPageRoute(builder: builder)));
-  _recordAppUsage(plugin, accountKey);
+  unawaited(
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) =>
+                plugin.requiresCampusAccount
+                    ? CampusAuthBoundary(
+                      title: plugin.metadata.name,
+                      retainGuestShell: plugin.retainsGuestShell,
+                      builder: builder,
+                    )
+                    : builder(context),
+      ),
+    ),
+  );
+  _recordAppUsage(plugin);
 }
 
-Future<String> _resolveCurrentAccountKey() async =>
-    (await AuthService.getCurrentAccount())?.accountKey ?? 'anonymous';
-
-void _recordAppUsage(AppDefinition plugin, String accountKey) {
+void _recordAppUsage(AppDefinition plugin) {
   unawaited(
     AppService.recordUsage(
       plugin.metadata.id,
-      accountKey: accountKey,
     ).then<void>((_) {}, onError: (Object _) {}),
   );
 }

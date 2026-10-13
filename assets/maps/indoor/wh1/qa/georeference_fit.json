@@ -1,0 +1,432 @@
+{
+  "schemaVersion": 2,
+  "buildingPlaceId": "weishui.osm.way.831073210",
+  "parentBuildingPlaceId": "weishui.hongyuan",
+  "sourceData": "source/wh1_redraw.json",
+  "sourceFloorplans": [
+    "source/WH1_F1_reference.png",
+    "source/WH1_F2_reference.png",
+    "source/WH1_F3_reference.png"
+  ],
+  "method": "visual interpretation followed by hand-authored metric geometry; scan contours are not vectorized",
+  "coordinateFrame": {
+    "originWgs84": [
+      108.8952317,
+      34.36929296363636
+    ],
+    "rotationDegrees": 19.1,
+    "units": "meters",
+    "registration": "WH1 semantic outdoor building footprint"
+  },
+  "georeferenceStatus": "verified",
+  "publicationVerified": true,
+  "footprintValid": true,
+  "allLabeledSpacesInsideFootprint": true,
+  "sameFloorOverlapCount": 0,
+  "runtimeFeatureCount": 94,
+  "interactionFeatureCount": 19,
+  "roomCount": 19,
+  "supportSpaceCount": 33,
+  "voidCount": 2,
+  "bounds": {
+    "west": 108.894667,
+    "south": 34.3690392,
+    "east": 108.8956541,
+    "north": 34.3696954
+  },
+  "roomBounds": [
+    {
+      "floor": 1,
+      "code": "WH1102",
+      "west": 108.89473272189349,
+      "south": 34.369416022159115,
+      "east": 108.89495660717553,
+      "north": 34.369540653345815
+    },
+    {
+      "floor": 1,
+      "code": "WH1101",
+      "west": 108.8951790475886,
+      "south": 34.36954449381477,
+      "east": 108.89539264886844,
+      "north": 34.36966616482507
+    },
+    {
+      "floor": 1,
+      "code": "WH1104",
+      "west": 108.89538133986719,
+      "south": 34.36949440397204,
+      "east": 108.8954538140404,
+      "north": 34.36958147129629
+    },
+    {
+      "floor": 1,
+      "code": "WH1103",
+      "west": 108.8947412295869,
+      "south": 34.36905125359296,
+      "east": 108.89499162380034,
+      "north": 34.369228655744216
+    },
+    {
+      "floor": 2,
+      "code": "WH1203",
+      "west": 108.89473477869393,
+      "south": 34.3694166141944,
+      "east": 108.89495660717553,
+      "north": 34.369540653345815
+    },
+    {
+      "floor": 2,
+      "code": "WH1206",
+      "west": 108.89492914633536,
+      "south": 34.36947256152831,
+      "east": 108.89509132760423,
+      "north": 34.369579431656625
+    },
+    {
+      "floor": 2,
+      "code": "WH1201",
+      "west": 108.89517339138739,
+      "south": 34.36954286571775,
+      "east": 108.89539213466833,
+      "north": 34.369666016816254
+    },
+    {
+      "floor": 2,
+      "code": "WH1205",
+      "west": 108.89538019332866,
+      "south": 34.3694970833197,
+      "east": 108.89545496057892,
+      "north": 34.36957879194864
+    },
+    {
+      "floor": 2,
+      "code": "WH1204",
+      "west": 108.894746371588,
+      "south": 34.36905273368116,
+      "east": 108.89499162380034,
+      "north": 34.369228655744216
+    },
+    {
+      "floor": 3,
+      "code": "WH1302",
+      "west": 108.89473477869393,
+      "south": 34.3694166141944,
+      "east": 108.89495660717553,
+      "north": 34.369540653345815
+    },
+    {
+      "floor": 3,
+      "code": "WH1309",
+      "west": 108.89492914633536,
+      "south": 34.36947256152831,
+      "east": 108.89509132760423,
+      "north": 34.369579431656625
+    },
+    {
+      "floor": 3,
+      "code": "WH1310",
+      "west": 108.89506849456504,
+      "south": 34.36951267191849,
+      "east": 108.89520496582846,
+      "north": 34.36961214160582
+    },
+    {
+      "floor": 3,
+      "code": "WH1301",
+      "west": 108.8951790475886,
+      "south": 34.36954449381477,
+      "east": 108.89539779086954,
+      "north": 34.36966764491327
+    },
+    {
+      "floor": 3,
+      "code": "WH1308",
+      "west": 108.89538019332866,
+      "south": 34.3694970833197,
+      "east": 108.89545496057892,
+      "north": 34.36957879194864
+    },
+    {
+      "floor": 3,
+      "code": "WH1307",
+      "west": 108.89543111274413,
+      "south": 34.369371142671056,
+      "east": 108.89551577473709,
+      "north": 34.3694918118776
+    },
+    {
+      "floor": 3,
+      "code": "WH1306",
+      "west": 108.8954854785775,
+      "south": 34.36927286836301,
+      "east": 108.8955642829372,
+      "north": 34.369370785897814
+    },
+    {
+      "floor": 3,
+      "code": "WH1303",
+      "west": 108.894746371588,
+      "south": 34.36905273368116,
+      "east": 108.89499162380034,
+      "north": 34.369228655744216
+    },
+    {
+      "floor": 3,
+      "code": "WH1304",
+      "west": 108.89544986109227,
+      "south": 34.36912940862538,
+      "east": 108.89553799754539,
+      "north": 34.369214965483636
+    },
+    {
+      "floor": 3,
+      "code": "WH1305",
+      "west": 108.89551156510542,
+      "south": 34.369147169683764,
+      "east": 108.89559970155854,
+      "north": 34.36923272654202
+    }
+  ],
+  "floors": [
+    {
+      "floor": 1,
+      "sourceFloorplan": "source/WH1_F1_reference.png",
+      "classroomCodes": [
+        "WH1102",
+        "WH1101",
+        "WH1104",
+        "WH1103"
+      ],
+      "classroomCount": 4,
+      "facilityCount": 11,
+      "facilityCountsByKind": {
+        "stair": 5,
+        "restroom_female": 1,
+        "restroom_male": 1,
+        "self_study": 2,
+        "electrical_room": 1,
+        "lobby": 1
+      },
+      "voidCount": 0,
+      "roomBounds": [
+        {
+          "code": "WH1102",
+          "indoorSpaceId": "weishui.wh1.wh1102",
+          "west": 108.89473272189349,
+          "south": 34.369416022159115,
+          "east": 108.89495660717553,
+          "north": 34.369540653345815
+        },
+        {
+          "code": "WH1101",
+          "indoorSpaceId": "weishui.wh1.wh1101",
+          "west": 108.8951790475886,
+          "south": 34.36954449381477,
+          "east": 108.89539264886844,
+          "north": 34.36966616482507
+        },
+        {
+          "code": "WH1104",
+          "indoorSpaceId": "weishui.wh1.wh1104",
+          "west": 108.89538133986719,
+          "south": 34.36949440397204,
+          "east": 108.8954538140404,
+          "north": 34.36958147129629
+        },
+        {
+          "code": "WH1103",
+          "indoorSpaceId": "weishui.wh1.wh1103",
+          "west": 108.8947412295869,
+          "south": 34.36905125359296,
+          "east": 108.89499162380034,
+          "north": 34.369228655744216
+        }
+      ],
+      "construction": "hand-redrawn orthogonal rooms and labeled spaces in the shared metric frame"
+    },
+    {
+      "floor": 2,
+      "sourceFloorplan": "source/WH1_F2_reference.png",
+      "classroomCodes": [
+        "WH1203",
+        "WH1206",
+        "WH1201",
+        "WH1205",
+        "WH1204"
+      ],
+      "classroomCount": 5,
+      "facilityCount": 12,
+      "facilityCountsByKind": {
+        "stair": 5,
+        "restroom_female": 1,
+        "restroom_male": 1,
+        "self_study": 2,
+        "self_study_classroom": 1,
+        "teacher_lounge": 1,
+        "duty_room": 1
+      },
+      "voidCount": 1,
+      "roomBounds": [
+        {
+          "code": "WH1203",
+          "indoorSpaceId": "weishui.wh1.wh1203",
+          "west": 108.89473477869393,
+          "south": 34.3694166141944,
+          "east": 108.89495660717553,
+          "north": 34.369540653345815
+        },
+        {
+          "code": "WH1206",
+          "indoorSpaceId": "weishui.wh1.wh1206",
+          "west": 108.89492914633536,
+          "south": 34.36947256152831,
+          "east": 108.89509132760423,
+          "north": 34.369579431656625
+        },
+        {
+          "code": "WH1201",
+          "indoorSpaceId": "weishui.wh1.wh1201",
+          "west": 108.89517339138739,
+          "south": 34.36954286571775,
+          "east": 108.89539213466833,
+          "north": 34.369666016816254
+        },
+        {
+          "code": "WH1205",
+          "indoorSpaceId": "weishui.wh1.wh1205",
+          "west": 108.89538019332866,
+          "south": 34.3694970833197,
+          "east": 108.89545496057892,
+          "north": 34.36957879194864
+        },
+        {
+          "code": "WH1204",
+          "indoorSpaceId": "weishui.wh1.wh1204",
+          "west": 108.894746371588,
+          "south": 34.36905273368116,
+          "east": 108.89499162380034,
+          "north": 34.369228655744216
+        }
+      ],
+      "construction": "hand-redrawn orthogonal rooms and labeled spaces in the shared metric frame"
+    },
+    {
+      "floor": 3,
+      "sourceFloorplan": "source/WH1_F3_reference.png",
+      "classroomCodes": [
+        "WH1302",
+        "WH1309",
+        "WH1310",
+        "WH1301",
+        "WH1308",
+        "WH1307",
+        "WH1306",
+        "WH1303",
+        "WH1304",
+        "WH1305"
+      ],
+      "classroomCount": 10,
+      "facilityCount": 10,
+      "facilityCountsByKind": {
+        "stair": 5,
+        "restroom_female": 1,
+        "restroom_male": 1,
+        "self_study": 2,
+        "self_study_classroom": 1
+      },
+      "voidCount": 1,
+      "roomBounds": [
+        {
+          "code": "WH1302",
+          "indoorSpaceId": "weishui.wh1.wh1302",
+          "west": 108.89473477869393,
+          "south": 34.3694166141944,
+          "east": 108.89495660717553,
+          "north": 34.369540653345815
+        },
+        {
+          "code": "WH1309",
+          "indoorSpaceId": "weishui.wh1.wh1309",
+          "west": 108.89492914633536,
+          "south": 34.36947256152831,
+          "east": 108.89509132760423,
+          "north": 34.369579431656625
+        },
+        {
+          "code": "WH1310",
+          "indoorSpaceId": "weishui.wh1.wh1310",
+          "west": 108.89506849456504,
+          "south": 34.36951267191849,
+          "east": 108.89520496582846,
+          "north": 34.36961214160582
+        },
+        {
+          "code": "WH1301",
+          "indoorSpaceId": "weishui.wh1.wh1301",
+          "west": 108.8951790475886,
+          "south": 34.36954449381477,
+          "east": 108.89539779086954,
+          "north": 34.36966764491327
+        },
+        {
+          "code": "WH1308",
+          "indoorSpaceId": "weishui.wh1.wh1308",
+          "west": 108.89538019332866,
+          "south": 34.3694970833197,
+          "east": 108.89545496057892,
+          "north": 34.36957879194864
+        },
+        {
+          "code": "WH1307",
+          "indoorSpaceId": "weishui.wh1.wh1307",
+          "west": 108.89543111274413,
+          "south": 34.369371142671056,
+          "east": 108.89551577473709,
+          "north": 34.3694918118776
+        },
+        {
+          "code": "WH1306",
+          "indoorSpaceId": "weishui.wh1.wh1306",
+          "west": 108.8954854785775,
+          "south": 34.36927286836301,
+          "east": 108.8955642829372,
+          "north": 34.369370785897814
+        },
+        {
+          "code": "WH1303",
+          "indoorSpaceId": "weishui.wh1.wh1303",
+          "west": 108.894746371588,
+          "south": 34.36905273368116,
+          "east": 108.89499162380034,
+          "north": 34.369228655744216
+        },
+        {
+          "code": "WH1304",
+          "indoorSpaceId": "weishui.wh1.wh1304",
+          "west": 108.89544986109227,
+          "south": 34.36912940862538,
+          "east": 108.89553799754539,
+          "north": 34.369214965483636
+        },
+        {
+          "code": "WH1305",
+          "indoorSpaceId": "weishui.wh1.wh1305",
+          "west": 108.89551156510542,
+          "south": 34.369147169683764,
+          "east": 108.89559970155854,
+          "north": 34.36923272654202
+        }
+      ],
+      "construction": "hand-redrawn orthogonal rooms and labeled spaces in the shared metric frame"
+    }
+  ],
+  "notes": [
+    "Only room codes and named spaces legible in the three supplied plans are emitted; no WH2 geometry or unmarked rooms are included.",
+    "Room codes preserve the existing WH classroom rule: WH1 zone, floor digit, and two-digit room number.",
+    "Labeled restrooms, stairwells, self-study areas, lobby, teacher lounge, duty room, and electrical room are represented only where named on the plan.",
+    "Two upper-floor open cores are interpreted from their clear plan outlines; they are voids, not named rooms.",
+    "The shared frame is registered to the semantic WH1 footprint. Room placement is a visual fit because no surveyed indoor control points were supplied.",
+    "Every room and labeled facility is checked for footprint containment and same-floor overlap before writing."
+  ]
+}

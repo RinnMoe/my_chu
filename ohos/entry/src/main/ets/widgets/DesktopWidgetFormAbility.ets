@@ -6,11 +6,14 @@ import {
   registerDesktopWidgetForm,
   removeDesktopWidgetForm,
   TODAY_SCHEDULE_FORM,
+  WEEK_SCHEDULE_FORM,
 } from './DesktopWidgetSnapshotStore';
 
 export default class DesktopWidgetFormAbility extends FormExtensionAbility {
   onAddForm(want: Want): formBindingData.FormBindingData {
     const parameters = want.parameters;
+    const rawName = parameters?.[formInfo.FormParam.NAME_KEY];
+    const formName = rawName === WEEK_SCHEDULE_FORM ? WEEK_SCHEDULE_FORM : TODAY_SCHEDULE_FORM;
     const rawId = parameters?.[formInfo.FormParam.IDENTITY_KEY];
     const rawDimension = parameters?.[formInfo.FormParam.DIMENSION_KEY];
     const formId = typeof rawId === 'string' ? rawId : '';
@@ -20,7 +23,7 @@ export default class DesktopWidgetFormAbility extends FormExtensionAbility {
       try {
         registerDesktopWidgetForm(this.context.filesDir, {
           formId: formId,
-          formName: TODAY_SCHEDULE_FORM,
+          formName: formName,
           dimension: dimension,
         });
       } catch (_) {
@@ -29,7 +32,7 @@ export default class DesktopWidgetFormAbility extends FormExtensionAbility {
     }
     return createDesktopWidgetFormData(
       this.context.filesDir,
-      TODAY_SCHEDULE_FORM,
+      formName,
       dimension,
     );
   }

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="300dp" android:layout_height="300dp" android:orientation="vertical" android:padding="10dp" android:background="@drawable/desktop_widget_preview_card">
+<TextView android:layout_width="match_parent" android:layout_height="24dp" android:text="周课表 · 第5周" android:textColor="#1C1B1F" android:textSize="14sp" android:textStyle="bold"/>
+<TextView android:layout_width="match_parent" android:layout_height="18dp" android:text="9/28—10/4" android:textColor="#49454F" android:textSize="10sp"/>
+<LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal">
+<LinearLayout android:layout_width="18dp" android:layout_height="match_parent" android:orientation="vertical"><TextView android:layout_width="match_parent" android:layout_height="16dp" android:text=""/>
+<TextView android:layout_width="match_parent" android:layout_height="20dp" android:gravity="center" android:text="1" android:textSize="10sp" android:textColor="#49454F"/>
+<TextView android:layout_width="match_parent" android:layout_height="20dp" android:gravity="center" android:text="2" android:textSize="10sp" android:textColor="#49454F"/>
+<TextView android:layout_width="match_parent" android:layout_height="20dp" android:gravity="center" android:text="3" android:textSize="10sp" android:textColor="#49454F"/>
+<TextView android:layout_width="match_parent" android:layout_height="20dp" android:gravity="center" android:text="4" android:textSize="10sp" android:textColor="#49454F"/>
+<TextView android:layout_width="match_parent" android:layout_height="20dp" android:gravity="center" android:text="5" android:textSize="10sp" android:textColor="#49454F"/>
+<TextView android:layout_width="match_parent" android:layout_height="20dp" android:gravity="center" android:text="6" android:textSize="10sp" android:textColor="#49454F"/>
+<TextView android:layout_width="match_parent" android:layout_height="20dp" android:gravity="center" android:text="7" android:textSize="10sp" android:textColor="#49454F"/>
+<TextView android:layout_width="match_parent" android:layout_height="20dp" android:gravity="center" android:text="8" android:textSize="10sp" android:textColor="#49454F"/>
+<TextView android:layout_width="match_parent" android:layout_height="20dp" android:gravity="center" android:text="9" android:textSize="10sp" android:textColor="#49454F"/>
+<TextView android:layout_width="match_parent" android:layout_height="20dp" android:gravity="center" android:text="10" android:textSize="10sp" android:textColor="#49454F"/>
+<TextView android:layout_width="match_parent" android:layout_height="20dp" android:gravity="center" android:text="11" android:textSize="10sp" android:textColor="#49454F"/>
+</LinearLayout>
+<LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:paddingHorizontal="1dp"><TextView android:layout_width="match_parent" android:layout_height="16dp" android:gravity="center" android:text="一" android:textSize="10sp" android:textColor="#49454F"/>
+<TextView android:layout_width="match_parent" android:layout_height="40dp" android:gravity="center" android:text="高等数学" android:textSize="10sp" android:maxLines="2" android:textColor="#202124" android:background="#FFDAD6"/>
+<Space android:layout_width="match_parent" android:layout_height="40dp"/>
+<TextView android:layout_width="match_parent" android:layout_height="40dp" android:gravity="center" android:text="大学英语" android:textSize="10sp" android:maxLines="2" android:textColor="#202124" android:background="#D3E4FF"/>
+</LinearLayout>
+<LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:paddingHorizontal="1dp"><TextView android:layout_width="match_parent" android:layout_height="16dp" android:gravity="center" android:text="二" android:textSize="10sp" android:textColor="#49454F"/>
+<Space android:layout_width="match_parent" android:layout_height="40dp"/>
+<TextView android:layout_width="match_parent" android:layout_height="40dp" android:gravity="center" android:text="程序设计" android:textSize="10sp" android:maxLines="2" android:textColor="#202124" android:background="#EADDFF"/>
+</LinearLayout>
+<LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:paddingHorizontal="1dp"><TextView android:layout_width="match_parent" android:layout_height="16dp" android:gravity="center" android:text="三" android:textSize="10sp" android:textColor="#49454F"/>
+<TextView android:layout_width="match_parent" android:layout_height="40dp" android:gravity="center" android:text="大学物理" android:textSize="10sp" android:maxLines="2" android:textColor="#202124" android:background="#D6E8CF"/>
+<Space android:layout_width="match_parent" android:layout_height="80dp"/>
+<TextView android:layout_width="match_parent" android:layout_height="40dp" android:gravity="center" android:text="体育" android:textSize="10sp" android:maxLines="2" android:textColor="#202124" android:background="#FFE0B2"/>
+</LinearLayout>
+<LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:paddingHorizontal="1dp"><TextView android:layout_width="match_parent" android:layout_height="16dp" android:gravity="center" android:text="四" android:textSize="10sp" android:textColor="#49454F"/>
+<Space android:layout_width="match_parent" android:layout_height="80dp"/>
+<TextView android:layout_width="match_parent" android:layout_height="40dp" android:gravity="center" android:text="实验课" android:textSize="10sp" android:maxLines="2" android:textColor="#202124" android:background="#BCEBE5"/>
+</LinearLayout>
+<LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:paddingHorizontal="1dp"><TextView android:layout_width="match_parent" android:layout_height="16dp" android:gravity="center" android:text="五" android:textSize="10sp" android:textColor="#49454F"/>
+<Space android:layout_width="match_parent" android:layout_height="40dp"/>
+<TextView android:layout_width="match_parent" android:layout_height="40dp" android:gravity="center" android:text="高等数学" android:textSize="10sp" android:maxLines="2" android:textColor="#202124" android:background="#FFDAD6"/>
+</LinearLayout>
+<LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:paddingHorizontal="1dp"><TextView android:layout_width="match_parent" android:layout_height="16dp" android:gravity="center" android:text="六" android:textSize="10sp" android:textColor="#49454F"/>
+</LinearLayout>
+<LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:orientation="vertical" android:paddingHorizontal="1dp"><TextView android:layout_width="match_parent" android:layout_height="16dp" android:gravity="center" android:text="日" android:textSize="10sp" android:textColor="#49454F"/>
+<Space android:layout_width="match_parent" android:layout_height="160dp"/>
+<TextView android:layout_width="match_parent" android:layout_height="60dp" android:gravity="center" android:text="选修课" android:textSize="10sp" android:maxLines="2" android:textColor="#202124" android:background="#EADDFF"/>
+</LinearLayout>
+</LinearLayout></LinearLayout>

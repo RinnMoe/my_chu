@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "buildingId": "WH1",
+  "campusId": "weishui",
+  "buildingPlaceId": "weishui.osm.way.831073210",
+  "parentBuildingPlaceId": "weishui.hongyuan",
+  "displayName": "鸿远教学楼一区",
+  "floors": [
+    1,
+    2,
+    3
+  ],
+  "defaultFloor": 1,
+  "bounds": {
+    "west": 108.894667,
+    "south": 34.3690392,
+    "east": 108.8956541,
+    "north": 34.3696954
+  },
+  "recommendedCamera": {
+    "minZoomOutdoor": 15,
+    "maxZoomOutdoor": 19,
+    "minZoomIndoor": 18,
+    "maxZoomIndoor": 22,
+    "autoEnterZoom": 18,
+    "autoExitZoom": 17.5,
+    "pitch": 0,
+    "rotationEnabled": false
+  },
+  "runtimeGeometry": {
+    "bundledGeoJson": "mapbox/wh1_indoor_runtime.geojson",
+    "interactionGeoJson": "mapbox/wh1_indoor_interaction.geojson",
+    "futureMapboxTilesetCompatible": true
+  },
+  "sourceFloorplans": [
+    "source/WH1_F1_reference.png",
+    "source/WH1_F2_reference.png",
+    "source/WH1_F3_reference.png"
+  ],
+  "georeference": {
+    "transformId": "wh1-visual-redraw-20261011",
+    "status": "verified",
+    "qa": "qa/georeference_fit.json",
+    "method": "clean orthogonal redraw registered to the WH1 semantic WGS84 footprint in one plan-aligned metric frame"
+  },
+  "roomCount": 19,
+  "supportSpaceCount": 33,
+  "featureCount": 94,
+  "publicationVerified": true
+}

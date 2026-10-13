@@ -6,19 +6,11 @@ import 'host_platform.dart';
 @immutable
 class ExactAlarmStatus {
   final bool supported;
-  final bool requested;
   final bool authorized;
 
-  const ExactAlarmStatus({
-    required this.supported,
-    required this.requested,
-    required this.authorized,
-  });
+  const ExactAlarmStatus({required this.supported, required this.authorized});
 
-  const ExactAlarmStatus.unsupported()
-    : supported = false,
-      requested = false,
-      authorized = false;
+  const ExactAlarmStatus.unsupported() : supported = false, authorized = false;
 }
 
 class PlatformCompatibilityService {
@@ -52,7 +44,6 @@ class PlatformCompatibilityService {
       final values = raw is Map ? raw : const {};
       return ExactAlarmStatus(
         supported: values['exactAlarmSupported'] == true,
-        requested: values['exactAlarmRequested'] == true,
         authorized: values['exactAlarmAuthorized'] == true,
       );
     } catch (_) {
@@ -72,15 +63,9 @@ class PlatformCompatibilityService {
     }
   }
 
-  static Future<void> setExactAlarmRequested(bool requested) async {
+  static Future<void> openExactAlarmSettings() async {
     if (!isAndroid) return;
-    await (debugInvoke?.call('setExactAlarmRequested') ??
-        _channel.invokeMethod<void>('setExactAlarmRequested', {
-          'requested': requested,
-        }));
-    if (requested) {
-      await (debugInvoke?.call('openExactAlarmSettings') ??
-          _channel.invokeMethod<void>('openExactAlarmSettings'));
-    }
+    await (debugInvoke?.call('openExactAlarmSettings') ??
+        _channel.invokeMethod<void>('openExactAlarmSettings'));
   }
 }

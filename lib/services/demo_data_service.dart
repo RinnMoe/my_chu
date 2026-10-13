@@ -12,10 +12,6 @@ class DemoDataConfig {
   final int quickAppCount;
   final int courseCount;
   final bool scheduleError;
-  final bool gradeNotification;
-  final bool balanceNotification;
-  final bool liveUpdateNotification;
-  final bool systemBanner;
 
   const DemoDataConfig({
     this.holiday = false,
@@ -24,10 +20,6 @@ class DemoDataConfig {
     this.quickAppCount = 4,
     this.courseCount = 3,
     this.scheduleError = false,
-    this.gradeNotification = true,
-    this.balanceNotification = true,
-    this.liveUpdateNotification = true,
-    this.systemBanner = true,
   });
 
   DemoDataConfig copyWith({
@@ -37,10 +29,6 @@ class DemoDataConfig {
     int? quickAppCount,
     int? courseCount,
     bool? scheduleError,
-    bool? gradeNotification,
-    bool? balanceNotification,
-    bool? liveUpdateNotification,
-    bool? systemBanner,
   }) {
     return DemoDataConfig(
       holiday: holiday ?? this.holiday,
@@ -49,11 +37,6 @@ class DemoDataConfig {
       quickAppCount: quickAppCount ?? this.quickAppCount,
       courseCount: courseCount ?? this.courseCount,
       scheduleError: scheduleError ?? this.scheduleError,
-      gradeNotification: gradeNotification ?? this.gradeNotification,
-      balanceNotification: balanceNotification ?? this.balanceNotification,
-      liveUpdateNotification:
-          liveUpdateNotification ?? this.liveUpdateNotification,
-      systemBanner: systemBanner ?? this.systemBanner,
     );
   }
 }

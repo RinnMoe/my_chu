@@ -8,11 +8,34 @@
       "colorMode": "auto",
       "isDefault": true,
       "isDynamic": true,
-      "supportDimensions": ["2*2", "2*4"],
+      "supportDimensions": [
+        "2*2",
+        "2*4"
+      ],
       "defaultDimension": "2*2",
       "updateEnabled": true,
       "scheduledUpdateTime": "00:05",
       "updateDuration": 48
+    },
+    {
+      "name": "week_schedule",
+      "displayName": "$string:week_schedule_widget_label",
+      "description": "$string:week_schedule_widget_description",
+      "src": "./ets/widgets/WeekScheduleWidgetCard.ets",
+      "uiSyntax": "arkts",
+      "colorMode": "auto",
+      "isDefault": false,
+      "isDynamic": true,
+      "supportDimensions": [
+        "4*4"
+      ],
+      "defaultDimension": "4*4",
+      "updateEnabled": true,
+      "scheduledUpdateTime": "00:05",
+      "updateDuration": 48,
+      "previewImages": [
+        "$media:week_schedule_preview"
+      ]
     }
   ]
 }

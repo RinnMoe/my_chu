@@ -6,23 +6,18 @@ import '../capabilities/dev_visibility.dart';
 import '../services/home_layout_service.dart';
 
 /// 打开常用应用编辑器。首页与页面管理共用同一实现。
-Future<void> showQuickAppsEditorSheet(
-  BuildContext context, {
-  required String accountKey,
-}) {
+Future<void> showQuickAppsEditorSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
-    builder: (_) => QuickAppsEditorSheet(accountKey: accountKey),
+    builder: (_) => const QuickAppsEditorSheet(),
   );
 }
 
 class QuickAppsEditorSheet extends StatefulWidget {
-  final String accountKey;
-
-  const QuickAppsEditorSheet({super.key, required this.accountKey});
+  const QuickAppsEditorSheet({super.key});
 
   @override
   State<QuickAppsEditorSheet> createState() => _QuickAppsEditorSheetState();
@@ -43,9 +38,7 @@ class _QuickAppsEditorSheetState extends State<QuickAppsEditorSheet> {
   }
 
   Future<void> _refresh() async {
-    final projection = await AppService.loadQuickAppsProjection(
-      widget.accountKey,
-    );
+    final projection = await AppService.loadQuickAppsProjection();
     if (!mounted) return;
     setState(() {
       _config = projection.config;
@@ -75,15 +68,12 @@ class _QuickAppsEditorSheetState extends State<QuickAppsEditorSheet> {
   bool get _atLimit => _selected.length >= _maxQuickApps;
 
   Future<void> _add(AppDefinition plugin) async {
-    await HomeLayoutService.addQuickApp(widget.accountKey, plugin.metadata.id);
+    await HomeLayoutService.addQuickApp(plugin.metadata.id);
     await _refresh();
   }
 
   Future<void> _remove(AppDefinition plugin) async {
-    await HomeLayoutService.removeQuickApp(
-      widget.accountKey,
-      plugin.metadata.id,
-    );
+    await HomeLayoutService.removeQuickApp(plugin.metadata.id);
     await _refresh();
   }
 
@@ -91,7 +81,7 @@ class _QuickAppsEditorSheetState extends State<QuickAppsEditorSheet> {
     final ids = [for (final plugin in _selected) plugin.metadata.id];
     final moved = ids.removeAt(oldIndex);
     ids.insert(newIndex, moved);
-    await HomeLayoutService.setQuickAppsOrder(widget.accountKey, ids);
+    await HomeLayoutService.setQuickAppsOrder(ids);
     await _refresh();
   }
 
@@ -410,11 +400,8 @@ class _AddableAppRow extends StatelessWidget {
 }
 
 /// 排序方式选择：手动排序或最近使用，点击后即时保存。
-Future<void> showQuickAppsSortModeSheet(
-  BuildContext context, {
-  required String accountKey,
-}) async {
-  final config = await AppService.getQuickAppsConfig(accountKey);
+Future<void> showQuickAppsSortModeSheet(BuildContext context) async {
+  final config = await AppService.getQuickAppsConfig();
   if (!context.mounted) return;
 
   await showModalBottomSheet<void>(
@@ -443,7 +430,6 @@ Future<void> showQuickAppsSortModeSheet(
               selected: config.sortMode == QuickAppsSortMode.manual,
               onTap: () async {
                 await HomeLayoutService.setQuickAppsSortMode(
-                  accountKey,
                   QuickAppsSortMode.manual,
                 );
                 if (sheetContext.mounted) Navigator.pop(sheetContext);
@@ -455,7 +441,6 @@ Future<void> showQuickAppsSortModeSheet(
               selected: config.sortMode == QuickAppsSortMode.recent,
               onTap: () async {
                 await HomeLayoutService.setQuickAppsSortMode(
-                  accountKey,
                   QuickAppsSortMode.recent,
                 );
                 if (sheetContext.mounted) Navigator.pop(sheetContext);

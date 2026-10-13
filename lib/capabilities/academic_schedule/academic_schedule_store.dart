@@ -640,39 +640,34 @@ class AcademicScheduleStore {
   }
 }
 
-/// 课表页的账号级显示偏好，与 `HomeLayoutService`/`NavigationLayoutService`
-/// 同一套机制：`SharedPreferences` 键带 `accountKey` 后缀，退出登录不清除，
-/// 登录替换账号后旧键成为无害的孤儿键（`accountKey` 每次登录随机生成）。
+/// 设备全局显示偏好；课表内容仍按账号隔离。
 class AcademicScheduleDisplayPreferences {
-  static const _showNonCurrentPrefix = 'academic_schedule.show_noncurrent.v1.';
-  static const _hideWeekendPrefix = 'academic_schedule.hide_weekend.v1.';
-
   /// Bumped whenever a stored preference changes so pages can rebuild.
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
   /// Whether the week grid also shows dimmed non-current-week courses.
   /// Defaults to on.
-  static Future<bool> readShowNonCurrent(String accountKey) async {
+  static Future<bool> readShowNonCurrent() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('$_showNonCurrentPrefix$accountKey') ?? true;
+    return prefs.getBool('preferences.v1.schedule.show_noncurrent') ?? true;
   }
 
-  static Future<void> setShowNonCurrent(String accountKey, bool value) async {
+  static Future<void> setShowNonCurrent(bool value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('$_showNonCurrentPrefix$accountKey', value);
+    await prefs.setBool('preferences.v1.schedule.show_noncurrent', value);
     revision.value++;
   }
 
   /// Whether Saturday and Sunday are hidden from the timetable grid.
   /// Defaults to off; hiding them never changes the stored schedule or export.
-  static Future<bool> readHideWeekend(String accountKey) async {
+  static Future<bool> readHideWeekend() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('$_hideWeekendPrefix$accountKey') ?? false;
+    return prefs.getBool('preferences.v1.schedule.hide_weekend') ?? false;
   }
 
-  static Future<void> setHideWeekend(String accountKey, bool value) async {
+  static Future<void> setHideWeekend(bool value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('$_hideWeekendPrefix$accountKey', value);
+    await prefs.setBool('preferences.v1.schedule.hide_weekend', value);
     revision.value++;
   }
 }

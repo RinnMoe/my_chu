@@ -1,3 +1,4 @@
+import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -49,7 +50,11 @@ class _LoadingCard extends StatelessWidget {
   }
 }
 
-class _NetworkSelfServicePageState extends State<NetworkSelfServicePage> {
+class _NetworkSelfServicePageState extends State<NetworkSelfServicePage>
+    with CampusAuthRefresh<NetworkSelfServicePage> {
+  @override
+  Future<void> onCampusAuthChanged() => _load();
+
   late final NetworkSelfServiceService _service;
   NetworkSelfServiceOverview? _overview;
   NetworkSelfServiceAuthState? _authState;
