@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../capabilities/app_installer/app_installer.dart';
 import '../../capabilities/app_update/app_update_coordinator.dart';
@@ -89,7 +88,6 @@ class FenfaService {
   static final FenfaService shared = FenfaService();
   static bool _updateRunning = false;
 
-  static const _dismissedBuildKey = 'fenfa.v1.dismissed_build';
   static const _announcementsTtl = Duration(minutes: 5);
 
   final FenfaClient _client;
@@ -106,8 +104,8 @@ class FenfaService {
   DateTime? _announcementsFetchedAt;
   int? _announcementsCacheRevision;
 
-  /// 检查更新。[manual] 为 true 时绕过“稍后”抑制（手动检查）。
-  Future<FenfaCheckResult> checkForUpdate({required bool manual}) async {
+  /// 检查更新；启动/手动入口均已收敛到同一版本比较逻辑。
+  Future<FenfaCheckResult> checkForUpdate() async {
     if (!await AppRemoteServicesService.isEnabled()) {
       return const FenfaCheckResult(FenfaCheckOutcome.disabled);
     }
@@ -135,22 +133,12 @@ class FenfaService {
     if (remoteBuild <= localBuild) {
       return const FenfaCheckResult(FenfaCheckOutcome.none);
     }
-    if (!manual && await _isDismissed(remoteBuild)) {
-      // “稍后”策略：自动检查在手动检查或更高版本出现前不再提醒。
-      return const FenfaCheckResult(FenfaCheckOutcome.none);
-    }
     return FenfaCheckResult(
       release.forceUpdate
           ? FenfaCheckOutcome.forceUpdate
           : FenfaCheckOutcome.normalUpdate,
       release,
     );
-  }
-
-  /// 记录普通更新的“稍后”：该 build 在手动检查或更高版本出现前不再自动提醒。
-  Future<void> rememberLater(int build) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_dismissedBuildKey, normalizeFenfaBuild(build));
   }
 
   /// 首页 Focus 使用当前公告；短时缓存避免其他 Focus 来源刷新时重复请求。
@@ -354,11 +342,5 @@ class FenfaService {
     if (!await PrivacyAgreementService.isAccepted()) {
       throw const InAppDownloadException(InAppDownloadErrorType.cancelled);
     }
-  }
-
-  Future<bool> _isDismissed(int build) async {
-    final prefs = await SharedPreferences.getInstance();
-    final dismissed = prefs.getInt(_dismissedBuildKey);
-    return dismissed != null && dismissed >= normalizeFenfaBuild(build);
   }
 }

@@ -160,6 +160,17 @@ try {
         throw "APK applicationId mismatch for $Channel`: expected '$expectedApplicationId', got '$actualApplicationId'."
     }
 
+    $manifest = Invoke-ApkAnalyzer @('manifest', 'print', $source)
+    if ($manifest -match 'android:usesCleartextTraffic="true"') {
+        throw 'Release APK must not enable cleartext traffic globally.'
+    }
+    if ($manifest -match 'android:debuggable="true"') {
+        throw 'Release APK must not be debuggable.'
+    }
+    if ($manifest -notmatch 'android:networkSecurityConfig=') {
+        throw 'Release APK must declare a network security config.'
+    }
+
     $expectedLabel = if ($Channel -eq 'preview') { 'MyCHU Preview' } else { 'MyCHU' }
     $actualLabel = Invoke-ApkAnalyzer @(
         'resources',

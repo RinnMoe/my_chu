@@ -90,7 +90,6 @@ flutter:
     - assets/data/public_holidays/2026.json
     - assets/data/public_holidays/2027.json
     - assets/models/ddddocr/
-    - test/fixtures/captcha/synthetic_1234.png
 
 flutter_launcher_icons:
   android: true

@@ -211,6 +211,7 @@ class ExternalNavigationCapability {
                 for (final info in externalMapApps)
                   if (apps.contains(info.app))
                     ListTile(
+                      key: ValueKey('external-navigation-${info.app.name}'),
                       leading: Icon(info.icon),
                       title: Text(info.label),
                       onTap: () => Navigator.of(context).pop(info.app),

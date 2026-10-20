@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../capabilities/in_app_download/in_app_download.dart';
 import '../services/app_remote_services_service.dart';
 import '../services/fenfa/fenfa_models.dart';
-import '../services/fenfa/fenfa_service.dart';
 import 'app_update_progress.dart';
 
 /// 更新弹窗用户选择。
@@ -178,105 +177,6 @@ class _FenfaUpdateDialogState extends State<FenfaUpdateDialog> {
         ],
       ),
     );
-  }
-}
-
-/// 启动检查是否已在本进程执行（每次进入主界面只自动检查一次）。
-bool _startupCheckRan = false;
-
-@visibleForTesting
-void resetFenfaStartupCheckForTest() {
-  _startupCheckRan = false;
-}
-
-/// 进入主界面后的异步启动更新检查；公告由首页 Focus 加载。
-///
-/// 所有失败均静默降级，不影响 App 正常启动；未登录时不会调用本方法。
-Future<void> presentFenfaStartupCheck(
-  BuildContext context, {
-  FenfaService? service,
-}) async {
-  if (_startupCheckRan) return;
-  _startupCheckRan = true;
-  final fenfa = service ?? FenfaService.shared;
-
-  final result = await fenfa.checkForUpdate(manual: false);
-  if (!context.mounted) return;
-
-  switch (result.outcome) {
-    case FenfaCheckOutcome.forceUpdate:
-      await presentFenfaUpdateDialog(
-        context,
-        release: result.release!,
-        force: true,
-        onUpdate:
-            (release, onProgress) =>
-                fenfa.downloadAndInstall(release, onProgress: onProgress),
-      );
-      return;
-    case FenfaCheckOutcome.normalUpdate:
-      final choice = await presentFenfaUpdateDialog(
-        context,
-        release: result.release!,
-        force: false,
-        onUpdate:
-            (release, onProgress) =>
-                fenfa.downloadAndInstall(release, onProgress: onProgress),
-      );
-      if (choice == FenfaUpdateChoice.later) {
-        await fenfa.rememberLater(result.release!.build);
-      }
-      return;
-    case FenfaCheckOutcome.none:
-    case FenfaCheckOutcome.unavailable:
-      return;
-    case FenfaCheckOutcome.disabled:
-      return;
-  }
-}
-
-/// 手动检查更新（关于页“版本号”）：绕过“稍后”抑制，只处理更新。
-Future<void> presentFenfaManualCheck(
-  BuildContext context, {
-  FenfaService? service,
-}) async {
-  final fenfa = service ?? FenfaService.shared;
-  final result = await fenfa.checkForUpdate(manual: true);
-  if (!context.mounted) return;
-
-  switch (result.outcome) {
-    case FenfaCheckOutcome.forceUpdate:
-      await presentFenfaUpdateDialog(
-        context,
-        release: result.release!,
-        force: true,
-        onUpdate:
-            (release, onProgress) =>
-                fenfa.downloadAndInstall(release, onProgress: onProgress),
-      );
-      break;
-    case FenfaCheckOutcome.normalUpdate:
-      final choice = await presentFenfaUpdateDialog(
-        context,
-        release: result.release!,
-        force: false,
-        onUpdate:
-            (release, onProgress) =>
-                fenfa.downloadAndInstall(release, onProgress: onProgress),
-      );
-      if (choice == FenfaUpdateChoice.later) {
-        await fenfa.rememberLater(result.release!.build);
-      }
-      break;
-    case FenfaCheckOutcome.none:
-      _showSnack(context, '当前已是最新版本');
-      break;
-    case FenfaCheckOutcome.unavailable:
-      _showSnack(context, '检查更新失败，请稍后重试');
-      break;
-    case FenfaCheckOutcome.disabled:
-      showAppRemoteServicesDisabledMessage(context);
-      break;
   }
 }
 

@@ -165,7 +165,7 @@ class AppUpdateService extends ChangeNotifier {
       }
       if (!await _current(epoch)) return;
       if (useFenfa) {
-        final legacy = await _fenfa.checkForUpdate(manual: true);
+        final legacy = await _fenfa.checkForUpdate();
         if (!await _current(epoch)) return;
         if (legacy.outcome == FenfaCheckOutcome.unavailable) {
           throw const FormatException('Update sources unavailable');
