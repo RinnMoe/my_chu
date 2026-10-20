@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../apps/portal_personal/portal_personal_page.dart';
+import '../apps/tronclass_rollcall/tronclass_rollcall_app.dart';
 import '../capabilities/skeleton_block.dart';
 import '../services/credential_sync_service.dart';
 import '../services/home_focus_service.dart';
@@ -29,6 +30,10 @@ class HomeFocusSection extends StatelessWidget {
 
   Future<void> _openItem(BuildContext context, HomeFocusItem item) async {
     final destination = item.destination;
+    if (destination is HomeFocusRollcallDestination) {
+      await openTargetId(context, tronclassRollcallAppId);
+      return;
+    }
     if (destination is HomeFocusAnnouncementDestination) {
       await Navigator.push(
         context,
@@ -421,6 +426,7 @@ class _FocusRow extends StatelessWidget {
 
   IconData _kindIcon(HomeFocusKind kind) {
     return switch (kind) {
+      HomeFocusKind.rollcall => Icons.fact_check_outlined,
       HomeFocusKind.todo => Icons.assignment_outlined,
       HomeFocusKind.exam => Icons.event_available_outlined,
       HomeFocusKind.campusNotice => Icons.campaign_outlined,

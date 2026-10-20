@@ -42,6 +42,8 @@ class TimeReminderService {
   static int? _generation;
   static Future<void>? _tail;
   static Future<void>? _initialization;
+  static final _refreshBatches = <String, Future<void>>{};
+  static final _refreshedAt = <String, DateTime>{};
 
   @visibleForTesting
   static Future<Object?> Function(String, Object?)? debugInvoke;
@@ -311,7 +313,7 @@ class TimeReminderService {
     }
   }
 
-  static Future<void> refreshAll() async {
+  static Future<void> refreshAll({bool force = false}) async {
     final epoch = _epoch;
     if (!isSupported ||
         DemoDataService.instance.enabled ||
@@ -320,6 +322,34 @@ class TimeReminderService {
     }
     final account = await _currentAccount();
     if (account == null || epoch != _epoch) return;
+    final key = '$epoch:$account';
+    final pending = _refreshBatches[key];
+    if (pending != null) return pending;
+    final now = debugClock?.call() ?? DateTime.now();
+    final last = _refreshedAt[key];
+    if (!force &&
+        last != null &&
+        now.difference(last) < const Duration(minutes: 3)) {
+      // Permission changes can require native rescheduling even while the
+      // source data remains fresh. This does not fetch campus data.
+      await _serial(() async {
+        if (_account == account && epoch == _epoch) {
+          await _invoke('reschedule');
+        }
+      });
+      return;
+    }
+    final future = _refreshAll(account, epoch);
+    _refreshBatches[key] = future;
+    try {
+      await future;
+      if (epoch == _epoch) _refreshedAt[key] = now;
+    } finally {
+      if (identical(_refreshBatches[key], future)) _refreshBatches.remove(key);
+    }
+  }
+
+  static Future<void> _refreshAll(String account, int epoch) async {
     await Future.wait([
       for (final category in TimeReminderCategory.values)
         refresh(category, account),
@@ -332,6 +362,8 @@ class TimeReminderService {
   }
 
   static Future<void> clearAll() {
+    _refreshedAt.clear();
+    _refreshBatches.clear();
     _epoch++;
     _account = null;
     _owner = null;
@@ -366,6 +398,8 @@ class TimeReminderService {
 
   @visibleForTesting
   static void debugReset() {
+    _refreshBatches.clear();
+    _refreshedAt.clear();
     _epoch++;
     _tail = null;
     _account = null;

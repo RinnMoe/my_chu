@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -69,6 +70,9 @@ class AccountNetworkSession {
   final HttpClient _client;
   final ScopedCookieJar _cookies = ScopedCookieJar();
   final Map<String, Future<void>> _serialTails = {};
+  final _waitingRequests = Queue<Completer<void>>();
+  int _activeRequests = 0;
+  static const _maxConcurrentRequests = 4;
   Future<void>? _persistentLoad;
   var _closed = false;
 
@@ -246,9 +250,31 @@ class AccountNetworkSession {
     }
 
     if (serializationKey == null || serializationKey.isEmpty) {
-      return perform();
+      return _withRequestSlot(perform);
     }
-    return _runSerial(serializationKey, perform);
+    return _runSerial(serializationKey, () => _withRequestSlot(perform));
+  }
+
+  // A slot covers one physical send/response only. Service acquisition and
+  // authentication recovery happen outside it, so nested recovery cannot
+  // wait for a slot held by the request it is recovering.
+  Future<T> _withRequestSlot<T>(Future<T> Function() send) async {
+    if (_activeRequests >= _maxConcurrentRequests) {
+      final ready = Completer<void>();
+      _waitingRequests.add(ready);
+      await ready.future;
+    } else {
+      _activeRequests++;
+    }
+    try {
+      return await send();
+    } finally {
+      if (_waitingRequests.isEmpty) {
+        _activeRequests--;
+      } else {
+        _waitingRequests.removeFirst().complete();
+      }
+    }
   }
 
   /// Restores the durable Session Store into this account-scoped transport

@@ -1,6 +1,7 @@
 import 'services/host_auth_state.dart';
 import 'services/auth_service.dart';
 import 'services/host_auth_coordinator.dart';
+import 'services/tronclass_rollcall_store.dart';
 import 'widgets/campus_auth_boundary.dart';
 import 'dart:async';
 
@@ -33,6 +34,7 @@ import 'services/navigation_layout_service.dart';
 import 'services/privacy_agreement_service.dart';
 import 'services/usage_analytics_service.dart';
 import 'services/time_reminder_service.dart';
+import 'services/course_live_activity_service.dart';
 import 'services/platform_compatibility_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'apps/portal_personal/portal_personal_page.dart';
@@ -46,7 +48,7 @@ import 'services/campus_settings_service.dart';
 import 'services/guide_preferences.dart';
 import 'services/onboarding_flow_service.dart';
 import 'theme/app_palette.dart';
-import 'pages/fenfa_dialogs.dart';
+import 'pages/app_update_prompts.dart';
 import 'pages/privacy_agreement_dialog.dart';
 import 'pages/app_sheet.dart';
 import 'pages/host_permission_purpose_overlay.dart';
@@ -76,6 +78,11 @@ void _bootstrap() {
     }),
   );
   unawaited(themePreferencesNotifier.initialize());
+  unawaited(
+    CourseLiveActivityService.initialize().catchError((Object error) {
+      AppLogger.warn('课程实时动态初始化失败 (${error.runtimeType})');
+    }),
+  );
   unawaited(AppLaunchService.initialize());
   TemporalChangeService.initialize();
   runApp(const MyApp());
@@ -163,6 +170,8 @@ class MyApp extends StatelessWidget {
     final scheme = resolveAppColorScheme(
       brightness,
       dynamicScheme: dynamicScheme,
+      seedColor: themePreferencesNotifier.value.seedColor,
+      pureBlack: themePreferencesNotifier.value.pureBlackEnabled,
     );
 
     return ThemeData(
@@ -179,7 +188,7 @@ class MyApp extends StatelessWidget {
         scrolledUnderElevation: 0,
       ),
       cardTheme: CardThemeData(
-        color: scheme.surfaceContainerLowest,
+        color: scheme.surfaceContainer,
         elevation: 0,
         margin: EdgeInsets.zero,
         surfaceTintColor: Colors.transparent,
@@ -190,7 +199,7 @@ class MyApp extends StatelessWidget {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceContainerLowest,
+        fillColor: scheme.surfaceContainerHigh,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 10,
@@ -439,6 +448,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   bool _onboardingFlowRunning = false;
   bool _onboardingFlowAttempted = false;
   Future<void>? _resumeSessionCheck;
+  bool _wasBackgrounded = false;
+  bool _rollcallRefreshPending = false;
   final GuidePreferences _guidePreferences = GuidePreferences();
 
   @override
@@ -459,10 +470,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _reloadTabs();
     _handleAppLaunch();
     _syncDesktopWidgetSnapshot();
-    // 进入主界面后异步执行 Fenfa 更新检查；公告由首页 Focus 加载。
-    // 不阻塞登录与首页渲染；Fenfa 不可用时静默降级。
+    // 普通更新进入“我的”栏目，只有强制升级弹窗；公告仍由首页 Focus 加载。
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(RecentScheduleRepository.instance.refresh());
+      if (mounted) TronclassRollcallStore.instance.start();
+      if (mounted) {
+        unawaited(RecentScheduleRepository.instance.refresh(force: false));
+      }
       if (mounted) unawaited(_runStartupChecksAndRequestHomePermissions());
     });
   }
@@ -482,6 +495,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       // UI and its startup permission flow are usable. It only reads the
       // host-owned, account-scoped data contract.
       unawaited(TimeReminderService.refreshAll());
+      unawaited(CourseLiveActivityService.refreshForCurrentAccount());
     }
   }
 
@@ -519,11 +533,29 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     academicScheduleCapability.handleAppLifecycleState(state);
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _wasBackgrounded = true;
+    }
+    // The foreground-only boundary coordination must stop off-screen.
+    if (state == AppLifecycleState.resumed) {
+      CourseLiveActivityService.setForeground(true);
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      CourseLiveActivityService.setForeground(false);
+    }
     if (state == AppLifecycleState.resumed && mounted) {
+      if (_wasBackgrounded) _rollcallRefreshPending = true;
+      _wasBackgrounded = false;
       _syncDesktopWidgetSnapshot();
       _restoreCampusSessionAfterResume();
       // Refresh local reminder candidates on a foreground opportunity.
       unawaited(TimeReminderService.refreshAll());
+      // Course live activity shares the same local data contract; it only
+      // re-coordinates a persisted plan or re-projects cached courses.
+      unawaited(CourseLiveActivityService.refreshForCurrentAccount());
     }
   }
 
@@ -542,14 +574,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   Future<void> _runCampusSessionRestoreAfterResume() async {
     await HostAuthCoordinator.check();
+    if (mounted && _rollcallRefreshPending) {
+      _rollcallRefreshPending = false;
+      unawaited(TronclassRollcallStore.instance.refresh());
+    }
     if (mounted) AuthenticatedWebViewCapability.notifyAppResumed();
     if (mounted && !HostAuthState.snapshot.value.blocksRequests) {
-      await RecentScheduleRepository.instance.refresh();
+      await RecentScheduleRepository.instance.refresh(force: false);
     }
   }
 
   Future<void> _runStartupChecks() async {
-    await presentFenfaStartupCheck(context);
+    await presentAppUpdateCheck(context);
   }
 
   @override
@@ -581,7 +617,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Future<void> _refreshRecentAlerts() async {
     if (!await PrivacyAgreementService.isAccepted()) return;
     final key = (await AuthService.getCurrentAccount())?.accountKey;
-    if (key != null && mounted) await refreshRecentCourseAlerts(key);
+    if (key == null || !mounted) return;
+    if (!PlatformCompatibilityService.isAndroid) await refreshRecentCourseAlerts(key);
+    // The same repository revision drives the course live activity, so no
+    // second fetch flow is introduced. A course-data revision must bypass the
+    // refresh coalescing window, otherwise a mid-window room change or a
+    // cancellation would be dropped and the device would keep the old plan.
+    await CourseLiveActivityService.refresh(key, force: true);
   }
 
   void _syncDesktopWidgetSnapshot() {
@@ -619,6 +661,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (reminder != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_openTimeReminder(reminder));
+      });
+      return;
+    }
+    final courseLive = AppLaunchService.takePendingCourseLiveActivity();
+    if (courseLive != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_openCourseLiveActivity(courseLive));
       });
       return;
     }
@@ -660,6 +709,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     await openTargetId(context, launch!.targetId);
   }
 
+  /// A course activity tap waits for the protocol and authentication checks,
+  /// then re-validates ownership, generation, the switch and the occurrence
+  /// before opening the root 课表 tab.
+  Future<void> _openCourseLiveActivity(Map payload) async {
+    try {
+      if (!await CourseLiveActivityService.acceptsLaunch(payload)) return;
+      if (!mounted) return;
+      await openTargetId(context, CourseLiveActivityService.targetAppId);
+    } catch (_) {
+      /* Invalid/stale notification must never navigate. */
+    }
+  }
+
   void _onAuthSnapshotChanged() {
     if (!mounted) return;
     _handleAppLaunch();
@@ -684,6 +746,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       unawaited(RecentScheduleRepository.instance.refresh());
       unawaited(_requestTimeReminderPermissions());
       unawaited(TimeReminderService.refreshAll());
+      unawaited(CourseLiveActivityService.refreshForCurrentAccount(force: true));
     }
   }
 

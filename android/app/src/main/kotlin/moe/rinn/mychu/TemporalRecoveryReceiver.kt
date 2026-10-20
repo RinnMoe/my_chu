@@ -16,6 +16,8 @@ class TemporalRecoveryReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        // The ongoing course activity has its own recovery receiver; wiring it
+        // here as well would run the same re-coordination twice per broadcast.
         fun recover(context: Context) {
             TimeReminderEngine.reschedule(context)
         }

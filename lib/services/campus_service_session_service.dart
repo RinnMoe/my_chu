@@ -133,8 +133,7 @@ class CampusSessionService {
   static const _exchangeCooldown = Duration(minutes: 5);
   static const _serviceExchangeCooldown = Duration(minutes: 2);
 
-  static final Map<String, Future<(CampusServiceSession?, bool)>> _refreshes =
-      {};
+  static final Map<String, Future<CampusServiceSession?>> _refreshes = {};
   static final Map<String, Future<(CampusServiceSession?, bool)>>
   _serviceRefreshes = {};
 
@@ -311,18 +310,15 @@ class CampusSessionService {
     }
     final pending = _refreshes[flightKey];
     if (pending != null) {
-      final (sharedCredential, sharedAuthExpired) = await pending;
-      if (sharedCredential != null) return sharedCredential;
-      if (!sharedAuthExpired) {
-        return cachedPolicyFallback();
-      }
-      return null;
+      return pending;
     }
 
-    final refresh = _refresh(account, serviceId, fence: fence);
-    _refreshes[flightKey] = refresh;
-    try {
-      var (credential, authExpired) = await refresh;
+    Future<CampusServiceSession?> recover() async {
+      var (credential, authExpired) = await _refresh(
+        account,
+        serviceId,
+        fence: fence,
+      );
       // 换票失败且统一身份会话已过期：优先用已保存账号密码静默重登，
       // 成功后重跑一次目标服务换票；失败由宿主引导手动重新登录。
       if (credential == null && authExpired) {
@@ -370,6 +366,13 @@ class CampusSessionService {
         return fallback;
       }
       return credential;
+    }
+
+    // Share the complete exchange + root recovery + guarded commit transaction.
+    final refresh = recover();
+    _refreshes[flightKey] = refresh;
+    try {
+      return await refresh;
     } finally {
       if (identical(_refreshes[flightKey], refresh)) {
         _refreshes.remove(flightKey);

@@ -1,13 +1,13 @@
 import '../services/time_reminder_service.dart';
+import '../services/platform_compatibility_service.dart';
+import 'academic_schedule/academic_schedule_alerts.dart';
 import '../apps/academic_affairs/academic_affairs_service.dart';
 import '../apps/tronclass/tronclass_service.dart';
-import 'academic_schedule/academic_schedule_alerts.dart';
 
 void registerTimeReminders() {
-  TimeReminderService.register(
-    TimeReminderCategory.course,
-    refreshRecentCourseAlerts,
-  );
+  if (!PlatformCompatibilityService.isAndroid) {
+    TimeReminderService.register(TimeReminderCategory.course, refreshRecentCourseAlerts);
+  }
   TimeReminderService.register(
     TimeReminderCategory.exam,
     (account) => TimeReminderService.replaceEvents(

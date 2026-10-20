@@ -8,6 +8,7 @@ import 'package:html/parser.dart' as html_parser;
 import '../../services/time_reminder_service.dart';
 import '../../capabilities/east8_time.dart';
 import '../../capabilities/persistent_summary_cache.dart';
+import '../../capabilities/account_scoped_cache.dart';
 import '../../capabilities/text_utils.dart';
 import '../../services/academic_affairs_backend.dart';
 import '../../services/auth_service.dart';
@@ -21,6 +22,10 @@ typedef AcademicAffairsDocumentLoader =
     Future<Document> Function(Uri uri, {required String method, String? body});
 
 class AcademicAffairsService {
+  static final _examCache = AccountScopedCache<List<AcademicExam>>(
+    ttl: const Duration(minutes: 3),
+    allowStale: false,
+  );
   static final _client = CampusSession.client(CampusServices.academicAffairs);
   static final _graduateClient = CampusSession.client(
     CampusServices.graduateAcademicAffairs,
@@ -337,7 +342,8 @@ class AcademicAffairsService {
   Future<List<AcademicExam>> fetchAllExams([
     String? semesterId,
     bool evaluateAlerts = true,
-  ]) => fetchExamsByBatch(semesterId, '0', evaluateAlerts);
+    bool force = false,
+  ]) => fetchExamsByBatch(semesterId, '0', evaluateAlerts, force);
 
   /// 按指定考试批次（`examBatch.id`）拉取考试安排；`batchId` 为空时等同于
   /// 全部批次（`0`）。
@@ -345,24 +351,35 @@ class AcademicAffairsService {
     String? semesterId,
     String? batchId, [
     bool evaluateAlerts = true,
+    bool force = false,
   ]) async {
     final owner = await _tryCurrentAccountKey();
     final revision = AuthService.sessionRevision;
     final backend = await _resolveBackend();
-    if (backend == AcademicAffairsBackend.graduate) {
-      final exams = await _fetchGraduateExams(semesterId);
-      if (evaluateAlerts &&
-          (batchId == null || batchId == '0') &&
-          owner != null &&
-          revision == AuthService.sessionRevision) {
-        unawaited(scheduleExamReminders(owner, exams));
+    Future<List<AcademicExam>> load() async {
+      final result =
+          backend == AcademicAffairsBackend.graduate
+              ? await _fetchGraduateExams(semesterId)
+              : await _fetchExams(
+                semesterId: semesterId,
+                batchId: batchId ?? '0',
+              );
+      if (owner != null &&
+          (revision != AuthService.sessionRevision ||
+              owner != await _tryCurrentAccountKey())) {
+        throw StateError('Exam result belongs to an obsolete session');
       }
-      return exams;
+      return List.unmodifiable(result);
     }
-    final exams = await _fetchExams(
-      semesterId: semesterId,
-      batchId: batchId ?? '0',
-    );
+
+    final exams =
+        owner == null
+            ? await load()
+            : await _examCache.load(
+              '$owner:$revision:${backend.name}:${semesterId?.trim() ?? ''}:${batchId ?? '0'}',
+              load,
+              force: force,
+            );
     if (evaluateAlerts &&
         (batchId == null || batchId == '0') &&
         owner != null &&

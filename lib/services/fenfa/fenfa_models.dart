@@ -77,6 +77,7 @@ class FenfaRelease {
   final String? releasePage;
   final String? channel;
   final String? minOs;
+  final String? deltaManifestUrl;
 
   const FenfaRelease({
     required this.id,
@@ -88,6 +89,7 @@ class FenfaRelease {
     this.releasePage,
     this.channel,
     this.minOs,
+    this.deltaManifestUrl,
   });
 
   /// 防御性解析：必填字段缺失/类型错误抛 [FormatException]。
@@ -120,6 +122,10 @@ class FenfaRelease {
               : null,
       channel: json['channel'] is String ? json['channel'] as String : null,
       minOs: json['min_os'] is String ? json['min_os'] as String : null,
+      deltaManifestUrl:
+          json['delta_manifest_url'] is String
+              ? json['delta_manifest_url'] as String
+              : null,
     );
   }
 }

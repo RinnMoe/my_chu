@@ -21,14 +21,14 @@ struct TodayScheduleWidgetCard {
           .fontColor($r('app.color.widget_on_surface_variant'))
           .width('100%')
           .textAlign(TextAlign.Center)
-        Text(this.weekLabel())
+        Text(this.dateLabel())
           .fontSize(10)
           .fontColor($r('app.color.widget_on_surface_variant'))
-          .maxLines(2)
+          .maxLines(1)
           .textAlign(TextAlign.Center)
       } else {
         Row() {
-          Text(this.weekLabel())
+          Text(this.dateLabel())
             .fontSize(this.formDimension === 2 ? 12 : 14)
             .fontWeight(500)
             .fontColor($r('app.color.widget_on_surface'))
@@ -117,8 +117,10 @@ struct TodayScheduleWidgetCard {
     return projectWidgetToday(this.snapshot()).status === 'ready';
   }
 
-  private weekLabel(): string {
-    return projectWidgetToday(this.snapshot()).sourceLabel || '今日课表';
+  private dateLabel(): string {
+    const today = new Date(Date.now() + 8 * 3600000);
+    const weekday = ['日', '一', '二', '三', '四', '五', '六'][today.getUTCDay()];
+    return `${today.getUTCMonth() + 1}.${today.getUTCDate()} 周${weekday}`;
   }
 
   private statusMessage(): string {

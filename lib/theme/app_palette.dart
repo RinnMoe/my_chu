@@ -242,11 +242,55 @@ ColorScheme buildAppColorScheme(Brightness brightness) {
 ColorScheme resolveAppColorScheme(
   Brightness brightness, {
   ColorScheme? dynamicScheme,
+  Color? seedColor,
+  bool pureBlack = false,
 }) {
-  if (dynamicScheme?.brightness == brightness) {
-    return dynamicScheme!;
-  }
-  return buildAppColorScheme(brightness);
+  final scheme =
+      dynamicScheme?.brightness == brightness
+          ? _completeDynamicSurfaces(dynamicScheme!)
+          : seedColor != null && seedColor != AppBrand.seed
+          ? ColorScheme.fromSeed(seedColor: seedColor, brightness: brightness)
+          : buildAppColorScheme(brightness);
+  if (!pureBlack || brightness != Brightness.dark) return scheme;
+  return scheme.copyWith(
+    surface: Colors.black,
+    surfaceDim: Colors.black,
+    surfaceBright: const Color(0xff242424),
+    surfaceContainerLowest: Colors.black,
+    surfaceContainerLow: const Color(0xff121212),
+    surfaceContainer: const Color(0xff181818),
+    surfaceContainerHigh: const Color(0xff222222),
+    surfaceContainerHighest: const Color(0xff2c2c2c),
+    surfaceTint: Colors.transparent,
+  );
+}
+
+/// dynamic_color 1.8.x uses the legacy ColorScheme constructor on Android.
+/// Missing M3 surface roles fall back to surface, flattening every container.
+/// Fill only that incomplete palette; retain all system accent/foreground roles.
+ColorScheme _completeDynamicSurfaces(ColorScheme source) {
+  final surfaces = [
+    source.surfaceContainerLowest,
+    source.surfaceContainerLow,
+    source.surfaceContainer,
+    source.surfaceContainerHigh,
+    source.surfaceContainerHighest,
+  ];
+  if (surfaces.any((color) => color != source.surface)) return source;
+  final complete = ColorScheme.fromSeed(
+    seedColor: source.primary,
+    brightness: source.brightness,
+  );
+  return source.copyWith(
+    surface: complete.surface,
+    surfaceDim: complete.surfaceDim,
+    surfaceBright: complete.surfaceBright,
+    surfaceContainerLowest: complete.surfaceContainerLowest,
+    surfaceContainerLow: complete.surfaceContainerLow,
+    surfaceContainer: complete.surfaceContainer,
+    surfaceContainerHigh: complete.surfaceContainerHigh,
+    surfaceContainerHighest: complete.surfaceContainerHighest,
+  );
 }
 
 /// 语义状态色（随明暗主题切换）。

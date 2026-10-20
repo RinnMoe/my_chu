@@ -16,6 +16,20 @@ class ExternalAppLauncher {
   ExternalAppLauncher({MethodChannel? channel})
     : _channel = channel ?? _defaultChannel;
 
+  Future<bool> launchPackage(String androidPackage) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;
+    try {
+      return await _channel.invokeMethod<bool>('launchPackage', {
+            'androidPackage': androidPackage,
+          }) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
   Future<bool> launch(ExternalAppTarget target) async {
     if (defaultTargetPlatform != TargetPlatform.android) return false;
     try {

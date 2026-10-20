@@ -2,6 +2,7 @@ import 'host_auth_state.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -170,7 +171,8 @@ class CampusSession {
 
     Future<AccountNetworkResponse> perform() async {
       final stopwatch = Stopwatch()..start();
-      var attempt = 1;
+      var attempt = 0;
+      var transientRetries = 0;
       try {
         final postExchangeSettle =
             definition.transportPolicy.postExchangeSettle;
@@ -225,6 +227,8 @@ class CampusSession {
             body != null && body is! String && body is! List<int>;
 
         Future<AccountNetworkResponse> send() async {
+          await _assertCurrent(fence);
+          attempt++;
           seedServiceSession();
           final progress =
               responseFile == null
@@ -283,36 +287,34 @@ class CampusSession {
         }
 
         Future<AccountNetworkResponse> sendWithTransientRetry() async {
-          try {
-            var response = await send();
-            if (_canRetryTransientFailure(method, response.statusCode)) {
-              attempt++;
-              AppLogger.warn(
-                '网络请求暂时失败 ${_serviceLabel(serviceId)} '
-                '→ ${response.statusCode}，准备重试',
-              );
-              await Future<void>.delayed(const Duration(milliseconds: 250));
-              response = await send();
+          while (true) {
+            try {
+              final response = await send();
+              if (transientRetries >= 1 ||
+                  !_canRetryTransientFailure(method, response.statusCode)) {
+                return response;
+              }
+            } on SocketException {
+              if (transientRetries >= 1 ||
+                  !_canRetryTransientFailure(method, null)) {
+                rethrow;
+              }
+            } on TimeoutException {
+              if (transientRetries >= 1 ||
+                  !_canRetryTransientFailure(method, null)) {
+                rethrow;
+              }
+            } on HttpException {
+              if (transientRetries >= 1 ||
+                  !_canRetryTransientFailure(method, null)) {
+                rethrow;
+              }
             }
-            return response;
-          } on SocketException {
-            if (!_canRetryTransientFailure(method, null)) rethrow;
-            attempt++;
-            AppLogger.warn('网络请求连接异常 ${_serviceLabel(serviceId)}，准备重试');
-            await Future<void>.delayed(const Duration(milliseconds: 250));
-            return send();
-          } on TimeoutException {
-            if (!_canRetryTransientFailure(method, null)) rethrow;
-            attempt++;
-            AppLogger.warn('网络请求连接超时 ${_serviceLabel(serviceId)}，准备重试');
-            await Future<void>.delayed(const Duration(milliseconds: 250));
-            return send();
-          } on HttpException {
-            if (!_canRetryTransientFailure(method, null)) rethrow;
-            attempt++;
-            AppLogger.warn('网络请求响应中断 ${_serviceLabel(serviceId)}，准备重试');
-            await Future<void>.delayed(const Duration(milliseconds: 250));
-            return send();
+            transientRetries++;
+            AppLogger.warn('网络请求暂时失败 ${_serviceLabel(serviceId)}，准备重试');
+            await Future<void>.delayed(
+              Duration(milliseconds: 200 + Random().nextInt(201)),
+            );
           }
         }
 
@@ -321,13 +323,13 @@ class CampusSession {
             _canReplayAfterAuthFailure(method, uri, definition) &&
             _isChdService(uri) &&
             _requiresSessionRefresh(response, serviceId, uri)) {
-          attempt++;
           if (!_runtimeFenceIsCurrent(fence)) {
             throw StaleSessionResultException(serviceId);
           }
           final credential = await _recoverServiceSession(
             uri,
             serviceId: serviceId,
+            observedFence: fence,
           );
           if (credential != null) {
             serviceSession = credential;
@@ -472,14 +474,51 @@ class CampusSession {
   static Future<CampusServiceSession?> _recoverServiceSession(
     Uri uri, {
     required CampusServiceId serviceId,
+    required SessionRuntimeFence observedFence,
   }) async {
     final account = await AuthService.getCurrentAccount();
     if (account == null) return null;
+    if (account.accountKey != observedFence.accountKey ||
+        AuthService.sessionRevision != observedFence.sessionRevision) {
+      return null;
+    }
+    final definition = CampusServiceEndpoints.definitionFor(serviceId);
+    final scope =
+        (definition?.usesExactExchangeFor(uri) ?? false) ? uri.path : '';
+    final key = '${observedFence.fingerprint}:$scope';
+    final pending = _recoveries[key];
+    if (pending != null) return pending;
+    if (!observedFence.isCurrent(
+      currentAccountKey: account.accountKey,
+      currentSessionRevision: AuthService.sessionRevision,
+    )) {
+      return CampusSessionService.get(serviceId);
+    }
+    final future = _recoverInvalidatedService(
+      uri,
+      serviceId,
+      account.accountKey,
+    );
+    _recoveries[key] = future;
+    try {
+      return await future;
+    } finally {
+      if (identical(_recoveries[key], future)) _recoveries.remove(key);
+    }
+  }
+
+  static final _recoveries = <String, Future<CampusServiceSession?>>{};
+
+  static Future<CampusServiceSession?> _recoverInvalidatedService(
+    Uri uri,
+    CampusServiceId serviceId,
+    String accountKey,
+  ) async {
     final definition = CampusServiceEndpoints.definitionFor(serviceId);
     if (!(definition?.rootIdentity ?? false)) {
       await CampusSessionService.invalidate(
         serviceId,
-        accountKey: account.accountKey,
+        accountKey: accountKey,
         serviceUri: uri,
         reason: SessionInvalidationReason.authFailure,
       );

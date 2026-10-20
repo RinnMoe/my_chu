@@ -16,6 +16,16 @@ enum InAppDownloadErrorType {
   network,
   http,
   storage,
+  cancelled,
+}
+
+enum AppUpdatePhase {
+  preparing,
+  downloadingPatch,
+  merging,
+  verifying,
+  downloadingFull,
+  installing,
 }
 
 /// A user-safe error from an in-app download operation.
@@ -34,15 +44,21 @@ class InAppDownloadProgress {
   final int receivedBytes;
   final int? totalBytes;
   final int attempt;
+  final AppUpdatePhase phase;
 
   const InAppDownloadProgress({
     required this.receivedBytes,
     required this.totalBytes,
     required this.attempt,
+    this.phase = AppUpdatePhase.downloadingFull,
   });
 
   /// A bounded fraction when the server supplied a usable total size.
   double? get fraction {
+    if (phase != AppUpdatePhase.downloadingFull &&
+        phase != AppUpdatePhase.downloadingPatch) {
+      return null;
+    }
     final total = totalBytes;
     if (total == null || total <= 0) return null;
     return (receivedBytes / total).clamp(0.0, 1.0).toDouble();
@@ -82,14 +98,79 @@ class InAppDownloadCapability {
   final InAppDownloadTemporaryDirectoryProvider? _temporaryDirectoryProvider;
   final InAppDownloadFileSaver? _fileSaver;
   final InAppDownloadFileOpener? _fileOpener;
+  final PublicHttpClient? _publicClient;
 
   const InAppDownloadCapability({
     InAppDownloadTemporaryDirectoryProvider? temporaryDirectoryProvider,
     InAppDownloadFileSaver? fileSaver,
     InAppDownloadFileOpener? fileOpener,
+    PublicHttpClient? publicHttpClient,
   }) : _temporaryDirectoryProvider = temporaryDirectoryProvider,
        _fileSaver = fileSaver,
-       _fileOpener = fileOpener;
+       _fileOpener = fileOpener,
+       _publicClient = publicHttpClient;
+
+  /// Host update files remain private until handed to the system installer.
+  /// Uses the same public client as ordinary downloads, without MediaStore.
+  Future<InAppDownloadedFile> downloadPrivate({
+    required Uri url,
+    required File destination,
+    required int maxBytes,
+    bool Function()? shouldContinue,
+    AppUpdatePhase phase = AppUpdatePhase.downloadingFull,
+    ValueChanged<InAppDownloadProgress>? onProgress,
+  }) async {
+    _validateUrl(url);
+    void check(int received, int? total) {
+      if (shouldContinue?.call() == false) {
+        throw const InAppDownloadException(InAppDownloadErrorType.cancelled);
+      }
+      if (received > maxBytes || (total != null && total > maxBytes)) {
+        throw const InAppDownloadException(InAppDownloadErrorType.storage);
+      }
+    }
+
+    check(0, null);
+    try {
+      final response = await (_publicClient ?? _publicHttpClient)
+          .downloadToFile(
+            url,
+            destination: destination,
+            requestTimeout: const Duration(seconds: 60),
+            responseTimeout: const Duration(seconds: 60),
+            shouldContinue: shouldContinue,
+            onProgress: (received, total, attempt) {
+              check(received, total);
+              onProgress?.call(
+                InAppDownloadProgress(
+                  receivedBytes: received,
+                  totalBytes: total,
+                  attempt: attempt,
+                  phase: phase,
+                ),
+              );
+            },
+          );
+      check(await destination.length(), response.contentLength);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw InAppDownloadException(
+          InAppDownloadErrorType.http,
+          statusCode: response.statusCode,
+        );
+      }
+      return InAppDownloadedFile(
+        path: destination.path,
+        fileName: destination.uri.pathSegments.last,
+        sizeBytes: await destination.length(),
+      );
+    } catch (_) {
+      if (await destination.exists()) await destination.delete();
+      if (shouldContinue?.call() == false) {
+        throw const InAppDownloadException(InAppDownloadErrorType.cancelled);
+      }
+      rethrow;
+    }
+  }
 
   Future<InAppDownloadedFile> download({
     required Uri url,

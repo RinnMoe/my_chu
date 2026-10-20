@@ -1,7 +1,6 @@
 import 'auth_service.dart';
 import 'campus_session_store.dart';
 import 'campus_service_session_service.dart';
-import 'federated_session.dart';
 import 'service_endpoints.dart';
 
 /// Host-owned readiness coordinator for service warm-up.
@@ -19,34 +18,22 @@ class SessionReadinessService {
     final store = await CampusSessionStore.open(accountKey: account.accountKey);
     if (await _isReady(store, definition)) return true;
 
-    final fence = store.captureFence(
-      serviceId: definition.id,
-      scopeKey: definition
-          .scopeFor(definition.startUri)
-          .keyFor(definition.startUri),
-      sessionRevision: AuthService.sessionRevision,
-      additionalScopeKeys: definition.sessionScopeKeys,
-    );
-
-    if (definition.sessionMaterializer case CustomPostSsoBootstrap(
-      :final bootstrapId,
-    )) {
-      await CampusSessionService.get(bootstrapId, forceRefresh: true);
-      final refreshedStore = await CampusSessionStore.open(
-        accountKey: account.accountKey,
-      );
-      return _isReady(refreshedStore, definition);
+    final target = switch (definition.sessionMaterializer) {
+      CustomPostSsoBootstrap(:final bootstrapId) => bootstrapId,
+      _ => serviceId,
+    };
+    final session = await CampusSessionService.get(target);
+    if (session == null) return false;
+    if ((await AuthService.getCurrentAccount())?.accountKey !=
+        account.accountKey) {
+      return false;
     }
-
-    final result = await FederatedSession.exchangeForStore(
-      store: store,
-      definition: definition,
-      fence: fence,
-      label: '会话预热 ${definition.id.value}',
+    // Root recovery may have replaced the epoch while the broker was running.
+    final refreshedStore = await CampusSessionStore.open(
+      accountKey: account.accountKey,
     );
-    if (result.endedAtIdentityLogin || !result.committed) return false;
-    if (!await store.isCurrentIdentityEpoch()) return false;
-    return _isReady(store, definition, finalUri: result.finalUri);
+    if (!await refreshedStore.isCurrentIdentityEpoch()) return false;
+    return _isReady(refreshedStore, definition, finalUri: session.sessionUri);
   }
 
   static Future<bool> _isReady(

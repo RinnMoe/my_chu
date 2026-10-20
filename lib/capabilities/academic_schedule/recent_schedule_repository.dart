@@ -18,6 +18,7 @@ class RecentScheduleRepository {
   final DateTime Function() _clock;
   final Map<String, Future<void>> _pending = {};
   final Map<String, RecentScheduleWindow> _fresh = {};
+  final Map<String, DateTime> _failedUntil = {};
   int _generation = 0;
 
   RecentScheduleRepository({
@@ -64,7 +65,7 @@ class RecentScheduleRepository {
   bool isFresh(String accountKey, RecentScheduleWindow window) =>
       identical(_fresh[accountKey], window);
 
-  Future<void> refresh() async {
+  Future<void> refresh({bool force = true}) async {
     if (HostAuthState.initialized &&
         HostAuthState.snapshot.value.blocksRequests) {
       return;
@@ -74,6 +75,17 @@ class RecentScheduleRepository {
     if (key == null) return;
     final existing = _pending[key];
     if (existing != null) return existing;
+    if (!force) {
+      final now = east8WallClockToUtcInstant(_clock());
+      if (_failedUntil[key]?.isAfter(now) ?? false) return;
+      final cached = await read(key);
+      if (cached != null &&
+          cached.startDate == recentScheduleDate(_clock()) &&
+          now.difference(cached.fetchedAt) < const Duration(minutes: 15)) {
+        _fresh[key] = cached;
+        return;
+      }
+    }
     final revision = AuthService.sessionRevision;
     final future = _refresh(key, revision, _generation);
     _pending[key] = future;
@@ -87,6 +99,7 @@ class RecentScheduleRepository {
   Future<void> clear() async {
     _generation++;
     _fresh.clear();
+    _failedUntil.clear();
     _pending.clear();
     await _cache.clearAll();
   }
@@ -109,8 +122,14 @@ class RecentScheduleRepository {
           AuthService.sessionRevision == revision &&
           generation == _generation) {
         _fresh[key] = window;
+        _failedUntil.remove(key);
       }
     } catch (_) {
+      if (generation == _generation) {
+        _failedUntil[key] = east8WallClockToUtcInstant(
+          _clock(),
+        ).add(const Duration(seconds: 30));
+      }
       // Keep the last successfully obtained range; the resolver owns fallback.
     }
     this.revision.value++;

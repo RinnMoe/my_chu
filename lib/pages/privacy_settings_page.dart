@@ -1,4 +1,5 @@
 import '../services/time_reminder_service.dart';
+import '../services/course_live_activity_service.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -126,6 +127,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
         RecentScheduleRepository.instance.clear,
         DesktopWidgetSyncService.clearSchedule,
         TimeReminderService.clearAll,
+        CourseLiveActivityService.clearAll,
       ]) {
         try {
           await clear();

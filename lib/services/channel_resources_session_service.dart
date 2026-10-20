@@ -24,6 +24,9 @@ enum ChannelResourcesSessionErrorType {
   malformed,
   retryRequired,
   stale,
+  oldPasswordIncorrect,
+  passwordChangeRejected,
+  usernameTaken,
 }
 
 class ChannelResourcesSessionException implements Exception {
@@ -50,6 +53,12 @@ class ChannelResourcesSessionException implements Exception {
         return '登录状态已恢复，请重新操作。';
       case ChannelResourcesSessionErrorType.stale:
         return '账号状态已变化，请重试。';
+      case ChannelResourcesSessionErrorType.oldPasswordIncorrect:
+        return '原密码不正确，请重新输入。';
+      case ChannelResourcesSessionErrorType.passwordChangeRejected:
+        return '请检查原密码、新密码（至少 6 位）及新用户名（至少 3 位），或前往资料站管理账号。';
+      case ChannelResourcesSessionErrorType.usernameTaken:
+        return '新用户名已被使用，请换一个。';
     }
   }
 
@@ -357,6 +366,16 @@ class ChannelResourcesSession {
       headers: effectiveHeaders,
       body: bytes,
     );
+    // res-hub uses 401 for a wrong old password as well as an expired token.
+    // Only this exact business error may bypass session recovery.
+    if (uri.path == _pathUri('auth/change-password').path &&
+        response.statusCode == HttpStatus.unauthorized &&
+        _detail(response) == '原密码错误') {
+      throw const ChannelResourcesSessionException(
+        ChannelResourcesSessionErrorType.oldPasswordIncorrect,
+        statusCode: HttpStatus.unauthorized,
+      );
+    }
     if (response.statusCode == HttpStatus.unauthorized) {
       final recovered = await _refresh(generation);
       if (recovered) {
@@ -404,9 +423,31 @@ class ChannelResourcesSession {
     if (newUsername != null && newUsername.trim().isNotEmpty) {
       body['new_username'] = newUsername.trim();
     }
-    final response = await request('POST', 'auth/change-password', body: body);
+    // FastAPI Query parameters, matching res-hub's Vue client. Never log this
+    // URI: the server contract carries passwords in the query string.
+    final response = await request(
+      'POST',
+      'auth/change-password',
+      queryParameters: body,
+    );
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (response.statusCode == 409 ||
+          response.statusCode == 400 ||
+          response.statusCode == 404 ||
+          response.statusCode == 422) {
+        throw ChannelResourcesSessionException(
+          response.statusCode == 409
+              ? ChannelResourcesSessionErrorType.usernameTaken
+              : ChannelResourcesSessionErrorType.passwordChangeRejected,
+          statusCode: response.statusCode,
+        );
+      }
       throw _statusException(response.statusCode);
+    }
+    if (_jsonMap(response)['status'] != 'success') {
+      throw const ChannelResourcesSessionException(
+        ChannelResourcesSessionErrorType.malformed,
+      );
     }
     await clear();
   }
@@ -415,17 +456,27 @@ class ChannelResourcesSession {
   /// local refresh cookie and in-memory token.
   Future<void> logout() async {
     final generation = _generation;
-    if (_accessToken != null && _isGenerationCurrent(generation)) {
-      try {
-        await _sendAuthorizedRaw(
+    try {
+      final cookie =
+          _refreshCookie ?? await _storage.read(key: _refreshStorageKey);
+      _checkFence(generation);
+      if (_accessToken != null || (cookie != null && cookie.isNotEmpty)) {
+        // res-hub can revoke by either credential, including a cold session
+        // whose access token has not yet been restored.
+        await _sendRaw(
           'POST',
           _pathUri('auth/logout'),
-          generation: generation,
+          headers: {
+            if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
+            if (cookie != null && cookie.isNotEmpty)
+              'Cookie': 'refresh_token=$cookie',
+          },
         );
-      } on Object {
-        // Local sign-out must not be blocked by a network failure.
       }
+    } on Object {
+      // Local sign-out must not be blocked by a network failure.
     }
+    _checkFence(generation);
     await clear();
   }
 
@@ -759,13 +810,28 @@ class ChannelResourcesSession {
   }
 
   static Map<String, dynamic> _jsonMap(ChannelResourcesHttpResponse response) {
-    final decoded = jsonDecode(response.body);
+    Object? decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      throw const ChannelResourcesSessionException(
+        ChannelResourcesSessionErrorType.malformed,
+      );
+    }
     if (decoded is! Map) {
       throw const ChannelResourcesSessionException(
         ChannelResourcesSessionErrorType.malformed,
       );
     }
     return Map<String, dynamic>.from(decoded);
+  }
+
+  static String? _detail(ChannelResourcesHttpResponse response) {
+    try {
+      return _string(_jsonMap(response)['detail']);
+    } on ChannelResourcesSessionException {
+      return null;
+    }
   }
 
   static ChannelResourcesSessionException _statusException(int statusCode) {

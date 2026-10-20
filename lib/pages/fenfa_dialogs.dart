@@ -6,6 +6,7 @@ import '../capabilities/in_app_download/in_app_download.dart';
 import '../services/app_remote_services_service.dart';
 import '../services/fenfa/fenfa_models.dart';
 import '../services/fenfa/fenfa_service.dart';
+import 'app_update_progress.dart';
 
 /// 更新弹窗用户选择。
 enum FenfaUpdateChoice { updateNow, later }
@@ -98,25 +99,6 @@ class _FenfaUpdateDialogState extends State<FenfaUpdateDialog> {
     return Future<void>.value();
   }
 
-  String _progressText() {
-    final progress = _progress;
-    if (progress == null) return '正在准备下载…';
-    final fraction = progress.fraction;
-    if (fraction != null && fraction >= 1) {
-      return '下载完成，正在唤起系统安装程序…';
-    }
-    if (fraction != null) {
-      return '正在下载安装包 ${(fraction * 100).floor()}%';
-    }
-    return '已下载 ${_formatBytes(progress.receivedBytes)}';
-  }
-
-  static String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -171,7 +153,10 @@ class _FenfaUpdateDialogState extends State<FenfaUpdateDialog> {
                 const SizedBox(height: 16),
                 LinearProgressIndicator(value: _progress?.fraction),
                 const SizedBox(height: 8),
-                Text(_progressText(), style: theme.textTheme.bodySmall),
+                Text(
+                  updateProgressLabel(_progress),
+                  style: theme.textTheme.bodySmall,
+                ),
               ],
             ],
           ),

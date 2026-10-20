@@ -13,8 +13,9 @@ typedef SummaryEncoder<T> = Map<String, dynamic> Function(T value);
 /// Account-scoped persistent summary cache.
 ///
 /// Adds a disk layer on top of the single-flight/short-TTL memory behaviour:
-/// on a cold start the last persisted value is shown immediately and refreshed
-/// in the background. Keys always include `accountKey` and the resource key.
+/// on a cold start the last persisted value respects its original TTL. Expired
+/// values refresh in the background; [refreshOnColdStart] opts a source into
+/// refreshing even fresh disk data. Keys include `accountKey` and resource key.
 /// Persistence is opt-in per plugin and best-effort: failures never break the
 /// in-memory path.
 ///
@@ -32,6 +33,7 @@ class PersistentSummaryCache<T> {
     required this.fromJson,
     required this.toJson,
     this.allowStale = true,
+    this.refreshOnColdStart = false,
     this.fingerprint,
     this.onChanged,
     Future<Directory> Function()? directoryProvider,
@@ -52,6 +54,9 @@ class PersistentSummaryCache<T> {
   final SummaryDecoder<T> fromJson;
   final SummaryEncoder<T> toJson;
   final bool allowStale;
+
+  /// Opt in only for sources that must refresh even within their TTL.
+  final bool refreshOnColdStart;
   final Future<Directory> Function() _directoryProvider;
 
   /// Projects a value to a stable identity for change detection. Only used
@@ -71,8 +76,8 @@ class PersistentSummaryCache<T> {
 
   /// Returns a fresh value, joins an active load, or starts one.
   ///
-  /// On a cold start (empty memory) a valid disk value is returned immediately
-  /// and refreshed in the background; [force] bypasses memory and disk.
+  /// On a cold start a valid disk value is returned immediately. Only stale
+  /// values or opted-in sources refresh; [force] bypasses memory and disk.
   Future<T> load(
     String accountKey,
     String resourceKey,
@@ -85,7 +90,9 @@ class PersistentSummaryCache<T> {
     if (!force && allowStale && _memoryCache.peek(key) == null) {
       final disk = await _readDisk(accountKey, resourceKey);
       if (!_isCurrent(key, generation)) return loader();
-      if (disk != null && !_olderThan(disk.fetchedAt, persistTtl)) {
+      if (disk != null &&
+          !_olderThan(disk.fetchedAt, persistTtl) &&
+          _memoryCache.peek(key) == null) {
         _memoryCache.seed(key, disk.value, fetchedAt: disk.fetchedAt);
         seededFromDisk = true;
       }
@@ -105,7 +112,7 @@ class PersistentSummaryCache<T> {
       return value;
     }
 
-    if (seededFromDisk) {
+    if (seededFromDisk && refreshOnColdStart) {
       // The disk value can still be fresh within its memory TTL. Refresh in
       // the background anyway so a cold start surfaces the latest value
       // promptly instead of waiting for the TTL to expire.

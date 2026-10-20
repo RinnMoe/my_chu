@@ -20,11 +20,13 @@ class HostAuthSnapshot {
 
   /// Changes only after committed login/logout, rather than every cookie refresh.
   final int contentRevision;
+
+  /// An indeterminate identity probe is advisory. Individual CampusSession
+  /// requests still validate their service authentication and may succeed.
   bool get blocksRequests =>
       status == HostAuthStatus.guest ||
       status == HostAuthStatus.storageError ||
-      status == HostAuthStatus.loginRequired ||
-      status == HostAuthStatus.unavailable;
+      status == HostAuthStatus.loginRequired;
 }
 
 class CampusAuthenticationRequired implements Exception {

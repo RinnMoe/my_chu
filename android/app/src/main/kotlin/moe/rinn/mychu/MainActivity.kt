@@ -36,11 +36,19 @@ class MainActivity : FlutterActivity() {
     private var pendingTargetAppId: Any? = null
     private var pendingWidgetLaunchRequest: String? = null
     private var temporalChangeChannel: TemporalChangeChannel? = null
+    private var courseLiveChannel: CourseLiveActivityChannel? = null
+    private var mapboxLogMessenger: MapboxLogMessenger? = null
+    private var appUpdateChannel: AppUpdateChannel? = null
     private val desktopWidgetScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val desktopWidgetUpdateMutex = Mutex()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        mapboxLogMessenger = MapboxLogMessenger(flutterEngine.dartExecutor.binaryMessenger).also {
+            com.mapbox.maps.mapbox_maps.LoggingController.setup(it)
+        }
+        appUpdateChannel?.dispose()
+        appUpdateChannel = AppUpdateChannel(applicationContext, flutterEngine)
         PlatformCompatibilityChannel.register(this, flutterEngine)
         AndroidDeviceCompatibilityChannel.register(this, flutterEngine)
         TimeReminderEngine.register(this, flutterEngine)
@@ -80,6 +88,8 @@ class MainActivity : FlutterActivity() {
         }
         temporalChangeChannel?.dispose()
         temporalChangeChannel = TemporalChangeChannel(this, flutterEngine)
+        courseLiveChannel?.dispose()
+        courseLiveChannel = CourseLiveActivityChannel(applicationContext, flutterEngine)
         appLaunchChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             APP_LAUNCH_CHANNEL,
@@ -178,6 +188,27 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             EXTERNAL_APP_LAUNCHER_CHANNEL,
         ).setMethodCallHandler { call, result ->
+            if (call.method == "launchPackage") {
+                val androidPackage = call.argument<String>("androidPackage")
+                if (androidPackage.isNullOrBlank()) {
+                    result.error("INVALID_ARG", "androidPackage is required", null)
+                    return@setMethodCallHandler
+                }
+                try {
+                    val intent = packageManager.getLaunchIntentForPackage(androidPackage)
+                    if (intent == null) {
+                        result.success(false)
+                    } else {
+                        startActivity(intent)
+                        result.success(true)
+                    }
+                } catch (_: ActivityNotFoundException) {
+                    result.success(false)
+                } catch (_: SecurityException) {
+                    result.success(false)
+                }
+                return@setMethodCallHandler
+            }
             if (call.method != "launch") {
                 result.notImplemented()
                 return@setMethodCallHandler
@@ -210,9 +241,15 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        mapboxLogMessenger?.detach()
+        mapboxLogMessenger = null
+        appUpdateChannel?.dispose()
+        appUpdateChannel = null
         desktopWidgetScope.cancel()
         temporalChangeChannel?.dispose()
         temporalChangeChannel = null
+        courseLiveChannel?.dispose()
+        courseLiveChannel = null
         super.onDestroy()
     }
 
@@ -222,13 +259,23 @@ class MainActivity : FlutterActivity() {
                 val target = intent.getStringExtra(EXTRA_TARGET_APP_ID)?.trim()
                 if (!target.isNullOrEmpty()) {
                     pendingWidgetLaunchRequest = null
-                    val payload: Any = if (intent.hasExtra("reminderOwner")) mapOf(
-                        "source" to "timeReminder", "targetAppId" to target,
-                        "owner" to intent.getStringExtra("reminderOwner"),
-                        "category" to intent.getStringExtra("reminderCategory"),
-                        "eventId" to intent.getStringExtra("reminderEvent"),
-                        "validUntil" to intent.getLongExtra("reminderUntil", 0),
-                    ) else target
+                    val payload: Any = when {
+                        intent.hasExtra("reminderOwner") -> mapOf(
+                            "source" to "timeReminder", "targetAppId" to target,
+                            "owner" to intent.getStringExtra("reminderOwner"),
+                            "category" to intent.getStringExtra("reminderCategory"),
+                            "eventId" to intent.getStringExtra("reminderEvent"),
+                            "validUntil" to intent.getLongExtra("reminderUntil", 0),
+                        )
+                        intent.hasExtra(EXTRA_COURSE_LIVE_OWNER) -> mapOf(
+                            "source" to "courseLiveActivity", "targetAppId" to target,
+                            "owner" to intent.getStringExtra(EXTRA_COURSE_LIVE_OWNER),
+                            "generation" to intent.getLongExtra(EXTRA_COURSE_LIVE_GENERATION, -1L),
+                            "eventId" to intent.getStringExtra(EXTRA_COURSE_LIVE_EVENT),
+                            "startAt" to intent.getLongExtra(EXTRA_COURSE_LIVE_START, 0L),
+                        )
+                        else -> target
+                    }
                     pendingTargetAppId = payload
                     appLaunchChannel?.invokeMethod("openTarget", payload)
                 }
@@ -481,6 +528,10 @@ class MainActivity : FlutterActivity() {
         const val EXTRA_TARGET_APP_ID = "mychu_target_app_id"
         const val ACTION_OPEN_WIDGET_TARGET = "moe.rinn.mychu.action.OPEN_WIDGET_TARGET"
         const val EXTRA_WIDGET_LAUNCH_REQUEST = "mychu_widget_launch_request"
+        const val EXTRA_COURSE_LIVE_OWNER = "courseLiveOwner"
+        const val EXTRA_COURSE_LIVE_EVENT = "courseLiveEvent"
+        const val EXTRA_COURSE_LIVE_START = "courseLiveStart"
+        const val EXTRA_COURSE_LIVE_GENERATION = "courseLiveGeneration"
         private const val WAKE_UP_PACKAGE = "com.suda.yzune.wakeupschedule"
     }
 }

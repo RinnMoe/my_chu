@@ -73,6 +73,7 @@ dependencyResolutionManagement {
             }
             filter {
                 includeGroup("com.github.getActivity")
+                includeGroup("com.github.Chiu-xaH.DiffUpdater")
             }
         }
     }

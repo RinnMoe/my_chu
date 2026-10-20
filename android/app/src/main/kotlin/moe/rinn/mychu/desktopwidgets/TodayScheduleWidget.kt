@@ -92,6 +92,8 @@ private fun TodayScheduleContent(data: TodayScheduleWidgetData) {
     }
     val compact = LocalSize.current.width < 180.dp
     val scheduleClick = actionStartActivity(openSchedule, actionParametersOf())
+    val weekday = listOf("一", "二", "三", "四", "五", "六", "日")[data.businessDate.dayOfWeek.value - 1]
+    val dateLabel = "${data.businessDate.monthValue}.${data.businessDate.dayOfMonth} 周$weekday"
 
     GlanceTheme {
         Scaffold(
@@ -113,13 +115,11 @@ private fun TodayScheduleContent(data: TodayScheduleWidgetData) {
                         ),
                         maxLines = 1,
                     )
-                    data.sourceLabel?.let { source ->
-                        Text(
-                            text = source,
-                            style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 10.sp),
-                            maxLines = 2,
-                        )
-                    }
+                    Text(
+                        text = dateLabel,
+                        style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 10.sp),
+                        maxLines = 1,
+                    )
                 }
             } else {
                 Column(
@@ -136,7 +136,7 @@ private fun TodayScheduleContent(data: TodayScheduleWidgetData) {
                         verticalAlignment = Alignment.Bottom,
                     ) {
                         Text(
-                            text = data.sourceLabel ?: (data.currentWeek?.let { "第${it}周" } ?: "今日课表"),
+                            text = dateLabel,
                             modifier = GlanceModifier.defaultWeight(),
                             style = TextStyle(
                                 color = GlanceTheme.colors.onSurface,

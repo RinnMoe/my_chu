@@ -6,6 +6,7 @@ class AppLaunchService {
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
   static String? _pendingTargetId;
   static Map? _pendingReminder;
+  static Map? _pendingCourseLiveActivity;
   static String? _pendingWidgetLaunchRequest;
   static bool _initialized = false;
 
@@ -38,6 +39,12 @@ class AppLaunchService {
     return payload;
   }
 
+  static Map? takePendingCourseLiveActivity() {
+    final payload = _pendingCourseLiveActivity;
+    _pendingCourseLiveActivity = null;
+    return payload;
+  }
+
   static String? takePendingTarget() {
     final target = _pendingTargetId;
     _pendingTargetId = null;
@@ -53,6 +60,12 @@ class AppLaunchService {
   static void _receive(Object? value) {
     if (value is Map && value['source'] == 'timeReminder') {
       _pendingReminder = value;
+      _pendingTargetId = null;
+      revision.value++;
+      return;
+    }
+    if (value is Map && value['source'] == 'courseLiveActivity') {
+      _pendingCourseLiveActivity = value;
       _pendingTargetId = null;
       revision.value++;
       return;

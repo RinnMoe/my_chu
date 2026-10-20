@@ -13,12 +13,18 @@ import 'package:flutter/foundation.dart';
 /// it immediately and starts a background refresh; [revision] bumps when a
 /// load completes so listeners can render the fresh value.
 class AccountScopedCache<T> {
-  AccountScopedCache({required this.ttl, this.allowStale = true}) {
+  AccountScopedCache({
+    required this.ttl,
+    this.allowStale = true,
+    this.failureCooldown = const Duration(seconds: 15),
+  }) {
     AccountCacheRegistry.register(this);
   }
 
   final Duration ttl;
   final bool allowStale;
+  final Duration failureCooldown;
+  final _failures = <String, (DateTime, Object, StackTrace)>{};
 
   final Map<String, _AccountCacheEntry<T>> _entries = {};
   final Map<String, Future<T>> _inFlight = {};
@@ -42,6 +48,11 @@ class AccountScopedCache<T> {
     }
     final pending = _inFlight[accountKey];
     if (pending != null) return pending;
+    final failure = _failures[accountKey];
+    if (!force && failure != null && failure.$1.isAfter(DateTime.now())) {
+      if (allowStale && entry != null) return Future<T>.value(entry.value);
+      return Future<T>.error(failure.$2, failure.$3);
+    }
     if (!force && allowStale && entry != null) {
       _refreshInBackground(accountKey, loader);
       return Future<T>.value(entry.value);
@@ -64,14 +75,20 @@ class AccountScopedCache<T> {
   void invalidate(String accountKey) {
     _advanceGeneration(accountKey);
     _entries.remove(accountKey);
+    _failures.remove(accountKey);
     _inFlight.remove(accountKey);
   }
 
   void invalidateAll() {
-    for (final key in {..._entries.keys, ..._inFlight.keys}) {
+    for (final key in {
+      ..._entries.keys,
+      ..._inFlight.keys,
+      ..._failures.keys,
+    }) {
       _advanceGeneration(key);
     }
     _entries.clear();
+    _failures.clear();
     _inFlight.clear();
   }
 
@@ -84,7 +101,12 @@ class AccountScopedCache<T> {
 
   /// Removes every entry whose key satisfies [test].
   void invalidateWhere(bool Function(String accountKey) test) {
-    final keys = {..._entries.keys, ..._inFlight.keys}.where(test).toList();
+    final keys =
+        {
+          ..._entries.keys,
+          ..._inFlight.keys,
+          ..._failures.keys,
+        }.where(test).toList();
     for (final key in keys) {
       invalidate(key);
     }
@@ -124,8 +146,21 @@ class AccountScopedCache<T> {
     int generation,
     Future<T> Function() loader,
   ) async {
-    final value = await loader();
+    late final T value;
+    try {
+      value = await loader();
+    } catch (error, stack) {
+      if (_generationOf(accountKey) == generation) {
+        _failures[accountKey] = (
+          DateTime.now().add(failureCooldown),
+          error,
+          stack,
+        );
+      }
+      rethrow;
+    }
     if (_generationOf(accountKey) != generation) return value;
+    _failures.remove(accountKey);
     _entries[accountKey] = _AccountCacheEntry(
       value,
       DateTime.now(),

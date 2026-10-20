@@ -271,7 +271,8 @@ class RecentScheduleDay {
   };
 }
 
-/// Empty covered days are authoritative; the two datasets are never merged.
+/// ROOMIS has the dated changes. The semester timetable fills only lessons
+/// absent from a non-empty ROOMIS day; an empty day remains authoritative.
 RecentScheduleDay resolveRecentScheduleDay({
   required DateTime date,
   RecentScheduleWindow? window,
@@ -282,7 +283,7 @@ RecentScheduleDay resolveRecentScheduleDay({
   bool holiday = false,
 }) {
   if (window != null && window.covers(date)) {
-    final courses =
+    final roomisCourses =
         window.courses
             .where(
               (course) =>
@@ -290,6 +291,17 @@ RecentScheduleDay resolveRecentScheduleDay({
             )
             .toList()
           ..sort((a, b) => a.start.compareTo(b.start));
+    final courses =
+        roomisCourses.isEmpty ||
+                academic == null ||
+                teachingWeek == null ||
+                teaching == null ||
+                holiday
+            ? roomisCourses
+            : supplementRecentCourses(
+              roomisCourses,
+              _academicCoursesForDate(date, academic, teachingWeek, teaching),
+            );
     return RecentScheduleDay(
       fresh ? RecentScheduleSource.roomis : RecentScheduleSource.roomisCache,
       courses,
@@ -299,34 +311,98 @@ RecentScheduleDay resolveRecentScheduleDay({
   if (academic == null || teachingWeek == null || teaching == null) {
     return const RecentScheduleDay(RecentScheduleSource.unavailable, []);
   }
+  return RecentScheduleDay(
+    RecentScheduleSource.academic,
+    holiday
+        ? const []
+        : _academicCoursesForDate(date, academic, teachingWeek, teaching),
+  );
+}
+
+/// Prefer actual dated lessons when a course moved or a timetable slot was
+/// replaced. A same-name match also prevents restoring its old time.
+List<RecentCourse> supplementRecentCourses(
+  List<RecentCourse> roomis,
+  List<RecentCourse> academic,
+) {
+  final result = [...roomis];
+  // Multiple teachers may produce identical academic occurrences. Count
+  // distinct sessions before matching moved lessons against Roomis.
+  final seen = <(String, String, String, DateTime, DateTime, int?, int?)>{};
+  final sessions =
+      academic
+          .where(
+            (course) => seen.add((
+              course.id,
+              course.name,
+              course.location,
+              course.start,
+              course.end,
+              course.startPeriod,
+              course.endPeriod,
+            )),
+          )
+          .toList();
+  for (final candidate in sessions) {
+    final sameNameCount =
+        sessions
+            .where((course) => _sameCourseName(course.name, candidate.name))
+            .length;
+    final duplicate = roomis.any((actual) {
+      if (sameNameCount == 1 && _sameCourseName(actual.name, candidate.name)) {
+        return true;
+      }
+      final periodOverlap =
+          actual.startPeriod != null &&
+          actual.endPeriod != null &&
+          candidate.startPeriod != null &&
+          candidate.endPeriod != null &&
+          actual.startPeriod! <= candidate.endPeriod! &&
+          candidate.startPeriod! <= actual.endPeriod!;
+      return periodOverlap ||
+          (actual.start.isBefore(candidate.end) &&
+              candidate.start.isBefore(actual.end));
+    });
+    if (!duplicate) result.add(candidate);
+  }
+  result.sort((a, b) => a.start.compareTo(b.start));
+  return List.unmodifiable(result);
+}
+
+bool _sameCourseName(String left, String right) =>
+    left.replaceAll(RegExp(r'\s+'), '') == right.replaceAll(RegExp(r'\s+'), '');
+
+List<RecentCourse> _academicCoursesForDate(
+  DateTime date,
+  AcademicPersonalSchedule academic,
+  CurrentTeachingWeek teachingWeek,
+  TeachingSchedule teaching,
+) {
   final week = scheduleWeekForDate(academic, teachingWeek, date);
   if (week == null) {
-    return const RecentScheduleDay(RecentScheduleSource.academic, []);
+    return const [];
   }
   final courses = <RecentCourse>[];
-  if (!holiday) {
-    for (final entry in filterScheduleEntriesForDay(
-      academic.entries,
-      weekday: date.weekday,
-      week: week,
-    )) {
-      final time = teaching.range(entry.startPeriod, entry.endPeriod);
-      if (time == null) continue;
-      courses.add(
-        RecentCourse(
-          id:
-              '${entry.courseSequence}:$week:${entry.weekday}:${entry.startPeriod}',
-          name: entry.displayName,
-          location: entry.location,
-          start: time.startAt(date),
-          end: time.endAt(date),
-          startPeriod: entry.startPeriod,
-          endPeriod: entry.endPeriod,
-          academicEntryKey: academicScheduleEntryKey(entry),
-        ),
-      );
-    }
+  for (final entry in filterScheduleEntriesForDay(
+    academic.entries,
+    weekday: date.weekday,
+    week: week,
+  )) {
+    final time = teaching.range(entry.startPeriod, entry.endPeriod);
+    if (time == null) continue;
+    courses.add(
+      RecentCourse(
+        id: '${entry.courseSequence}:$week:${entry.weekday}:${entry.startPeriod}',
+        name: entry.displayName,
+        location: entry.location,
+        start: time.startAt(date),
+        end: time.endAt(date),
+        startPeriod: entry.startPeriod,
+        endPeriod: entry.endPeriod,
+        academicEntryKey: academicScheduleEntryKey(entry),
+      ),
+    );
   }
   courses.sort((a, b) => a.start.compareTo(b.start));
-  return RecentScheduleDay(RecentScheduleSource.academic, courses);
+  return courses;
 }

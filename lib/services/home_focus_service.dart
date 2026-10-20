@@ -7,6 +7,7 @@ import '../apps/portal_notices/mobile_campus_notice_service.dart';
 import '../apps/portal_notices/portal_notices_models.dart';
 import '../apps/tronclass/tronclass_models.dart';
 import '../apps/tronclass/tronclass_service.dart';
+import '../apps/tronclass_rollcall/tronclass_rollcall_models.dart';
 import '../capabilities/academic_schedule/academic_schedule_store.dart';
 import '../capabilities/academic_schedule/recent_schedule_loader.dart';
 import '../capabilities/account_scoped_cache.dart';
@@ -32,6 +33,7 @@ typedef _SourceAlertEvaluator =
 
 /// 首页 Focus 类型。类型只用于图标、优先级和点击行为，不用于分栏展示。
 enum HomeFocusKind {
+  rollcall,
   todo,
   campusNotice,
   appAnnouncement,
@@ -47,6 +49,10 @@ enum HomeFocusPriority { p0, p1, p2, p3 }
 /// Focus 点击目标，由聚合层负责把内部来源收敛成首页可消费的动作。
 sealed class HomeFocusDestination {
   const HomeFocusDestination();
+}
+
+class HomeFocusRollcallDestination extends HomeFocusDestination {
+  const HomeFocusRollcallDestination();
 }
 
 class HomeFocusAppDestination extends HomeFocusDestination {
@@ -114,6 +120,45 @@ class HomeFocusSnapshot {
 /// 聚合层负责 eligibility、优先级、基础去重与 Top 3；首页不再感知各来源
 /// 的内部模型。
 class HomeFocusService {
+  /// Project live attendance over the ordinary Top 3 without refetching sources.
+  static HomeFocusSnapshot withRollcalls(
+    HomeFocusSnapshot base,
+    List<TronclassRollcall> rollcalls, {
+    bool failed = false,
+  }) {
+    final first = rollcalls.firstOrNull;
+    final item =
+        first == null
+            ? null
+            : HomeFocusItem(
+              id: 'rollcall:active',
+              kind: HomeFocusKind.rollcall,
+              title:
+                  rollcalls.length == 1
+                      ? first.typeLabel
+                      : '${rollcalls.length} 项待应答点名',
+              subtitle: [
+                if (rollcalls.length == 1 && first.courseTitle.isNotEmpty)
+                  first.courseTitle,
+                if (rollcalls.length > 1) '选择课程完成应答',
+                if (failed) '状态未更新',
+              ].join(' · '),
+              priority: HomeFocusPriority.p0,
+              createdAt: base.fetchedAt,
+              source: '畅课',
+              destination: const HomeFocusRollcallDestination(),
+            );
+    return HomeFocusSnapshot(
+      items: [
+        if (item != null) item,
+        ...base.items,
+      ].take(3).toList(growable: false),
+      fetchedAt: base.fetchedAt,
+      hasError: base.hasError || failed,
+      nextRefreshAt: base.nextRefreshAt,
+    );
+  }
+
   HomeFocusService({
     Future<List<AcademicExam>> Function()? examsLoader,
     Future<List<TronclassTodo>> Function()? todosLoader,
@@ -131,8 +176,10 @@ class HomeFocusService {
     PublicHolidayProvider? publicHolidayProvider,
     DateTime Function()? clock,
   }) : _examsLoader =
-           examsLoader ??
-           (() => AcademicAffairsService().fetchAllExams(null, false)),
+           examsLoader == null
+               ? ((force) =>
+                   AcademicAffairsService().fetchAllExams(null, false, force))
+               : ((_) => examsLoader()),
        _todosLoader =
            todosLoader ??
            (() => TronclassService().fetchTodos(evaluateAlerts: false)),
@@ -154,7 +201,7 @@ class HomeFocusService {
         allowStale: false,
       );
 
-  final Future<List<AcademicExam>> Function() _examsLoader;
+  final Future<List<AcademicExam>> Function(bool force) _examsLoader;
   final Future<List<TronclassTodo>> Function() _todosLoader;
   final _CurrentTeachingWeekLoader _currentWeekLoader;
   final _ScheduleLoader _scheduleLoader;
@@ -244,6 +291,7 @@ class HomeFocusService {
         accountKey,
         () => _collectSourceCandidates(
           accountKey,
+          force: force,
           evaluateAlerts: evaluateAlerts,
           now: now,
           earlyClassTiming: earlyClassTiming,
@@ -279,13 +327,14 @@ class HomeFocusService {
 
   Future<_FocusSourceSnapshot> _collectSourceCandidates(
     String accountKey, {
+    required bool force,
     required bool evaluateAlerts,
     required DateTime now,
     required _EarlyClassFocusTiming earlyClassTiming,
   }) async {
     final session = AuthService.sessionRevision;
     final results = await Future.wait<Object?>([
-      _examsLoader(),
+      _examsLoader(force),
       _todosLoader(),
       _loadNextDayFirstClass(accountKey, now, earlyClassTiming),
     ]);

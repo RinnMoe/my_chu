@@ -9,6 +9,10 @@ class HostAuthCoordinator {
   static Future<void>? _check;
   static Future<void>? _initialization;
   static int _generation = 0;
+  static DateTime? _checkedAt;
+  static int? _checkedRevision;
+  static DateTime? _attemptedAt;
+  static int? _attemptedRevision;
 
   static Future<void> initialize() =>
       _initialization ??= _initialize().whenComplete(
@@ -34,8 +38,24 @@ class HostAuthCoordinator {
     }
   }
 
-  static Future<void> check() =>
-      _check ??= _runCheck().whenComplete(() => _check = null);
+  static Future<void> check({bool force = false}) {
+    if (!force &&
+        HostAuthState.snapshot.value.status == HostAuthStatus.unavailable &&
+        _attemptedRevision == AuthService.sessionRevision &&
+        _attemptedAt != null &&
+        DateTime.now().difference(_attemptedAt!) <
+            const Duration(seconds: 15)) {
+      return Future<void>.value();
+    }
+    if (!force &&
+        HostAuthState.snapshot.value.status == HostAuthStatus.available &&
+        _checkedRevision == AuthService.sessionRevision &&
+        _checkedAt != null &&
+        DateTime.now().difference(_checkedAt!) < const Duration(minutes: 3)) {
+      return Future<void>.value();
+    }
+    return _check ??= _runCheck().whenComplete(() => _check = null);
+  }
 
   static Future<void> _runCheck() async {
     if (HostAuthState.snapshot.value.status == HostAuthStatus.storageError) {
@@ -45,6 +65,8 @@ class HostAuthCoordinator {
     final revision = AuthService.sessionRevision;
     final owner = HostAuthState.snapshot.value.accountKey;
     if (owner == null) return;
+    _attemptedAt = DateTime.now();
+    _attemptedRevision = revision;
     HostAuthState.update(HostAuthStatus.checking, accountKey: owner);
     try {
       final result = await AuthLifecycleService.restoreForResume();
@@ -68,6 +90,8 @@ class HostAuthCoordinator {
       };
       HostAuthState.update(status, accountKey: owner);
       if (status == HostAuthStatus.available) {
+        _checkedAt = DateTime.now();
+        _checkedRevision = AuthService.sessionRevision;
         AuthLifecycleService.warmUpPersistedAccount(owner);
       }
     } catch (_) {
@@ -79,6 +103,7 @@ class HostAuthCoordinator {
   }
 
   static void requireLogin() {
+    _checkedAt = null;
     final owner = HostAuthState.snapshot.value.accountKey;
     if (HostAuthState.snapshot.value.status != HostAuthStatus.storageError) {
       HostAuthState.update(
@@ -89,6 +114,7 @@ class HostAuthCoordinator {
   }
 
   static Future<void> accountInstalled() async {
+    _checkedAt = null;
     final generation = ++_generation;
     final account = await AuthService.getCurrentAccount();
     if (generation != _generation) return;
@@ -100,6 +126,7 @@ class HostAuthCoordinator {
   }
 
   static void signedOut() {
+    _checkedAt = null;
     ++_generation;
     HostAuthState.update(HostAuthStatus.guest, contentChanged: true);
   }
@@ -108,6 +135,6 @@ class HostAuthCoordinator {
     if (HostAuthState.snapshot.value.status == HostAuthStatus.storageError) {
       await initialize();
     }
-    await check();
+    await check(force: true);
   }
 }

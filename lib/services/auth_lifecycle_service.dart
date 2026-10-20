@@ -1,4 +1,5 @@
 import 'time_reminder_service.dart';
+import 'course_live_activity_service.dart';
 import 'host_auth_state.dart';
 import 'host_auth_coordinator.dart';
 import 'dart:async';
@@ -175,6 +176,11 @@ class AuthLifecycleService {
     try {
       await TimeReminderService.clearAll();
     } catch (_) {}
+    // The course activity belongs to the previous identity as well: invalidate
+    // its generation before the new account is persisted.
+    try {
+      await CourseLiveActivityService.clearAll();
+    } catch (_) {}
     // Saved passwords are host-scoped rather than Account-scoped. Clear the
     // previous user's value before replacing the active account; the login
     // page may save the newly captured password immediately afterwards.
@@ -205,7 +211,6 @@ class AuthLifecycleService {
       return;
     }
     unawaited(CredentialSyncService.startForAccount(accountKey));
-    unawaited(TimeReminderService.refreshAll());
   }
 
   static String _manualLoginMessage(IdentityRecoveryOutcome outcome) {
@@ -232,6 +237,11 @@ class AuthLifecycleService {
     final initialResetFuture = WebViewCookieCoordinator.resetCookies();
     try {
       await TimeReminderService.clearAll();
+    } catch (_) {}
+    // Invalidate the course activity generation first, then rescind its
+    // notification, alarms and plan snapshot.
+    try {
+      await CourseLiveActivityService.clearAll();
     } catch (_) {}
     try {
       await clearFuture;

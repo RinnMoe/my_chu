@@ -1,27 +1,31 @@
 import 'dart:async';
-import '../../apps/academic_affairs/academic_affairs_models.dart';
+import '../../services/course_live_activity_service.dart';
 import '../../services/time_reminder_service.dart';
+import '../../services/platform_compatibility_service.dart';
 import '../east8_time.dart';
 import 'recent_schedule_loader.dart';
 import 'recent_schedule.dart';
 import 'recent_schedule_repository.dart';
 
-void scheduleAcademicCourseAlerts(
-  String accountKey,
-  AcademicPersonalSchedule schedule,
-) {
-  unawaited(_schedule(accountKey, schedule));
+void scheduleAcademicCourseAlerts(String accountKey) {
+  unawaited(refreshRecentCourseAlerts(accountKey));
 }
 
-Future<void> refreshRecentCourseAlerts(
-  String accountKey, {
+Future<void> refreshRecentCourseAlerts(String accountKey, {
   RecentScheduleRepository? repository,
   Future<bool> Function()? isCurrent,
-}) => _schedule(accountKey, null, repository: repository, isCurrent: isCurrent);
+}) async {
+  if (isCurrent != null && !await isCurrent()) return;
+  if (PlatformCompatibilityService.isAndroid) {
+    await CourseLiveActivityService.refresh(accountKey, force: true);
+  } else {
+    // Preserve existing Apple local reminders; this change only introduces Android live routing.
+    await _ordinaryCourses(accountKey, repository: repository, isCurrent: isCurrent);
+  }
+}
 
-Future<void> _schedule(
-  String accountKey,
-  AcademicPersonalSchedule? schedule, {
+Future<void> _ordinaryCourses(
+  String accountKey, {
   RecentScheduleRepository? repository,
   Future<bool> Function()? isCurrent,
 }) {
@@ -39,7 +43,6 @@ Future<void> _schedule(
       final days = await loadRecentScheduleDays(
         accountKey,
         dates,
-        readSchedule: schedule == null ? null : (_) async => schedule,
         repository: repository,
       );
       if (isCurrent != null && !await isCurrent()) return null;

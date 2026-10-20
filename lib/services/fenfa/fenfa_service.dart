@@ -2,10 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../capabilities/app_installer/app_installer.dart';
+import '../../capabilities/app_update/app_update_coordinator.dart';
 import '../../capabilities/in_app_download/in_app_download.dart';
 import '../app_remote_services_service.dart';
 import '../host_version.dart';
 import '../logger_service.dart';
+import '../privacy_agreement_service.dart';
 import 'fenfa_client.dart';
 import 'fenfa_models.dart';
 
@@ -76,13 +78,16 @@ class FenfaService {
     Future<int> Function()? localBuild,
     FenfaUpdateDownloader? updateDownloader,
     FenfaUpdateInstaller? updateInstaller,
+    AppUpdateCoordinator? updateCoordinator,
   }) : _client = client ?? FenfaClient(),
        _localBuild = localBuild ?? (() => AppHostVersion.buildNumber),
        _updateDownloader = updateDownloader,
-       _updateInstaller = updateInstaller;
+       _updateInstaller = updateInstaller,
+       _updateCoordinator = updateCoordinator ?? AppUpdateCoordinator();
 
   /// 进程内共享实例：启动检查与手动检查共用，保证单飞与状态一致。
   static final FenfaService shared = FenfaService();
+  static bool _updateRunning = false;
 
   static const _dismissedBuildKey = 'fenfa.v1.dismissed_build';
   static const _announcementsTtl = Duration(minutes: 5);
@@ -91,6 +96,7 @@ class FenfaService {
   final Future<int> Function() _localBuild;
   final FenfaUpdateDownloader? _updateDownloader;
   final FenfaUpdateInstaller? _updateInstaller;
+  final AppUpdateCoordinator _updateCoordinator;
 
   /// 单飞：同一时刻只发一次 latest 请求，更新检查和反馈上下文共享请求。
   Future<FenfaLatestSnapshot>? _inFlightLatest;
@@ -250,8 +256,39 @@ class FenfaService {
   Future<bool> downloadAndInstall(
     FenfaRelease release, {
     ValueChanged<InAppDownloadProgress>? onProgress,
+    bool preferDelta = true,
   }) async {
-    await _requireRemoteServicesEnabled();
+    if (_updateRunning) {
+      throw const InAppDownloadException(InAppDownloadErrorType.cancelled);
+    }
+    _updateRunning = true;
+    try {
+      return await _downloadAndInstall(
+        release,
+        onProgress: onProgress,
+        preferDelta: preferDelta,
+      );
+    } finally {
+      _updateRunning = false;
+    }
+  }
+
+  Future<bool> _downloadAndInstall(
+    FenfaRelease release, {
+    ValueChanged<InAppDownloadProgress>? onProgress,
+    required bool preferDelta,
+  }) async {
+    await _requireUpdateAllowed();
+    final remoteRevision = AppRemoteServicesService.revision.value;
+    final privacyRevision = PrivacyAgreementService.revision.value;
+    void report(InAppDownloadProgress progress) {
+      if (remoteRevision != AppRemoteServicesService.revision.value ||
+          privacyRevision != PrivacyAgreementService.revision.value) {
+        throw const InAppDownloadException(InAppDownloadErrorType.cancelled);
+      }
+      onProgress?.call(progress);
+    }
+
     final uri = Uri.tryParse(release.downloadUrl);
     if (uri == null ||
         (uri.scheme != 'http' && uri.scheme != 'https') ||
@@ -260,15 +297,35 @@ class FenfaService {
       throw const InAppDownloadException(InAppDownloadErrorType.invalidUrl);
     }
 
+    if (_updateDownloader == null) {
+      final result = await _updateCoordinator.tryUpdate(
+        release,
+        targetVersionCode: 2000 + normalizeFenfaBuild(release.build),
+        install: _updateInstaller ?? AppInstallerCapability().install,
+        onProgress: report,
+        preferDelta: preferDelta,
+      );
+      if (result != null) return result;
+    }
+    await _requireUpdateAllowed();
     final downloaded =
         _updateDownloader != null
-            ? await _updateDownloader(release, onProgress)
+            ? await _updateDownloader(release, report)
             : await const InAppDownloadCapability().download(
               url: uri,
               fileName: 'MyCHU-${release.version}-${release.build}.apk',
               followRedirects: true,
-              onProgress: onProgress,
+              onProgress: report,
             );
+    await _requireUpdateAllowed();
+    report(
+      const InAppDownloadProgress(
+        receivedBytes: 0,
+        totalBytes: null,
+        attempt: 1,
+        phase: AppUpdatePhase.installing,
+      ),
+    );
     return _updateInstaller != null
         ? _updateInstaller(downloaded)
         : AppInstallerCapability().install(downloaded);
@@ -289,6 +346,13 @@ class FenfaService {
   Future<void> _requireRemoteServicesEnabled() async {
     if (!await AppRemoteServicesService.isEnabled()) {
       throw const AppRemoteServicesDisabledException();
+    }
+  }
+
+  Future<void> _requireUpdateAllowed() async {
+    await _requireRemoteServicesEnabled();
+    if (!await PrivacyAgreementService.isAccepted()) {
+      throw const InAppDownloadException(InAppDownloadErrorType.cancelled);
     }
   }
 

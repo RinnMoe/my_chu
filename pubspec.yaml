@@ -50,6 +50,7 @@ dependencies:
   file_selector_ohos:
     path: third_party/flutter_packages_ohos/packages/file_selector/file_selector_ohos
   flutter_native_splash: ^2.4.7
+  flutter_colorpicker: 1.1.0
 
 dev_dependencies:
   flutter_test:

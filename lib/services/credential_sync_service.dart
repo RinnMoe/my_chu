@@ -56,6 +56,8 @@ class CredentialSyncService {
 
   static final statusNotifier = _createStatusNotifier();
   static int _nextRunId = 0;
+  static final _pending = <String, Future<void>>{};
+  static final _completed = <String, DateTime>{};
 
   /// Test seam for exercising the completion barrier without contacting a
   /// campus service. Production callers always use session readiness.
@@ -74,6 +76,8 @@ class CredentialSyncService {
       return;
     }
     ++_nextRunId;
+    _pending.clear();
+    _completed.clear();
     statusNotifier.value = const CredentialSyncState();
   }
 
@@ -82,6 +86,31 @@ class CredentialSyncService {
     Iterable<CampusServiceId> services = coreServices,
   }) async {
     final serviceList = services.toSet().toList(growable: false);
+    final targets =
+        serviceList.map((service) => service.value).toList()..sort();
+    final key =
+        '$accountKey:${AuthService.sessionRevision}:${targets.join(',')}';
+    final pending = _pending[key];
+    if (pending != null) return pending;
+    final completed = _completed[key];
+    if (completed != null &&
+        DateTime.now().difference(completed) < const Duration(minutes: 3)) {
+      return;
+    }
+    final future = _startForAccount(accountKey, serviceList);
+    _pending[key] = future;
+    try {
+      await future;
+      if (identical(_pending[key], future)) _completed[key] = DateTime.now();
+    } finally {
+      if (identical(_pending[key], future)) _pending.remove(key);
+    }
+  }
+
+  static Future<void> _startForAccount(
+    String accountKey,
+    List<CampusServiceId> serviceList,
+  ) async {
     final sessionRevision = AuthService.sessionRevision;
     final runId = ++_nextRunId;
     final items = <CampusServiceId, CredentialSyncItemState>{
@@ -226,6 +255,8 @@ class CredentialSyncService {
   static void cancel({String? accountKey}) {
     final current = statusNotifier.value;
     if (accountKey != null && current.accountKey != accountKey) return;
+    _pending.clear();
+    _completed.clear();
     ++_nextRunId;
     statusNotifier.value = const CredentialSyncState();
   }

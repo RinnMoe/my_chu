@@ -18,6 +18,7 @@ import '../services/auth_service.dart';
 import '../services/credential_sync_service.dart';
 import '../services/home_layout_service.dart';
 import '../services/home_focus_service.dart';
+import '../services/tronclass_rollcall_store.dart';
 import '../services/logger_service.dart';
 import '../services/weather_service.dart';
 import '../services/campus_settings_service.dart';
@@ -119,12 +120,14 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
     RecentScheduleRepository.instance.revision.addListener(
       _onHomeFocusRevision,
     );
+    TronclassRollcallStore.instance.addListener(_onRollcallChanged);
     DemoDataService.revision.addListener(_load);
     _load();
   }
 
   @override
   void dispose() {
+    TronclassRollcallStore.instance.removeListener(_onRollcallChanged);
     _bootstrapGeneration++;
     _homeFocusGeneration++;
     _weatherGeneration++;
@@ -165,6 +168,24 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
     unawaited(_loadHomeFocus(evaluateAlerts: false));
   }
 
+  void _onRollcallChanged() {
+    if (mounted) setState(() {});
+  }
+
+  HomeFocusSnapshot? get _visibleHomeFocus {
+    final rollcalls = TronclassRollcallStore.instance;
+    if (_homeFocus == null &&
+        rollcalls.items.isEmpty &&
+        rollcalls.error == null) {
+      return null;
+    }
+    return HomeFocusService.withRollcalls(
+      _homeFocus ?? HomeFocusSnapshot(items: const [], fetchedAt: east8Now()),
+      rollcalls.items,
+      failed: rollcalls.error != null,
+    );
+  }
+
   void _onCampusSettingsChanged() {
     unawaited(_loadWeather());
   }
@@ -184,9 +205,9 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
   }
 
   void _onCredentialSyncChanged() {
-    if (!CredentialSyncService.statusNotifier.value.isSyncing) {
-      _load();
-    }
+    // Credentials becoming ready changes the status projection, not the
+    // freshness of weather, calendar or campus business data.
+    if (mounted) setState(() {});
   }
 
   CredentialSyncState? _visibleCredentialSyncState(CredentialSyncState state) {
@@ -391,6 +412,7 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
   Future<void> _refreshAll() async {
     await RecentScheduleRepository.instance.refresh();
     await Future.wait<void>([
+      TronclassRollcallStore.instance.refresh(),
       _loadHomeFocus(force: true),
       _refreshTeachingWeek(),
       _loadWeather(),
@@ -708,10 +730,13 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
         return KeyedSubtree(
           key: const ValueKey('home-focus'),
           child: HomeFocusSection(
-            snapshot: _homeFocus,
+            snapshot: _visibleHomeFocus,
             loading: _homeFocusLoading,
             credentialSyncState: _visibleCredentialSyncState(syncState),
-            onRetry: () => unawaited(_loadHomeFocus(force: true)),
+            onRetry: () {
+              unawaited(TronclassRollcallStore.instance.refresh());
+              unawaited(_loadHomeFocus(force: true));
+            },
           ),
         );
       },
@@ -830,7 +855,8 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
         null;
     final focusVisible =
         _homeFocusLoading ||
-        (_homeFocus?.items.isNotEmpty ?? false) ||
+        (_visibleHomeFocus?.items.isNotEmpty ?? false) ||
+        TronclassRollcallStore.instance.error != null ||
         credentialSyncVisible;
 
     final slivers = <Widget>[

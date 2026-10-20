@@ -65,6 +65,7 @@ object TimeReminderEngine {
         category: String, input: List<JSONObject>, active: List<String>, covered: List<Long>?) {
         if (!matches(c, owner, generation)) return
         require(targets.containsKey(category))
+        if (category == "course") { cancelCategory(c, owner, generation, category); return }
         val now = System.currentTimeMillis()
         val old = read(c)
         val ledger = JSONObject(prefs(c).getString("ledger", "{}"))
@@ -101,9 +102,23 @@ object TimeReminderEngine {
         write(c, old.filter { it.optString("category") != category })
         reschedule(c)
     }
+    /** Upgrade cleanup is independent from the ordinary reminder account or enabled flags. */
+    private fun retireNormalCourses(c: Context): List<JSONObject> {
+        val stored = read(c)
+        val retired = stored.filter { it.optString("category") == "course" }
+        retired.forEach { cancel(c, it, true) }
+        if (Build.VERSION.SDK_INT >= 26) {
+            manager(c).activeNotifications.filter { it.notification.channelId == "mychu_time_course" }
+                .forEach { manager(c).cancel(it.tag, it.id) }
+        }
+        val retained = stored.filter { it.optString("category") != "course" }
+        if (retired.isNotEmpty()) write(c, retained)
+        return retained
+    }
+
     @Synchronized fun reschedule(c: Context) {
         val now = System.currentTimeMillis()
-        val all = read(c)
+        val all = retireNormalCourses(c)
         all.filter { it.optLong("validUntil") <= now || it.optLong("triggerAt") > now }
             .forEach { cancel(c, it, it.optLong("validUntil") <= now) }
         // Keep due identities until expiry: another same-time broadcast may already be queued.
@@ -116,6 +131,7 @@ object TimeReminderEngine {
         }
     }
     @Synchronized fun deliver(c: Context, intent: Intent) {
+        if (intent.getStringExtra("category") == "course") { reschedule(c); return }
         if (intent.action != ACTION || intent.getStringExtra("owner") != prefs(c).getString("owner", "")) return
         val all = read(c)
         val e = all.firstOrNull { key(c, it) == intent.dataString &&
@@ -146,19 +162,22 @@ object TimeReminderEngine {
             else { @Suppress("DEPRECATION") Notification.Builder(c) }
         if (Build.VERSION.SDK_INT >= 26) builder.setTimeoutAfter(e.getLong("validUntil") - now)
         manager(c).notify(key(c, e), 1, builder
-            .setSmallIcon(R.drawable.ic_stat_course).setContentTitle(e.getString("title"))
+            .setSmallIcon(R.mipmap.ic_launcher).setContentTitle(e.getString("title"))
             .setContentText(e.optString("body")).setStyle(Notification.BigTextStyle().bigText(e.optString("body")))
             .setCategory(Notification.CATEGORY_REMINDER).setVisibility(Notification.VISIBILITY_PRIVATE)
             .setAutoCancel(true).setContentIntent(content).build())
         reschedule(c)
     }
     @Synchronized private fun validate(c: Context, args: Map<*, *>): Boolean {
+        if (args["category"] == "course") return false
         if (args["owner"] != prefs(c).getString("owner", "")) return false
         return read(c).any { it.optString("category") == args["category"] &&
             it.optString("eventId") == args["eventId"] && it.optLong("validUntil") > System.currentTimeMillis() &&
             targets[it.optString("category")] == args["targetAppId"] }
     }
     @Synchronized fun resetLegacy(c: Context) {
+        retireNormalCourses(c)
+        refreshNotificationIcons(c)
         val p = prefs(c)
         if (p.getBoolean("legacy_reset", false)) return
         RetiredLiveNotificationCleanup.run(c)
@@ -186,6 +205,33 @@ object TimeReminderEngine {
         if (Build.VERSION.SDK_INT >= 26) retired.forEach { manager(c).deleteNotificationChannel(it) }
         check(old.edit().clear().commit())
         check(p.edit().putBoolean("legacy_reset", true).commit())
+    }
+    private fun refreshNotificationIcons(c: Context) {
+        if (Build.VERSION.SDK_INT < 24 || !notifications(c)) return
+        val notificationManager = manager(c)
+        val activePrefix = Uri.Builder().scheme("mychu-reminder")
+            .authority(prefs(c).getString("owner", "")).build().toString() + "/"
+        for (posted in notificationManager.activeNotifications) {
+            // Only refresh this scheduler's current-account reminders.
+            if (posted.id != 1 || posted.tag?.startsWith(activePrefix) != true) continue
+            val notification = posted.notification
+            val icon = notification.smallIcon
+            if (icon != null && runCatching {
+                icon.resPackage == c.packageName && icon.resId == R.mipmap.ic_launcher
+            }.getOrDefault(false)) continue
+            val builder = Notification.Builder.recoverBuilder(c, notification)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setOnlyAlertOnce(true)
+            if (Build.VERSION.SDK_INT >= 26 && notification.timeoutAfter > 0) {
+                val remaining = posted.postTime + notification.timeoutAfter - System.currentTimeMillis()
+                if (remaining <= 0) {
+                    notificationManager.cancel(posted.tag, posted.id)
+                    continue
+                }
+                builder.setTimeoutAfter(remaining)
+            }
+            notificationManager.notify(posted.tag, posted.id, builder.build())
+        }
     }
     fun register(context: Context, engine: FlutterEngine) {
         val c = context.applicationContext

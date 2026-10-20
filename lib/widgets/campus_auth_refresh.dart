@@ -26,7 +26,9 @@ mixin CampusAuthRefresh<T extends StatefulWidget> on State<T> {
   void _authChanged() {
     final next = HostAuthState.snapshot.value;
     if (next.contentRevision != _authSeen.contentRevision ||
-        _authSeen.blocksRequests && next.status == HostAuthStatus.available) {
+        (_authSeen.blocksRequests ||
+                _authSeen.status == HostAuthStatus.unavailable) &&
+            next.status == HostAuthStatus.available) {
       _authRefreshPending = true;
     }
     _authSeen = next;

@@ -24,6 +24,8 @@ enum UserOperationId {
   networkSelfService('network.self_service', '网络自服'),
   wozaichangdaApps('wozaichangda.apps', '应用列表'),
   tronclassCourses('tronclass.courses', '畅课课程'),
+  tronclassRollcallLoad('tronclass.rollcall.load', '畅课签到'),
+  tronclassRollcallAnswer('tronclass.rollcall.answer', '点名应答'),
   tronclassCourseware('tronclass.courseware', '畅课课件'),
   tronclassCoursewareDownload('tronclass.courseware.download', '课件下载'),
   academicCalendar('academic.calendar', '校历'),

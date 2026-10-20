@@ -114,7 +114,8 @@ class CampusAuthPrompt extends StatelessWidget {
   );
 }
 
-/// A local status that preserves page geometry and stays quiet while checking.
+/// Confirmed authentication failures occupy their own space below the content.
+/// A failed identity probe does not establish that the device is offline.
 class CampusAuthStatusOverlay extends StatelessWidget {
   const CampusAuthStatusOverlay({super.key, required this.child});
   final Widget child;
@@ -123,56 +124,46 @@ class CampusAuthStatusOverlay extends StatelessWidget {
     valueListenable: HostAuthState.snapshot,
     child: child,
     builder: (context, state, child) {
-      final retry = state.status == HostAuthStatus.unavailable;
       final show =
           state.accountKey != null &&
-          (retry || state.status == HostAuthStatus.loginRequired);
+          state.status == HostAuthStatus.loginRequired;
       final theme = Theme.of(context);
-      return Stack(
-        fit: StackFit.passthrough,
-        children: [
-          child!,
-          if (show)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 12,
-              child: SafeArea(
-                top: false,
-                child: Center(
-                  child: Material(
-                    color: theme.colorScheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(20),
-                    elevation: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        alignment: WrapAlignment.center,
-                        spacing: 8,
-                        children: [
-                          Icon(
-                            Icons.cloud_off_outlined,
-                            size: 18,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          Text(retry ? '离线 · 本地数据' : '认证失效 · 本地数据'),
-                          TextButton(
-                            onPressed:
-                                () =>
-                                    retry
-                                        ? HostAuthCoordinator.retry()
-                                        : HostLogin.open(context),
-                            child: Text(retry ? '重试' : '重新登录'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+      final banner = SafeArea(
+        top: false,
+        child: Material(
+          color: theme.colorScheme.surfaceContainerHigh,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.lock_outline,
+                  size: 18,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
-              ),
+                const SizedBox(width: 8),
+                const Expanded(child: Text('登录已失效，已保留本地数据')),
+                TextButton(
+                  onPressed: () => HostLogin.open(context),
+                  child: const Text('重新登录'),
+                ),
+              ],
             ),
-        ],
+          ),
+        ),
+      );
+      return LayoutBuilder(
+        builder:
+            (context, constraints) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (constraints.hasBoundedHeight)
+                  Expanded(child: child!)
+                else
+                  child!,
+                if (show) banner,
+              ],
+            ),
       );
     },
   );

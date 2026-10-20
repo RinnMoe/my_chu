@@ -323,7 +323,7 @@ class AcademicScheduleStore {
     );
     AcademicScheduleStore.revision.value++;
     final schedule = await readCachedSchedule(accountKey, semesterId);
-    if (schedule != null) scheduleAcademicCourseAlerts(accountKey, schedule);
+    if (schedule != null) scheduleAcademicCourseAlerts(accountKey);
   }
 
   /// Saves a page editor result and returns the resulting materialized schedule.
@@ -420,7 +420,7 @@ class AcademicScheduleStore {
         normalizedSemesterId == null || normalizedSemesterId.isEmpty
             ? await readCachedCurrentSchedule(accountKey)
             : await readCachedSchedule(accountKey, normalizedSemesterId);
-    if (schedule != null) scheduleAcademicCourseAlerts(accountKey, schedule);
+    if (schedule != null) scheduleAcademicCourseAlerts(accountKey);
     return schedule;
   }
 
@@ -466,7 +466,7 @@ class AcademicScheduleStore {
     final materialized = await _materialize(accountKey, raw, scope);
     if (scope == AcademicScheduleScope.personal) {
       AcademicScheduleStore.revision.value++;
-      scheduleAcademicCourseAlerts(accountKey, materialized);
+      scheduleAcademicCourseAlerts(accountKey);
     }
     return AcademicScheduleFetchResult(
       schedule: materialized,
@@ -519,7 +519,7 @@ class AcademicScheduleStore {
     final materialized = await _materialize(accountKey, schedule, scope);
     if (scope == AcademicScheduleScope.personal) {
       AcademicScheduleStore.revision.value++;
-      scheduleAcademicCourseAlerts(accountKey, materialized);
+      scheduleAcademicCourseAlerts(accountKey);
     }
     return AcademicScheduleFetchResult(
       schedule: materialized,
@@ -640,7 +640,7 @@ class AcademicScheduleStore {
   }
 }
 
-/// 设备全局显示偏好；课表内容仍按账号隔离。
+/// 显示偏好变更通知与旧版本偏好的兼容读取；新设置由外观存储统一写入。
 class AcademicScheduleDisplayPreferences {
   /// Bumped whenever a stored preference changes so pages can rebuild.
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
@@ -652,22 +652,10 @@ class AcademicScheduleDisplayPreferences {
     return prefs.getBool('preferences.v1.schedule.show_noncurrent') ?? true;
   }
 
-  static Future<void> setShowNonCurrent(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('preferences.v1.schedule.show_noncurrent', value);
-    revision.value++;
-  }
-
   /// Whether Saturday and Sunday are hidden from the timetable grid.
   /// Defaults to off; hiding them never changes the stored schedule or export.
   static Future<bool> readHideWeekend() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('preferences.v1.schedule.hide_weekend') ?? false;
-  }
-
-  static Future<void> setHideWeekend(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('preferences.v1.schedule.hide_weekend', value);
-    revision.value++;
   }
 }

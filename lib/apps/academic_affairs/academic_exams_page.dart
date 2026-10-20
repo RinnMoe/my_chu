@@ -62,7 +62,7 @@ class _AcademicExamsPageState extends State<AcademicExamsPage>
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool force = false}) async {
     if (campusAuthGuest) return;
     final generation = ++_requestGeneration;
     setState(() {
@@ -88,9 +88,10 @@ class _AcademicExamsPageState extends State<AcademicExamsPage>
         // 批次选项为可选增强，失败时按全部批次加载。
       }
       final semesterId = defaultSemesterId(options);
-      final exams = await (widget.examLoader ?? service.fetchAllExams)(
-        semesterId,
-      );
+      final exams =
+          widget.examLoader != null
+              ? await widget.examLoader!(semesterId)
+              : await service.fetchAllExams(semesterId, true, force);
       return (options: options, batches: batches, exams: exams);
     });
     if (!mounted || generation != _requestGeneration) return;
@@ -188,7 +189,7 @@ class _AcademicExamsPageState extends State<AcademicExamsPage>
       onArrangedFilterChanged:
           (value) => setState(() => _arrangedFilter = value),
       onMap: _openMap,
-      onRefresh: _load,
+      onRefresh: () => _load(force: true),
     );
 
     return Scaffold(

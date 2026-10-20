@@ -69,6 +69,17 @@ val splitPerAbi = project.findProperty("split-per-abi") == "true"
 val releaseBuildRequested = gradle.startParameter.taskNames.any { taskName ->
     taskName.contains("release", ignoreCase = true)
 }
+// AARs include ABIs without a Flutter engine. Keep native libraries aligned with
+// the requested Flutter targets so system installation chooses a runnable ABI.
+val requestedFlutterAbis = project.findProperty("target-platform")?.toString()
+    ?.split(",")?.mapNotNull { platform ->
+        when (platform.trim()) {
+            "android-arm" -> "armeabi-v7a"
+            "android-arm64" -> "arm64-v8a"
+            "android-x64" -> "x86_64"
+            else -> null
+        }
+    }.orEmpty()
 val signingPropertiesFile = rootProject.file(
     if (buildChannel == "preview") "preview-key.properties" else "key.properties",
 )
@@ -135,6 +146,11 @@ android {
                 abiFilters.clear()
                 abiFilters.add("arm64-v8a")
             }
+        } else if (!releaseBuildRequested && !splitPerAbi && requestedFlutterAbis.isNotEmpty()) {
+            ndk {
+                abiFilters.clear()
+                abiFilters.addAll(requestedFlutterAbis)
+            }
         }
     }
 
@@ -197,6 +213,8 @@ dependencies {
     // Android 设备品牌、厂商系统与市场机型名识别。
     implementation("com.github.getActivity:DeviceCompat:2.6")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    // Only the native patch engine; downloads and installation stay host-owned.
+    implementation("com.github.Chiu-xaH.DiffUpdater:core:2.0.0")
     // Native home-screen widgets.
     implementation("androidx.glance:glance-appwidget:1.2.0")
     // LeakCanary 只用于 Android Debug 生命周期泄漏检查，不进入 Profile/Release。

@@ -2,7 +2,6 @@ import '../capabilities/host_login.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -11,11 +10,13 @@ import '../services/auth_service.dart';
 import '../services/auth_lifecycle_service.dart';
 import '../services/ip_status_service.dart';
 import '../services/portal_identity_service.dart';
-import '../services/theme_service.dart';
 import '../services/campus_settings_service.dart';
+import '../services/updates/app_update_service.dart';
 import '../widgets/adaptive_confirmation_dialog.dart';
 import '../widgets/adaptive_settings.dart';
 import 'about_page.dart';
+import 'app_update_section.dart';
+import 'appearance_theme_page.dart';
 import 'campus_settings_sheet.dart';
 import 'channel_account_page.dart';
 import 'notification_settings_page.dart';
@@ -24,8 +25,9 @@ import 'profile/profile_widgets.dart';
 
 class ProfilePage extends StatefulWidget {
   final VoidCallback onSignedOut;
+  final AppUpdateService? updates;
 
-  const ProfilePage({super.key, required this.onSignedOut});
+  const ProfilePage({super.key, required this.onSignedOut, this.updates});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -42,16 +44,13 @@ class _ProfilePageState extends State<ProfilePage>
   Account? _account;
   CampusNetworkStatus? _networkStatus;
   bool _networkLoading = true;
-  String _themeLabel = '跟随系统';
   String _campusLabel = '渭水校区';
   String _versionLabel = '';
 
   @override
   void initState() {
     super.initState();
-    themePreferencesNotifier.addListener(_updateThemeLabel);
     CampusSettingsService.revision.addListener(_updateCampusLabel);
-    _themeLabel = _labelFor(themePreferencesNotifier.value);
     _load();
     _loadCampusLabel();
     _loadNetworkStatus();
@@ -60,24 +59,8 @@ class _ProfilePageState extends State<ProfilePage>
 
   @override
   void dispose() {
-    themePreferencesNotifier.removeListener(_updateThemeLabel);
     CampusSettingsService.revision.removeListener(_updateCampusLabel);
     super.dispose();
-  }
-
-  String _labelFor(ThemePreferences preferences) {
-    return switch (preferences.mode) {
-      AppThemeMode.light => '浅色',
-      AppThemeMode.dark => '深色',
-      AppThemeMode.system => '跟随系统',
-    };
-  }
-
-  void _updateThemeLabel() {
-    final label = _labelFor(themePreferencesNotifier.value);
-    if (_themeLabel == label) return;
-    if (!mounted) return;
-    setState(() => _themeLabel = label);
   }
 
   void _updateCampusLabel() {
@@ -174,89 +157,6 @@ class _ProfilePageState extends State<ProfilePage>
     }
   }
 
-  Future<void> _showThemeSheet() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return ValueListenableBuilder<ThemePreferences>(
-          valueListenable: themePreferencesNotifier,
-          builder:
-              (context, preferences, _) => SafeArea(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '主题',
-                        style: Theme.of(sheetContext).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 8),
-                      RadioGroup<AppThemeMode>(
-                        groupValue: preferences.mode,
-                        onChanged: (mode) {
-                          if (mode == null) return;
-                          themePreferencesNotifier.setMode(mode);
-                          Navigator.pop(sheetContext);
-                        },
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const RadioListTile<AppThemeMode>(
-                              title: Text('跟随系统'),
-                              value: AppThemeMode.system,
-                            ),
-                            const RadioListTile<AppThemeMode>(
-                              title: Text('浅色'),
-                              value: AppThemeMode.light,
-                            ),
-                            const RadioListTile<AppThemeMode>(
-                              title: Text('深色'),
-                              value: AppThemeMode.dark,
-                            ),
-                            SwitchListTile(
-                              title: const Text('动态取色'),
-                              subtitle:
-                                  preferences.dynamicColorSupported
-                                      ? null
-                                      : const Text('仅Android12+可用'),
-                              value: preferences.dynamicColorEnabled,
-                              onChanged:
-                                  preferences.dynamicColorSupported
-                                      ? (enabled) {
-                                        themePreferencesNotifier
-                                            .setDynamicColorEnabled(enabled);
-                                      }
-                                      : null,
-                            ),
-                            if (!kIsWeb &&
-                                defaultTargetPlatform == TargetPlatform.android)
-                              SwitchListTile(
-                                key: const ValueKey(
-                                  'predictive-back-animation-setting',
-                                ),
-                                title: const Text('预测性返回动画'),
-                                subtitle: const Text('部分国产系统可能不兼容'),
-                                value: preferences.predictiveBackEnabled,
-                                onChanged: (enabled) {
-                                  themePreferencesNotifier
-                                      .setPredictiveBackEnabled(enabled);
-                                },
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-        );
-      },
-    );
-  }
-
   void _push(Widget page) {
     Navigator.push(context, MaterialPageRoute<void>(builder: (_) => page));
   }
@@ -331,9 +231,8 @@ class _ProfilePageState extends State<ProfilePage>
                 children: [
                   ProfileSettingTile(
                     icon: Icons.palette_outlined,
-                    title: '主题',
-                    trailingValue: _themeLabel,
-                    onTap: _showThemeSheet,
+                    title: '外观与主题',
+                    onTap: () => _push(const AppearanceThemePage()),
                   ),
                   ProfileSettingTile(
                     icon: Icons.location_city_outlined,
@@ -362,12 +261,12 @@ class _ProfilePageState extends State<ProfilePage>
                   ProfileSettingTile(
                     icon: Icons.info_outline,
                     title: '关于',
-                    trailingValue:
-                        _versionLabel.isEmpty ? null : _versionLabel,
+                    trailingValue: _versionLabel.isEmpty ? null : _versionLabel,
                     onTap: () => _push(const AboutPage()),
                   ),
                 ],
               ),
+              AppUpdateSection(service: widget.updates),
               const SizedBox(height: 8),
               if (_account != null)
                 SignOutAction(onPressed: _confirmSignOut)

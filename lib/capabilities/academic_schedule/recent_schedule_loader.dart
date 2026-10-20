@@ -14,6 +14,7 @@ Future<List<RecentScheduleDay>> loadRecentScheduleDays(
   List<DateTime> dates, {
   Future<AcademicPersonalSchedule?> Function(String)? readSchedule,
   Future<CurrentTeachingWeek?> Function(String)? readTeachingWeek,
+  Future<DateTime?> Function(String, String)? readTermStartDate,
   Future<TeachingScheduleMode> Function(String)? readMode,
   RecentScheduleRepository? repository,
   void Function(Object)? onAcademicFailure,
@@ -23,19 +24,50 @@ Future<List<RecentScheduleDay>> loadRecentScheduleDays(
   AcademicPersonalSchedule? academic;
   CurrentTeachingWeek? week;
   TeachingSchedule? teaching;
+  AcademicCalendarData? cachedCalendar;
   var holiday = false;
-  if (dates.any((date) => window?.covers(date) != true)) {
+  if (dates.isNotEmpty) {
     try {
       academic = await (readSchedule ??
           AcademicScheduleStore().readCachedCurrentSchedule)(accountKey);
       if (academic != null) {
-        if (readTeachingWeek != null) {
+        final hasUncoveredDate = dates.any(
+          (date) => window?.covers(date) != true,
+        );
+        if (hasUncoveredDate && readTeachingWeek != null) {
           week = await readTeachingWeek(accountKey);
         } else {
-          final calendar =
-              await AcademicCalendarService().fetchCurrentCalendarState();
-          week = calendar.teachingWeek;
-          holiday = calendar.isHoliday;
+          final calendarService = AcademicCalendarService();
+          if (hasUncoveredDate) {
+            final calendar = await calendarService.fetchCurrentCalendarState();
+            week = calendar.teachingWeek;
+            holiday = calendar.isHoliday;
+          }
+          try {
+            cachedCalendar = await calendarService
+                .readCachedCalendarForSemester(
+                  accountKey,
+                  academic.semesterLabel,
+                );
+          } catch (_) {
+            // A missing local calendar must not discard a valid dated window.
+          }
+          if (!hasUncoveredDate) {
+            final termStart =
+                cachedCalendar?.term.startDate ??
+                await (readTermStartDate ??
+                    calendarService.readCachedTermStartDateForSemester)(
+                  accountKey,
+                  academic.semesterLabel,
+                );
+            if (termStart != null) {
+              week = CurrentTeachingWeek(
+                term: academic.semesterLabel,
+                week: 1,
+                termStartDate: termStart,
+              );
+            }
+          }
         }
         teaching = teachingScheduleFor(
           await (readMode ?? (_) => campusSettingsService.scheduleModeFor())(
@@ -57,7 +89,7 @@ Future<List<RecentScheduleDay>> loadRecentScheduleDays(
         academic: academic,
         teachingWeek: week,
         teaching: teaching,
-        holiday: holiday,
+        holiday: cachedCalendar?.weekFor(date)?.isHoliday ?? holiday,
       ),
   ];
 }

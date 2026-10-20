@@ -3,7 +3,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../capabilities/dev_visibility.dart';
 import '../services/app_remote_services_service.dart';
-import 'fenfa_dialogs.dart';
+import 'app_update_prompts.dart';
+import 'fenfa_dialogs.dart' show showAppRemoteServicesDisabledMessage;
 import 'fenfa_feedback_page.dart';
 import 'diagnostic_report_page.dart';
 import 'developer_tools_hub_page.dart';
@@ -126,7 +127,7 @@ class _AboutPageState extends State<AboutPage> {
                     ),
                   ),
                 ),
-                onTap: () => presentFenfaManualCheck(context),
+                onTap: () => presentAppUpdateCheck(context, manual: true),
               ),
               ListTile(
                 leading: const Icon(Icons.analytics_outlined),

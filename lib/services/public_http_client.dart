@@ -73,11 +73,16 @@ class PublicHttpClient {
     Duration? requestTimeout,
     Duration? responseTimeout,
     bool followRedirects = true,
+    bool Function()? shouldContinue,
     void Function(int receivedBytes, int? totalBytes, int attempt)? onProgress,
   }) async {
     _ensureOpen();
     var attempt = 1;
     while (true) {
+      // Recheck after retry backoff: a revoked gate must not start another GET.
+      if (shouldContinue?.call() == false) {
+        throw const PublicHttpException('下载已停止。');
+      }
       try {
         final response = await _downloadAttempt(
           uri,

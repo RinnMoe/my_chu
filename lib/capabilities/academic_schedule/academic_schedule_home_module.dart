@@ -293,10 +293,57 @@ class _AcademicScheduleHomeModuleState
       final window = await repository.read(accountKey);
       final now = _clock();
       if (window != null && window.covers(now)) {
+        AcademicPersonalSchedule? academic;
+        AcademicCalendarData? cachedCalendar;
+        CurrentTeachingWeek? teachingWeek;
+        TeachingScheduleMode? scheduleMode;
+        try {
+          if (window.courses.any(
+            (course) =>
+                recentScheduleDate(course.start) == recentScheduleDate(now),
+          )) {
+            academic = await _store.readCachedCurrentSchedule(accountKey);
+          }
+          if (academic != null) {
+            final calendarService = AcademicCalendarService();
+            if (widget.calendarState == null) {
+              cachedCalendar = await calendarService
+                  .readCachedCalendarForSemester(
+                    accountKey,
+                    academic.semesterLabel,
+                  );
+            }
+            final start =
+                widget.calendarState?.termStartDate ??
+                cachedCalendar?.term.startDate ??
+                await calendarService.readCachedTermStartDateForSemester(
+                  accountKey,
+                  academic.semesterLabel,
+                );
+            if (start != null) {
+              teachingWeek = CurrentTeachingWeek(
+                term: widget.calendarState?.term ?? academic.semesterLabel,
+                week: 1,
+                termStartDate: start,
+              );
+              scheduleMode = await campusSettingsService.scheduleModeFor();
+            }
+          }
+        } catch (_) {
+          // Cached academic data is optional while the dated source is ready.
+        }
         final day = resolveRecentScheduleDay(
           date: now,
           window: window,
           fresh: repository.isFresh(accountKey, window),
+          academic: academic,
+          teachingWeek: teachingWeek,
+          teaching:
+              scheduleMode == null ? null : teachingScheduleFor(scheduleMode),
+          holiday:
+              widget.calendarState?.isHoliday ??
+              cachedCalendar?.weekFor(now)?.isHoliday ??
+              false,
         );
         final rows = groupRecentCourseRows(day.courses);
         if (!mounted || generation != _generation) return;
@@ -313,7 +360,10 @@ class _AcademicScheduleHomeModuleState
                       courseCode: '',
                       courseName: course.name,
                       teacher: '',
-                      location: course.location.split(' · ').first,
+                      location:
+                          course.id.startsWith('roomis:')
+                              ? course.location.split(' · ').first
+                              : course.location,
                       weekday: now.weekday,
                       startPeriod: course.startPeriod ?? 1,
                       endPeriod: course.endPeriod ?? 1,
@@ -323,6 +373,7 @@ class _AcademicScheduleHomeModuleState
                     ),
                   )
                   .toList();
+          if (scheduleMode != null) _scheduleMode = scheduleMode;
           _holiday = false;
           _calendarUnavailable = false;
           _projectionNow = now;

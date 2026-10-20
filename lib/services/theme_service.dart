@@ -35,26 +35,34 @@ enum AppThemeMode {
 class ThemePreferences {
   const ThemePreferences({
     this.mode = AppThemeMode.system,
+    this.seedColor,
     this.dynamicColorEnabled = false,
     this.dynamicColorSupported = false,
     this.predictiveBackEnabled = true,
+    this.pureBlackEnabled = false,
   });
 
   final AppThemeMode mode;
+  final Color? seedColor;
   final bool dynamicColorEnabled;
   final bool dynamicColorSupported;
   final bool predictiveBackEnabled;
+  final bool pureBlackEnabled;
 
   bool get useDynamicColors => dynamicColorEnabled && dynamicColorSupported;
 
   ThemePreferences copyWith({
     AppThemeMode? mode,
+    Color? seedColor,
     bool? dynamicColorEnabled,
     bool? dynamicColorSupported,
     bool? predictiveBackEnabled,
+    bool? pureBlackEnabled,
   }) {
     return ThemePreferences(
+      pureBlackEnabled: pureBlackEnabled ?? this.pureBlackEnabled,
       mode: mode ?? this.mode,
+      seedColor: seedColor ?? this.seedColor,
       dynamicColorEnabled: dynamicColorEnabled ?? this.dynamicColorEnabled,
       dynamicColorSupported:
           dynamicColorSupported ?? this.dynamicColorSupported,
@@ -88,10 +96,32 @@ class ThemePreferencesNotifier extends ValueNotifier<ThemePreferences> {
     }
 
     value = value.copyWith(
+      pureBlackEnabled: prefs.getBool('theme_pure_black') ?? false,
       mode: AppThemeMode.fromStorage(storedMode),
+      seedColor:
+          prefs.getInt('theme_seed_color') == null
+              ? null
+              : Color(prefs.getInt('theme_seed_color')!),
       dynamicColorEnabled: dynamicColorEnabled,
       predictiveBackEnabled: predictiveBackEnabled,
     );
+  }
+
+  Future<void> setSeedColor(Color color) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!await prefs.setInt('theme_seed_color', color.toARGB32()) ||
+        !await prefs.setBool('dynamic_color_enabled', false)) {
+      throw StateError('theme_write_failed');
+    }
+    value = value.copyWith(seedColor: color, dynamicColorEnabled: false);
+  }
+
+  Future<void> setPureBlackEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!await prefs.setBool('theme_pure_black', enabled)) {
+      throw StateError('theme_write_failed');
+    }
+    value = value.copyWith(pureBlackEnabled: enabled);
   }
 
   Future<void> setMode(AppThemeMode mode) async {
@@ -102,9 +132,11 @@ class ThemePreferencesNotifier extends ValueNotifier<ThemePreferences> {
 
   Future<void> setDynamicColorEnabled(bool enabled) async {
     if (enabled && !value.dynamicColorSupported) return;
-    value = value.copyWith(dynamicColorEnabled: enabled);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('dynamic_color_enabled', enabled);
+    if (!await prefs.setBool('dynamic_color_enabled', enabled)) {
+      throw StateError('theme_write_failed');
+    }
+    value = value.copyWith(dynamicColorEnabled: enabled);
   }
 
   Future<void> setPredictiveBackEnabled(bool enabled) async {

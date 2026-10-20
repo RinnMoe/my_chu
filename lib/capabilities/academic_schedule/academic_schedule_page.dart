@@ -42,6 +42,9 @@ import 'academic_schedule_export.dart';
 import 'academic_schedule_store.dart';
 import 'academic_schedule_utils.dart';
 import 'academic_schedule_cell_colors.dart';
+import 'academic_schedule_appearance.dart';
+import 'academic_schedule_background.dart';
+import 'academic_schedule_style.dart';
 import 'package:mychu/widgets/apple_window_controls.dart';
 
 typedef AcademicScheduleAccountKeyLoader = Future<String?> Function();
@@ -127,7 +130,19 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
   final Map<String, String> _personalConflictSelections = {};
   int _visiblePage = 0;
   bool _showNonCurrent = true;
+  AcademicScheduleAppearance _appearance = const AcademicScheduleAppearance();
   bool _hideWeekend = false;
+  bool get _effectiveNonCurrent =>
+      _appearance.style.showNonCurrent ?? _showNonCurrent;
+  List<int> get _visibleWeekdays => [
+    1,
+    2,
+    3,
+    4,
+    5,
+    if (_appearance.style.showSaturday ?? !_hideWeekend) 6,
+    if (_appearance.style.showSunday ?? !_hideWeekend) 7,
+  ];
   TeachingScheduleMode _scheduleMode = TeachingScheduleMode.weishui;
   Object? _error;
   bool _loading = true;
@@ -338,15 +353,15 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
         AcademicScheduleDisplayPreferences.readShowNonCurrent(),
         AcademicScheduleDisplayPreferences.readHideWeekend(),
       ]);
+      final appearance = await AcademicScheduleAppearanceStore.read();
       if (!mounted) return;
       final showNonCurrent = values[0];
       final hideWeekend = values[1];
-      if (showNonCurrent != _showNonCurrent || hideWeekend != _hideWeekend) {
-        setState(() {
-          _showNonCurrent = showNonCurrent;
-          _hideWeekend = hideWeekend;
-        });
-      }
+      setState(() {
+        _showNonCurrent = showNonCurrent;
+        _hideWeekend = hideWeekend;
+        _appearance = appearance;
+      });
     }());
   }
 
@@ -484,7 +499,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
         _loading = false;
         _error = null;
       });
-      scheduleAcademicCourseAlerts(accountKey, schedule);
+      scheduleAcademicCourseAlerts(accountKey);
       feedback.succeed();
       if (initialCalendarSelection == null && currentCalendar != null) {
         if (_scheduleMatchesCalendar(schedule, currentCalendar)) {
@@ -1031,12 +1046,12 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
                           const PopupMenuDivider(),
                           CheckedPopupMenuItem<String>(
                             value: 'showNonCurrent',
-                            checked: _showNonCurrent,
+                            checked: _effectiveNonCurrent,
                             child: const Text('显示非本周课程'),
                           ),
                           CheckedPopupMenuItem<String>(
                             value: 'hideWeekend',
-                            checked: _hideWeekend,
+                            checked: _visibleWeekdays.length == 5,
                             child: const Text('不显示周末'),
                           ),
                           const PopupMenuDivider(),
@@ -1069,14 +1084,55 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
             ],
           ),
         ),
-        body: body,
+        body: _appearanceBody(context, body),
       );
     }
     return page;
   }
 
+  Widget _appearanceBody(BuildContext context, Widget body) {
+    final theme = Theme.of(context);
+    final canvas = _appearance.canvas(theme.colorScheme);
+    final custom =
+        theme.brightness == Brightness.dark
+            ? _appearance.darkBackground
+            : _appearance.lightBackground;
+    final axis = _appearance.style.ink(
+      ScheduleInk.axis,
+      theme.brightness == Brightness.dark,
+    );
+    final foreground = axis ?? readableScheduleForeground(canvas);
+    return AcademicScheduleAppearanceScope(
+      appearance: _appearance,
+      child: Theme(
+        data:
+            custom == null && axis == null
+                ? theme
+                : theme.copyWith(
+                  colorScheme: theme.colorScheme.copyWith(
+                    surface: canvas,
+                    onSurface: foreground,
+                    onSurfaceVariant: foreground,
+                  ),
+                  textTheme: theme.textTheme.apply(
+                    bodyColor: foreground,
+                    displayColor: foreground,
+                  ),
+                  iconTheme: theme.iconTheme.copyWith(color: foreground),
+                ),
+        child: AcademicScheduleBackground(
+          color: canvas,
+          image: _appearance.backgroundImage(
+            theme.brightness == Brightness.dark,
+          ),
+          child: body,
+        ),
+      ),
+    );
+  }
+
   bool _canShowScheduleInspector(double width) {
-    final days = _hideWeekend ? 5 : 7;
+    final days = _visibleWeekdays.length;
     final inspectorWidth = (width * 0.30).clamp(320.0, 360.0);
     return width - inspectorWidth - 1 - _scheduleLeftWidth >= days * 80;
   }
@@ -1378,15 +1434,30 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
   }
 
   void _toggleShowNonCurrent() {
-    final value = !_showNonCurrent;
-    setState(() => _showNonCurrent = value);
-    unawaited(AcademicScheduleDisplayPreferences.setShowNonCurrent(value));
+    final value = !_effectiveNonCurrent;
+    _changeDisplayStyle(_appearance.style.copyWith(showNonCurrent: value));
   }
 
   void _toggleHideWeekend() {
-    final value = !_hideWeekend;
-    setState(() => _hideWeekend = value);
-    unawaited(AcademicScheduleDisplayPreferences.setHideWeekend(value));
+    final visible = _visibleWeekdays.length == 5;
+    _changeDisplayStyle(
+      _appearance.style.copyWith(showSaturday: visible, showSunday: visible),
+    );
+  }
+
+  void _changeDisplayStyle(AcademicScheduleStyle style) {
+    unawaited(() async {
+      final next = _appearance.withStyle(style);
+      try {
+        await AcademicScheduleAppearanceStore.save(next);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('外观保存失败，请重试')));
+        }
+      }
+    }());
   }
 
   bool get _supportsWakeUpExport =>
@@ -1749,10 +1820,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
       ),
     );
     final isClassSchedule = _scope == AcademicScheduleScope.administrativeClass;
-    final visibleWeekdays =
-        _hideWeekend
-            ? const <int>[1, 2, 3, 4, 5]
-            : const <int>[1, 2, 3, 4, 5, 6, 7];
+    final visibleWeekdays = _visibleWeekdays;
     final mergeResult =
         isClassSchedule
             ? mergeClassScheduleEntries(schedule.entries)
@@ -1776,11 +1844,11 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
                   DeviceFamily.tablet;
               final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
               final periodHeight =
-                  tablet
+                  tablet && _appearance.style.cellHeight == 68
                       ? ((constraints.maxHeight - 44) / maxPeriod)
                           .clamp(40.0 * scale, math.max(56.0, 40.0 * scale))
                           .toDouble()
-                      : 68.0;
+                      : _appearance.style.cellHeight;
               final columnWidth = math.max(
                 0.0,
                 (constraints.maxWidth - _scheduleLeftWidth) /
@@ -1852,7 +1920,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
                       mergeResult.entries,
                       week,
                     ),
-                    showNonCurrent: _showNonCurrent,
+                    showNonCurrent: _effectiveNonCurrent,
                     maxPeriod: maxPeriod,
                     columnWidth: columnWidth,
                     periodHeight: periodHeight,
@@ -2609,6 +2677,7 @@ class _ScheduleWeekPage extends StatelessWidget {
             ? split.faded.toSet()
             : const <AcademicPersonalScheduleEntry>{};
     final height = periodHeight * maxPeriod;
+    final style = AcademicScheduleAppearanceScope.of(context).style;
     final colors = Theme.of(context).colorScheme;
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     final highlightColor = colors.primary.withValues(
@@ -2631,7 +2700,7 @@ class _ScheduleWeekPage extends StatelessWidget {
                           ? Text(
                             '${weekStartDate.month}月',
                             style: TextStyle(
-                              fontSize: 9,
+                              fontSize: math.max(8, style.headerFontSize - 2),
                               height: 1.2,
                               color: colors.onSurfaceVariant,
                             ),
@@ -2657,7 +2726,10 @@ class _ScheduleWeekPage extends StatelessWidget {
                         children: [
                           Text(
                             '周${_weekdays[day - 1]}',
-                            style: const TextStyle(fontSize: 11, height: 1.2),
+                            style: TextStyle(
+                              fontSize: style.headerFontSize,
+                              height: 1.2,
+                            ),
                           ),
                           if (weekStartDate != null)
                             Text(
@@ -2668,7 +2740,7 @@ class _ScheduleWeekPage extends StatelessWidget {
                                 return '${date.day}';
                               }(),
                               style: TextStyle(
-                                fontSize: 9,
+                                fontSize: math.max(8, style.headerFontSize - 2),
                                 height: 1.2,
                                 color: colors.onSurfaceVariant,
                               ),
@@ -2690,6 +2762,23 @@ class _ScheduleWeekPage extends StatelessWidget {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
+                  if (style.showGrid)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: CustomPaint(
+                          painter: _ScheduleGridPainter(
+                            left: _leftWidth,
+                            columnWidth: columnWidth,
+                            periodHeight: periodHeight,
+                            days: visibleWeekdays.length,
+                            periods: maxPeriod,
+                            color: colors.onSurfaceVariant.withValues(
+                              alpha: .18,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   for (var period = 0; period < maxPeriod; period++)
                     Positioned(
                       left: 0,
@@ -2802,6 +2891,7 @@ class _PeriodLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final style = AcademicScheduleAppearanceScope.of(context).style;
     final time = teachingSchedule.period(period);
     final secondary = Theme.of(context).colorScheme.onSurfaceVariant;
     return FittedBox(
@@ -2809,15 +2899,26 @@ class _PeriodLabel extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('$period', style: const TextStyle(fontSize: 12, height: 1.2)),
-          if (time != null) ...[
+          Text(
+            '$period',
+            style: TextStyle(fontSize: style.headerFontSize + 1, height: 1.2),
+          ),
+          if (time != null && style.showPeriodTime) ...[
             Text(
               time.startText,
-              style: TextStyle(fontSize: 9, height: 1.2, color: secondary),
+              style: TextStyle(
+                fontSize: math.max(8, style.headerFontSize - 2),
+                height: 1.2,
+                color: secondary,
+              ),
             ),
             Text(
               time.endText,
-              style: TextStyle(fontSize: 9, height: 1.2, color: secondary),
+              style: TextStyle(
+                fontSize: math.max(8, style.headerFontSize - 2),
+                height: 1.2,
+                color: secondary,
+              ),
             ),
           ],
         ],
@@ -2871,11 +2972,13 @@ class _CourseBlock extends StatelessWidget {
           _scheduleCourseColorKey(entry),
           colorCount: academicScheduleCellPalettes.length,
         );
+    final style = AcademicScheduleAppearanceScope.of(context).style;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cellColors = academicScheduleCellColors(
       colorIndex,
       dark: isDark,
       nonCurrent: faded,
+      appearance: AcademicScheduleAppearanceScope.of(context),
     );
     final cardBackground = cellColors.background;
     final textColor = cellColors.foreground;
@@ -2921,7 +3024,9 @@ class _CourseBlock extends StatelessWidget {
     final lineBudget = _CourseBlockLineBudget.calculate(
       blockHeight: blockHeight,
       periodSpan: group.endPeriod - group.startPeriod + 1,
-      textScaler: MediaQuery.textScalerOf(context),
+      textScaler: TextScaler.linear(
+        MediaQuery.textScalerOf(context).scale(style.courseFontSize) / 12,
+      ),
       hasStatus: statusText.isNotEmpty,
       hasLocation: locationText.isNotEmpty,
       hasTeacher: displayTeacher.isNotEmpty,
@@ -2935,12 +3040,12 @@ class _CourseBlock extends StatelessWidget {
         Positioned.fill(
           child: Material(
             color: Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(style.cornerRadius),
             clipBehavior: Clip.antiAlias,
             child: Ink(
               decoration: BoxDecoration(
                 color: cardBackground,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(style.cornerRadius),
               ),
               child: InkWell(
                 onTap: onTap,
@@ -2953,7 +3058,10 @@ class _CourseBlock extends StatelessWidget {
                         child: LayoutBuilder(
                           builder: (context, constraints) {
                             final locationLineHeight =
-                                MediaQuery.textScalerOf(context).scale(9) * 1.1;
+                                MediaQuery.textScalerOf(
+                                  context,
+                                ).scale(style.courseFontSize * .75) *
+                                1.1;
                             final roomText = Text(
                               locationText,
                               maxLines:
@@ -2962,7 +3070,7 @@ class _CourseBlock extends StatelessWidget {
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: textColor,
-                                fontSize: 9,
+                                fontSize: style.courseFontSize * .75,
                                 height: 1.1,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -2998,7 +3106,9 @@ class _CourseBlock extends StatelessWidget {
                                           constraints.maxHeight,
                                           MediaQuery.textScalerOf(
                                                 context,
-                                              ).scale(9) *
+                                              ).scale(
+                                                style.courseFontSize * .75,
+                                              ) *
                                               1.1,
                                         )
                                         .toDouble();
@@ -3054,7 +3164,8 @@ class _CourseBlock extends StatelessWidget {
                                           textAlign: TextAlign.center,
                                           style: TextStyle(
                                             color: textColor,
-                                            fontSize: 9,
+                                            fontSize:
+                                                style.courseFontSize * .75,
                                             height: 1.1,
                                             fontWeight: FontWeight.w600,
                                           ),
@@ -3084,7 +3195,7 @@ class _CourseBlock extends StatelessWidget {
                                               textAlign: TextAlign.center,
                                               style: TextStyle(
                                                 color: textColor,
-                                                fontSize: 12,
+                                                fontSize: style.courseFontSize,
                                                 height: 1.15,
                                                 fontWeight: FontWeight.w600,
                                               ),
@@ -3100,7 +3211,9 @@ class _CourseBlock extends StatelessWidget {
                                                 textAlign: TextAlign.center,
                                                 style: TextStyle(
                                                   color: textColor,
-                                                  fontSize: 10,
+                                                  fontSize:
+                                                      style.courseFontSize *
+                                                      (10 / 12),
                                                   height: 1.1,
                                                 ),
                                               ),
@@ -3149,7 +3262,7 @@ class _CourseBlock extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 border: Border.all(color: cellColors.border),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(style.cornerRadius),
               ),
             ),
           ),
@@ -3407,4 +3520,42 @@ String _weekdayLabel(int weekday) {
   return weekday >= 1 && weekday <= labels.length
       ? labels[weekday - 1]
       : '$weekday';
+}
+
+class _ScheduleGridPainter extends CustomPainter {
+  const _ScheduleGridPainter({
+    required this.left,
+    required this.columnWidth,
+    required this.periodHeight,
+    required this.days,
+    required this.periods,
+    required this.color,
+  });
+  final double left, columnWidth, periodHeight;
+  final int days, periods;
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint =
+        Paint()
+          ..color = color
+          ..strokeWidth = .5;
+    for (var day = 0; day <= days; day++) {
+      final x = left + columnWidth * day;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (var period = 0; period <= periods; period++) {
+      final y = period * periodHeight;
+      canvas.drawLine(Offset(left, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ScheduleGridPainter old) =>
+      left != old.left ||
+      columnWidth != old.columnWidth ||
+      periodHeight != old.periodHeight ||
+      days != old.days ||
+      periods != old.periods ||
+      color != old.color;
 }

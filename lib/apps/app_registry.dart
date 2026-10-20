@@ -21,6 +21,7 @@ import 'second_classroom/second_classroom_app.dart';
 import 'sports/sports_app.dart';
 import 'tronclass/tronclass_app.dart';
 import 'tronclass_mobile/tronclass_mobile_app.dart';
+import 'tronclass_rollcall/tronclass_rollcall_app.dart';
 import 'trusted_docs/trusted_docs_app.dart';
 import 'xuexin/xuexin_app.dart';
 
@@ -54,6 +55,7 @@ class AppRegistry {
     secondClassroomApp,
     tronclassApp,
     tronclassMobileApp,
+    tronclassRollcallApp,
     trustedDocsApp,
     xuexinApp,
     channelResourcesApp,

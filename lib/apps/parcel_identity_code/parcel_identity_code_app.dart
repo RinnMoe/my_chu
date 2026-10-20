@@ -6,8 +6,8 @@ import '../../capabilities/external_app_launcher.dart';
 final parcelIdentityCodeApp = AppDefinition.action(
   metadata: AppMetadata(
     id: 'feature.parcel.identity.code',
-    name: '淘宝身份码',
-    description: '快速打开淘宝取件身份码',
+    name: '淘宝取件码',
+    description: '快速打开淘宝取件码',
     iconCodePoint: Icons.qr_code_2_outlined.codePoint,
     category: AppCategory.life,
     developmentFlag: DevelopmentFlag.none,
@@ -19,7 +19,7 @@ final parcelIdentityCodeApp = AppDefinition.action(
 final _launcher = ExternalAppLauncher();
 final _identityCodeTarget = ExternalAppTarget(
   uri: Uri.parse(
-    'https://pages-fast.m.taobao.com/wow/z/uniapp/1011717/last-mile-fe/end-collect-platform/identity-code',
+    'https://pages-fast.m.taobao.com/wow/z/uniapp/1100333/last-mile-fe/m-end-school-tab/home',
   ),
   androidPackage: 'com.taobao.taobao',
 );
