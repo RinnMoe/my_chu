@@ -319,6 +319,24 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
         icon: const Icon(Icons.qr_code_scanner),
         label: const Text('扫描设备码'),
       ),
+      const SizedBox(height: 32),
+      Text(
+        '本功能只支持该类设备',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.titleSmall,
+      ),
+      const SizedBox(height: 12),
+      Center(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Image.asset(
+            'assets/images/yundaren_socket.jpg',
+            height: 260,
+            fit: BoxFit.contain,
+            semanticLabel: '支持的凯路创新扫码用电插座',
+          ),
+        ),
+      ),
     ],
   );
 

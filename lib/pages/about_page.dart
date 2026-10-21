@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../capabilities/dev_visibility.dart';
-import '../services/app_remote_services_service.dart';
 import 'app_update_prompts.dart';
-import 'fenfa_dialogs.dart' show showAppRemoteServicesDisabledMessage;
-import 'fenfa_feedback_page.dart';
 import 'diagnostic_report_page.dart';
 import 'developer_tools_hub_page.dart';
 import 'open_source_page.dart';
@@ -63,14 +60,6 @@ class _AboutPageState extends State<AboutPage> {
 
   void _pushPage(WidgetBuilder builder) {
     Navigator.push<void>(context, MaterialPageRoute<void>(builder: builder));
-  }
-
-  Future<void> _openFeedback() async {
-    if (!await AppRemoteServicesService.isEnabled()) {
-      if (mounted) showAppRemoteServicesDisabledMessage(context);
-      return;
-    }
-    if (mounted) _pushPage((_) => const FenfaFeedbackPage());
   }
 
   @override
@@ -157,14 +146,6 @@ class _AboutPageState extends State<AboutPage> {
                     ),
                   ],
                 ),
-              ),
-              const Divider(height: 1, indent: 56),
-              ListTile(
-                leading: const Icon(Icons.feedback_outlined),
-                title: const Text('建言献策'),
-                subtitle: const Text('提交问题或功能建议'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _openFeedback,
               ),
               const Divider(height: 1, indent: 56),
               ListTile(

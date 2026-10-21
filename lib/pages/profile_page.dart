@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../models/account.dart';
 import '../services/auth_service.dart';
+import '../services/app_remote_services_service.dart';
 import '../services/auth_lifecycle_service.dart';
 import '../services/ip_status_service.dart';
 import '../services/portal_identity_service.dart';
@@ -19,6 +20,8 @@ import 'app_update_section.dart';
 import 'appearance_theme_page.dart';
 import 'campus_settings_sheet.dart';
 import 'channel_account_page.dart';
+import 'fenfa_dialogs.dart' show showAppRemoteServicesDisabledMessage;
+import 'fenfa_feedback_page.dart';
 import 'notification_settings_page.dart';
 import 'page_management_page.dart';
 import 'profile/profile_widgets.dart';
@@ -161,6 +164,14 @@ class _ProfilePageState extends State<ProfilePage>
     Navigator.push(context, MaterialPageRoute<void>(builder: (_) => page));
   }
 
+  Future<void> _openFeedback() async {
+    if (!await AppRemoteServicesService.isEnabled()) {
+      if (mounted) showAppRemoteServicesDisabledMessage(context);
+      return;
+    }
+    if (mounted) _push(const FenfaFeedbackPage());
+  }
+
   Future<void> _confirmSignOut() async {
     const signOutMessage = '退出登录会清除已保存的登录信息。';
     final confirmation = showAdaptiveConfirmationDialog(
@@ -263,6 +274,11 @@ class _ProfilePageState extends State<ProfilePage>
                     title: '关于',
                     trailingValue: _versionLabel.isEmpty ? null : _versionLabel,
                     onTap: () => _push(const AboutPage()),
+                  ),
+                  ProfileSettingTile(
+                    icon: Icons.feedback_outlined,
+                    title: '建言献策',
+                    onTap: _openFeedback,
                   ),
                 ],
               ),

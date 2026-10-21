@@ -1,7 +1,7 @@
 name: mychu
 description: 长安大学第三方校园助手
 publish_to: 'none'
-version: 1.1.0+13
+version: 1.2.0+14
 
 environment:
   sdk: ^3.7.0
@@ -61,6 +61,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/images/yundaren_socket.jpg
+    - assets/images/feedback_wechat_qr.jpg
     - assets/splash/campus_building.png
     - assets/splash/campus_building_splash.png
     # SDK-independent campus semantics used for first install and offline

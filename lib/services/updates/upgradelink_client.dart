@@ -5,10 +5,13 @@ import '../public_http_client.dart';
 import 'update_offer.dart';
 
 /// Public, read-only gateway. Signing secrets belong to the server, not Dart
-/// defines. Empty configuration deliberately leaves Fenfa as the active source.
+/// defines. Fenfa is only a fallback; an explicit empty override disables UL.
 class UpgradeLinkConfig {
   const UpgradeLinkConfig({
-    this.baseUrl = const String.fromEnvironment('MYCHU_UPGRADELINK_BASE_URL'),
+    this.baseUrl = const String.fromEnvironment(
+      'MYCHU_UPGRADELINK_BASE_URL',
+      defaultValue: 'https://update.rinn.moe',
+    ),
   });
   final String baseUrl;
   bool get isConfigured => baseUrl.trim().isNotEmpty;

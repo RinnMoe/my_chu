@@ -215,7 +215,16 @@ class _FenfaFeedbackPageState extends State<FenfaFeedbackPage> {
       appBar: WindowControlsAwareAppBar(
         child: AppBar(title: const Text('建言献策')),
       ),
-      body: body,
+      body: SafeArea(
+        top: false,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: body,
+          ),
+        ),
+      ),
     );
   }
 
@@ -225,6 +234,11 @@ class _FenfaFeedbackPageState extends State<FenfaFeedbackPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
+          _buildFollowBanner(context),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1),
+          ),
           Text(
             '告诉我们你遇到的问题或想要的改进。',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -349,6 +363,53 @@ class _FenfaFeedbackPageState extends State<FenfaFeedbackPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFollowBanner(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '关注公众号后台私信反馈',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '近期我正在升级迁移反馈系统，为了能及时收到你的反馈，建议通过公众号私信或邮箱反馈～\n公众号：Rinn.Log\n邮箱：mychu@rinn.moe',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.asset(
+              'assets/images/feedback_wechat_qr.jpg',
+              width: 96,
+              height: 96,
+              filterQuality: FilterQuality.none,
+              semanticLabel: '反馈公众号二维码',
+            ),
+          ),
+        ],
       ),
     );
   }
