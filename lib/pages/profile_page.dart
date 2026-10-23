@@ -17,6 +17,7 @@ import '../widgets/adaptive_confirmation_dialog.dart';
 import '../widgets/adaptive_settings.dart';
 import 'about_page.dart';
 import 'app_update_section.dart';
+import 'app_update_prompts.dart';
 import 'appearance_theme_page.dart';
 import 'campus_settings_sheet.dart';
 import 'channel_account_page.dart';
@@ -49,6 +50,26 @@ class _ProfilePageState extends State<ProfilePage>
   bool _networkLoading = true;
   String _campusLabel = '渭水校区';
   String _versionLabel = '';
+  final _updateCardKey = GlobalKey();
+
+  Future<void> _checkForUpdates() => presentAppUpdateCheck(
+    context,
+    service: widget.updates,
+    manual: true,
+    onUpdateAvailable: () async {
+      // The service notification must lay out the newly inserted card first.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      final cardContext = _updateCardKey.currentContext;
+      if (cardContext != null && cardContext.mounted) {
+        await Scrollable.ensureVisible(
+          cardContext,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    },
+  );
 
   @override
   void initState() {
@@ -220,7 +241,7 @@ class _ProfilePageState extends State<ProfilePage>
                           refresh: _refreshNetworkStatus,
                         ),
               ),
-              AppUpdateSection(service: widget.updates),
+              AppUpdateSection(key: _updateCardKey, service: widget.updates),
               const SizedBox(height: 24),
               AdaptiveSettingsSection(
                 title: '账号',
@@ -271,9 +292,14 @@ class _ProfilePageState extends State<ProfilePage>
                 margin: EdgeInsets.zero,
                 children: [
                   ProfileSettingTile(
+                    icon: Icons.update_rounded,
+                    title: '检查更新',
+                    trailingValue: _versionLabel.isEmpty ? null : _versionLabel,
+                    onTap: _checkForUpdates,
+                  ),
+                  ProfileSettingTile(
                     icon: Icons.info_outline,
                     title: '关于',
-                    trailingValue: _versionLabel.isEmpty ? null : _versionLabel,
                     onTap: () => _push(const AboutPage()),
                   ),
                   ProfileSettingTile(

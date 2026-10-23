@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 
 import '../capabilities/dev_visibility.dart';
-import 'app_update_prompts.dart';
 import 'diagnostic_report_page.dart';
 import 'developer_tools_hub_page.dart';
 import 'open_source_page.dart';
@@ -25,7 +23,7 @@ Widget _aboutArtwork({required double width, required double height}) {
   );
 }
 
-/// 关于页：版本信息、正式诊断入口，以及 Debug 构建下的开发工具。
+/// 关于页：正式诊断、协议与开源信息，以及 Debug 构建下的开发工具。
 class AboutPage extends StatefulWidget {
   const AboutPage({super.key});
 
@@ -34,22 +32,6 @@ class AboutPage extends StatefulWidget {
 }
 
 class _AboutPageState extends State<AboutPage> {
-  String _versionLabel = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadVersion();
-  }
-
-  Future<void> _loadVersion() async {
-    final info = await PackageInfo.fromPlatform();
-    if (!mounted) return;
-    setState(() {
-      _versionLabel = 'v${info.version}';
-    });
-  }
-
   void _openDeveloperTools() {
     _pushPage((_) => const DeveloperToolsHubPage());
   }
@@ -100,24 +82,6 @@ class _AboutPageState extends State<AboutPage> {
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
-              ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: const Text('版本号'),
-                subtitle: const Text('点击检查更新'),
-                trailing: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 128),
-                  child: Text(
-                    _versionLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                onTap: () => presentAppUpdateCheck(context, manual: true),
-              ),
               ListTile(
                 leading: const Icon(Icons.analytics_outlined),
                 title: const Text('诊断信息'),

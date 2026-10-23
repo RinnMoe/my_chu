@@ -126,7 +126,7 @@ object CourseLiveEngine {
     // ------------------------------------------------------------- dismissal
 
     /**
-     * Manual "结束本次显示". The dismissal is persisted before the instance is
+     * Ends the current display. The dismissal is persisted before the instance is
      * removed, so a later broadcast, a reopened app or a reboot cannot bring
      * the same occurrence back.
      *
@@ -152,28 +152,9 @@ object CourseLiveEngine {
         store.forgetDisplay()
     }
 
-    @Synchronized
-    fun handleEndDisplay(context: Context, owner: String?, eventId: String?, now: Long) {
-        if (owner == null || eventId.isNullOrBlank()) return
-        val store = CourseLiveStore(context)
-        val bound = store.bound() ?: return
-        if (bound.owner != owner || store.rememberedDisplay()?.first != eventId) return
-        // The notification action can start a killed process: the in-memory
-        // session is empty then, so reload the persisted one before recording
-        // the dismissal and scheduling the next boundary.
-        val plan = store.readPlan()
-        memoryOwner = bound.owner
-        memoryGeneration = bound.generation
-        memoryBlocks = plan?.blocks ?: emptyList()
-        memoryDismissals = store.ledger()
-        memoryShown = store.rememberedDisplay()?.first ?: eventId
-        endDisplay(context, eventId, now)
-        coordinate(context)
-    }
-
     /**
      * The user swiped the ongoing entry away. Only a user dismissal fires the
-     * delete intent, so this is recorded exactly like "结束本次显示"; the
+     * delete intent, so this occurrence stays dismissed; the
      * system timeout and a programmatic cancel never reach here.
      */
     @Synchronized
@@ -410,18 +391,12 @@ object CourseLiveEngine {
 
 }
 
-/** Handles the pre-class boundary alarm and the manual "结束本次显示" action. */
+/** Handles course boundary alarms and user notification dismissals. */
 class CourseLiveReceiver : android.content.BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val app = context.applicationContext
         when (intent.action) {
             CourseLiveEngine.alarmAction() -> CourseLiveEngine.reschedule(app)
-            ACTION_END_DISPLAY -> CourseLiveEngine.handleEndDisplay(
-                app,
-                intent.getStringExtra("courseLiveOwner"),
-                intent.getStringExtra("courseLiveEvent"),
-                System.currentTimeMillis(),
-            )
             // Delivered by the system only when the user removes the entry.
             ACTION_DISMISSED -> CourseLiveEngine.handleDismissed(
                 app,
@@ -433,7 +408,6 @@ class CourseLiveReceiver : android.content.BroadcastReceiver() {
     }
 
     companion object {
-        const val ACTION_END_DISPLAY = "moe.rinn.mychu.action.COURSE_LIVE_END_DISPLAY"
         const val ACTION_DISMISSED = "moe.rinn.mychu.action.COURSE_LIVE_DISMISSED"
     }
 }

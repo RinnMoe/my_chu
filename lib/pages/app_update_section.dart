@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../services/updates/app_update_service.dart';
 import 'app_update_prompts.dart';
-import 'app_update_progress.dart';
 
 String _size(int bytes) => '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 
@@ -19,6 +18,7 @@ class AppUpdateSection extends StatefulWidget {
 
 class _AppUpdateSectionState extends State<AppUpdateSection> {
   bool _expanded = false;
+  bool _downloadIncremental = false;
   AppUpdateService get service => widget.service ?? AppUpdateService.shared;
   @override
   void initState() {
@@ -47,6 +47,15 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
           service.state == UpdateCheckState.checking;
       Widget card({required bool incremental}) {
         final patch = service.delta;
+        final downloading =
+            service.downloading && incremental == _downloadIncremental;
+        final fraction = service.progress?.fraction;
+        final actionLabel =
+            downloading
+                ? (fraction == null
+                    ? '更新中…'
+                    : '下载中 ${(fraction * 100).floor()}%')
+                : (incremental ? '增量更新' : '下载更新');
         final background =
             incremental ? colors.tertiaryContainer : colors.primaryContainer;
         final foreground =
@@ -126,16 +135,20 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
                 onPressed:
                     busy
                         ? null
-                        : () => unawaited(
-                          service.download(preferDelta: incremental),
-                        ),
+                        : () {
+                          setState(() => _downloadIncremental = incremental);
+                          unawaited(service.download(preferDelta: incremental));
+                        },
                 style: TextButton.styleFrom(
                   foregroundColor: foreground,
                   backgroundColor: foreground.withValues(alpha: 0.07),
                   shape: const RoundedRectangleBorder(),
                   minimumSize: const Size.fromHeight(48),
                 ),
-                child: Text(incremental ? '增量更新' : '下载更新'),
+                child: Semantics(
+                  liveRegion: downloading,
+                  child: Text(actionLabel),
+                ),
               ),
             ],
           ),
@@ -157,25 +170,6 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
             ),
             card(incremental: false),
             if (service.delta != null) card(incremental: true),
-            if (service.planning)
-              const Padding(
-                padding: EdgeInsets.all(8),
-                child: Text('正在检查是否有适用的增量包…'),
-              ),
-            if (service.downloading) ...[
-              const SizedBox(height: 12),
-              LinearProgressIndicator(value: service.progress?.fraction),
-              const SizedBox(height: 8),
-              Semantics(
-                liveRegion: true,
-                child: Text(updateProgressLabel(service.progress)),
-              ),
-            ],
-            if (service.installerOpened)
-              const Padding(
-                padding: EdgeInsets.all(8),
-                child: Text('安装程序已打开，请在系统界面完成更新'),
-              ),
             if (service.error != null)
               Padding(
                 padding: const EdgeInsets.all(8),

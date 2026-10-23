@@ -8,6 +8,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
@@ -29,7 +32,6 @@ object CourseLiveNotificationIdentity {
     const val NOTIFICATION_ID = 470301
     const val ALARM_REQUEST = 470302
     const val CONTENT_REQUEST = 470303
-    const val END_REQUEST = 470304
     const val DISMISS_REQUEST = 470305
     const val CHECKPOINT_REQUEST = 470306
 
@@ -167,7 +169,8 @@ class CourseLiveAndroidRenderer(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         builder
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_course_live)
+            .setLargeIcon(Icon.createWithResource(context, R.mipmap.ic_launcher))
             .setContentTitle(title)
             .setContentText(body)
             .setCategory(Notification.CATEGORY_PROGRESS)
@@ -177,22 +180,37 @@ class CourseLiveAndroidRenderer(private val context: Context) {
             .setShowWhen(true)
             .setContentIntent(contentIntent)
             .setDeleteIntent(dismissedPendingIntent(notification))
-            .addAction(
-                Notification.Action.Builder(
-                    Icon.createWithResource(context, R.drawable.ic_course_live),
-                    "结束本次显示",
-                    endPendingIntent(notification),
-                ).build(),
-            )
         if (Build.VERSION.SDK_INT >= 26) {
             val timeout = notification.timeoutMillis.coerceAtLeast(0)
             if (timeout > 0) builder.setTimeoutAfter(timeout)
         }
         if (notification.progress != null) {
-            builder.setProgress(100, notification.progress, false)
+            val progress = notification.progress.coerceIn(0, 100)
+            if (Build.VERSION.SDK_INT >= 36) {
+                builder.setStyle(
+                    Notification.ProgressStyle()
+                        .setProgressSegments(listOf(Notification.ProgressStyle.Segment(100)))
+                        .setProgress(progress)
+                        .setProgressTrackerIcon(courseTrackerIcon()),
+                )
+            } else {
+                builder.setProgress(100, progress, false)
+            }
         }
-        requestPromotion(builder)
+        requestPromotion(builder, courseLiveCompactText(notification.location, notification.phase))
         return builder.build()
+    }
+
+    private fun courseTrackerIcon(): Icon {
+        val size = (32 * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = size * 0.8f
+            textAlign = Paint.Align.CENTER
+        }
+        val baseline = size / 2f - (paint.ascent() + paint.descent()) / 2f
+        Canvas(bitmap).drawText("🎓", size / 2f, baseline, paint)
+        return Icon.createWithBitmap(bitmap)
     }
 
     /**
@@ -207,6 +225,7 @@ class CourseLiveAndroidRenderer(private val context: Context) {
      */
     private fun requestPromotion(
         builder: Notification.Builder,
+        compactText: String,
     ) {
         if (Build.VERSION.SDK_INT < 36) return
         val requested = runCatching {
@@ -219,11 +238,10 @@ class CourseLiveAndroidRenderer(private val context: Context) {
             // Older minor releases know only the promotable-characteristics path.
             builder.setColorized(true)
         }
-        val marker = "🎓"
         runCatching {
             builder.javaClass
                 .getMethod("setShortCriticalText", String::class.java)
-                .invoke(builder, marker)
+                .invoke(builder, compactText)
         }
     }
 
@@ -256,27 +274,9 @@ class CourseLiveAndroidRenderer(private val context: Context) {
                 notification.startAt,
             )
 
-    private fun endPendingIntent(notification: CourseLiveNotification): PendingIntent =
-        PendingIntent.getBroadcast(
-            context,
-            CourseLiveNotificationIdentity.END_REQUEST,
-            Intent(context, CourseLiveReceiver::class.java)
-                .setAction(CourseLiveReceiver.ACTION_END_DISPLAY)
-                .setData(
-                    Uri.Builder()
-                        .scheme("mychu-course-live-end")
-                        .authority(notification.owner)
-                        .appendPath(notification.eventId)
-                        .build(),
-                )
-                .putExtra("courseLiveOwner", notification.owner)
-                .putExtra("courseLiveEvent", notification.eventId),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-
     /**
      * Fired by the system only when the user removes the entry, so a swipe is
-     * recorded exactly like "结束本次显示". A system timeout or a programmatic
+     * recorded for the current occurrence. A system timeout or a programmatic
      * cancel does not fire it.
      */
     private fun dismissedPendingIntent(

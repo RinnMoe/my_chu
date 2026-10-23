@@ -34,7 +34,9 @@ class CourseLiveActivityChannel(
                 when (call.method) {
                     "startDeveloperTest" -> {
                         if (!BuildConfig.DEBUG) result.notImplemented()
-                        else result.success(CourseLiveDeveloperTest.start(context, args["delayed"] == true))
+                        else result.success(CourseLiveDeveloperTest.start(
+                            context, args["delayed"] == true, args["ongoing"] == true,
+                        ))
                     }
                     "stopDeveloperTest" -> {
                         if (!BuildConfig.DEBUG) result.notImplemented()

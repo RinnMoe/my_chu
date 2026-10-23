@@ -279,7 +279,6 @@ class CourseLiveNotificationIdentityTest {
         assertTrue(CourseLiveNotificationIdentity.NOTIFICATION_ID < 480001)
         assertTrue(CourseLiveNotificationIdentity.ALARM_REQUEST < 480100)
         assertTrue(CourseLiveNotificationIdentity.CONTENT_REQUEST < 480100)
-        assertTrue(CourseLiveNotificationIdentity.END_REQUEST < 480100)
         assertFalse(CourseLiveNotificationIdentity.CHANNEL_ID == "mychu_live_course")
     }
 
@@ -295,7 +294,7 @@ class CourseLiveNotificationIdentityTest {
     @Test
     fun `dismiss and alarm actions are distinct from retired actions`() {
         val actions = setOf(
-            CourseLiveReceiver.ACTION_END_DISPLAY,
+            CourseLiveReceiver.ACTION_DISMISSED,
             CourseLiveRecoveryReceiver.ACTION_EXACT_ALARM_PERMISSION_CHANGED,
         )
         assertFalse(actions.contains("moe.rinn.mychu.action.LIVE_UPDATE_REFRESH"))

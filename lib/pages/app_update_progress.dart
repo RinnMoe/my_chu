@@ -1,6 +1,6 @@
 import '../capabilities/in_app_download/in_app_download.dart';
 
-/// Shared by the inline update section and the mandatory-update dialog.
+/// Detailed progress for the mandatory-update dialog.
 String updateProgressLabel(InAppDownloadProgress? progress) {
   if (progress == null) return '正在准备下载…';
   switch (progress.phase) {

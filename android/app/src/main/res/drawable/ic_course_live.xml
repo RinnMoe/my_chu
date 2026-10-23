@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 课程实时动态的通知动作图标（“结束本次显示”）。 -->
+<!-- 课程实时动态的透明底单色通知小图标。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"

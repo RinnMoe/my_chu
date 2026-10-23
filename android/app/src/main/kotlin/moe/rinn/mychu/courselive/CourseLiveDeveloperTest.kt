@@ -10,7 +10,7 @@ import java.util.UUID
 object CourseLiveDeveloperTest {
     private const val BACKUP = "mychu_course_live_developer_backup"
 
-    fun start(context: Context, delayed: Boolean): Map<String, Any> {
+    fun start(context: Context, delayed: Boolean, ongoing: Boolean = false): Map<String, Any> {
         check(BuildConfig.DEBUG)
         stop(context)
         val store = context.getSharedPreferences(CourseLiveStore.STORE, Context.MODE_PRIVATE)
@@ -21,11 +21,13 @@ object CourseLiveDeveloperTest {
             val owner = "dddddddddddddddddddddddddddddddddddddddddddddddd"
             val generation = CourseLiveEngine.activate(context, owner)
             val now = System.currentTimeMillis()
-            val opens = if (delayed) now + 60_000 else now - 1_000
-            val starts = if (delayed) now + 180_000 else now + 120_000
+            // Start one minute into a three-minute course so progress is immediately visible.
+            val starts = if (ongoing) now - 60_000 else if (delayed) now + 180_000 else now + 120_000
+            val opens = if (ongoing) starts - 1_000 else if (delayed) now + 60_000 else now - 1_000
+            val ends = if (ongoing) now + 120_000 else starts + 120_000
             val course = JSONObject().put("eventId", "dev-" + UUID.randomUUID())
                 .put("name", "虚拟课程 · 高等数学").put("location", "测试教室 A101")
-                .put("startAt", starts).put("endAt", starts + 120_000)
+                .put("startAt", starts).put("endAt", ends)
                 .put("windowStart", opens).put("windowEnd", starts)
             val payload = JSONObject().put("version", 1).put("owner", owner)
                 .put("generation", generation).put("courses", JSONArray().put(course))

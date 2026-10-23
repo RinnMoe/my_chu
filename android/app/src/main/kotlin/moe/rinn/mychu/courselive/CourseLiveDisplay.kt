@@ -1,5 +1,15 @@
 package moe.rinn.mychu.courselive
 
+/** Keep the status chip useful within the platform's recommended seven characters. */
+internal fun courseLiveCompactText(location: String, phase: CourseLivePhase): String {
+    val room = Regex("(?i)(?<![a-z0-9])[a-z]{0,4}[0-9]{2,5}[a-z]?(?![a-z0-9])")
+        .find(location)?.value
+    if (room != null && room.length <= 7) return room.uppercase(java.util.Locale.ROOT)
+    val compact = location.filterNot { it.isWhitespace() || it == '#' || it == '*' }.trim()
+    if (compact.isNotEmpty() && compact.codePointCount(0, compact.length) <= 7) return compact
+    return if (phase == CourseLivePhase.ONGOING) "上课中" else "即将上课"
+}
+
 /**
  * One render of the current pre-class or ongoing course. The native layer re-derives everything from
  * real time, so a delayed broadcast never shows a stale stage.

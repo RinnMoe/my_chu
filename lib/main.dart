@@ -586,7 +586,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _runStartupChecks() async {
-    await presentAppUpdateCheck(context);
+    await presentAppUpdateCheck(context, forceRefresh: true);
   }
 
   @override

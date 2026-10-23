@@ -64,6 +64,7 @@ class CourseLiveActivityService {
   /// Debug-only synthetic plan; no campus request or timetable cache write.
   static Future<Map<Object?, Object?>> startDeveloperTest({
     bool delayed = false,
+    bool ongoing = false,
   }) async {
     if (!kDebugMode || !isSupported) {
       throw UnsupportedError('仅 Android Debug 可用');
@@ -79,6 +80,7 @@ class CourseLiveActivityService {
       try {
         final result = await _invoke('startDeveloperTest', {
           'delayed': delayed,
+          'ongoing': ongoing,
         });
         if (result is! Map) throw StateError('测试能力不可用');
         return Map<Object?, Object?>.from(result);
