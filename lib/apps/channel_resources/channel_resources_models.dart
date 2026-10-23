@@ -133,14 +133,14 @@ class ChannelResourcePage {
 }
 
 class ChannelTag {
-  final String id;
-  final String name;
+  final String key;
+  final String value;
 
-  const ChannelTag({required this.id, required this.name});
+  const ChannelTag({required this.key, required this.value});
 
   factory ChannelTag.fromJson(Map<String, dynamic> json) => ChannelTag(
-    id: ChannelResourcesJson.text(json, 'id'),
-    name: ChannelResourcesJson.text(json, 'name'),
+    key: ChannelResourcesJson.text(json, 'key'),
+    value: ChannelResourcesJson.text(json, 'value'),
   );
 }
 

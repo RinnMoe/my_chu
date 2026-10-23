@@ -1,3 +1,4 @@
+import '../../services/failure_details.dart';
 // 畅课应用数据模型：待办与课件。
 
 import '../../capabilities/east8_time.dart';
@@ -155,10 +156,19 @@ class TronclassCoursewareProgress {
   bool get isDone => total > 0 && completed >= total;
 }
 
-class TronclassException implements Exception {
+class TronclassException implements Exception, ClassifiedFailure {
   final String message;
 
-  const TronclassException(this.message);
+  const TronclassException(
+    this.message, {
+    this.statusCode,
+    FailureReason reason = FailureReason.unexpected,
+  }) : _reason = reason;
+
+  final int? statusCode;
+  final FailureReason _reason;
+  @override
+  FailureReason get failureReason => classifyHttpFailure(statusCode) ?? _reason;
 
   @override
   String toString() => message;

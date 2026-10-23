@@ -2,6 +2,8 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 
+import 'failure_details.dart';
+
 /// Stable identifiers for foreground operations that can present a retryable
 /// error to the user.
 enum UserOperationId {
@@ -76,6 +78,8 @@ class AppLogEvent {
     this.statusCode,
     this.renderProcessCrashed,
     this.attempt,
+    this.failureReason,
+    this.failureStage,
   }) : level = _safeLevel(level),
        code = _safeCode(code),
        message = sanitizeLogText(message),
@@ -97,6 +101,8 @@ class AppLogEvent {
   final int? statusCode;
   final bool? renderProcessCrashed;
   final int? attempt;
+  final FailureReason? failureReason;
+  final FailureStage? failureStage;
 
   String get businessDomain => domain;
 
@@ -117,6 +123,8 @@ class AppLogEvent {
       if (renderProcessCrashed != null)
         'renderer=${renderProcessCrashed! ? 'crashed' : 'exited'}',
       if (attempt != null) 'attempt=$attempt',
+      if (failureReason != null) 'reason=${failureReason!.key}',
+      if (failureStage != null) 'stage=${failureStage!.key}',
       for (final entry in fields.entries)
         '${_safeKey(entry.key)}=${_safeValue(entry.value)}',
     ];
@@ -174,6 +182,8 @@ class DiagnosticLogEvent extends AppLogEvent {
     super.statusCode,
     super.renderProcessCrashed,
     super.attempt,
+    super.failureReason,
+    super.failureStage,
     super.fields,
   }) : super(
          level: 'ERROR',

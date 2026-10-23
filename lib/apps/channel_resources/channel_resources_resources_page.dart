@@ -35,7 +35,7 @@ class _ChannelResourcesResourcesPageState
   List<ChannelTag> _tags = const [];
   List<ChannelAnnouncement> _announcements = const [];
   List<ChannelLink> _links = const [];
-  String _selectedTagName = '';
+  String _selectedTagKey = '';
   String _sort = 'downloads';
   int _pageNumber = 1;
   bool _loading = true;
@@ -84,7 +84,7 @@ class _ChannelResourcesResourcesPageState
     try {
       final resources = widget.service.loadResources(
         search: _searchController.text,
-        tags: _selectedTagName,
+        tags: _selectedTagKey,
         page: _pageNumber,
         sortBy: _sort,
       );
@@ -134,7 +134,7 @@ class _ChannelResourcesResourcesPageState
     try {
       final page = await widget.service.loadResources(
         search: _searchController.text,
-        tags: _selectedTagName,
+        tags: _selectedTagKey,
         page: _pageNumber,
         sortBy: _sort,
       );
@@ -394,17 +394,17 @@ class _ChannelResourcesResourcesPageState
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              initialValue: _selectedTagName,
+              initialValue: _selectedTagKey,
               decoration: const InputDecoration(labelText: '资料标签'),
               items: [
                 const DropdownMenuItem(value: '', child: Text('全部标签')),
                 for (final tag in _tags)
-                  DropdownMenuItem(value: tag.name, child: Text(tag.name)),
+                  DropdownMenuItem(value: tag.key, child: Text(tag.value)),
               ],
               onChanged: (value) {
                 if (value == null) return;
                 setState(() {
-                  _selectedTagName = value;
+                  _selectedTagKey = value;
                   _pageNumber = 1;
                 });
                 _loadResources();
@@ -417,6 +417,7 @@ class _ChannelResourcesResourcesPageState
   }
 
   Widget _buildResourceCard(ChannelResource resource) {
+    final tagLabels = {for (final tag in _tags) tag.key: tag.value};
     final busy =
         _purchasing.contains(resource.id) || _opening.contains(resource.id);
     final owned = resource.owned;
@@ -442,7 +443,8 @@ class _ChannelResourcesResourcesPageState
                 spacing: 8,
                 runSpacing: 4,
                 children: [
-                  for (final tag in resource.tags) Chip(label: Text(tag)),
+                  for (final tag in resource.tags)
+                    Chip(label: Text(tagLabels[tag] ?? tag)),
                 ],
               ),
             ],

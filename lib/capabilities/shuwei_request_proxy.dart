@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../services/logger_service.dart';
+import '../services/failure_classifier.dart';
 import 'campus_webview_cookie_bridge.dart';
 import 'web_view_cookie_coordinator.dart';
 import 'web_view_session_binding.dart';
@@ -125,7 +126,10 @@ class ShuweiRequestProxy {
           _binding ?? binding,
         );
         if (result.stale) return result.response;
-        if (result.response == null) return null;
+        if (result.response == null) {
+          _recordFallback(result.failure ?? FailureReason.unexpected);
+          return null;
+        }
       }
       if (result.riskGuard) {
         // 服务端限流页（“不要频繁点击”等）：等待限流窗口过后重试一次，
@@ -139,15 +143,43 @@ class ShuweiRequestProxy {
         );
         if (result.stale) return result.response;
       }
+      if (result.response == null) {
+        _recordFallback(result.failure ?? FailureReason.unexpected);
+      }
+      if (result.riskGuard) {
+        _recordFallback(FailureReason.riskGuardPage, riskGuard: true);
+      }
       return result.response;
     } on WebViewCookieReadException {
+      _recordFallback(FailureReason.cookieRead);
       // Cookie 读取失败时不发送一个未认证的 Dio 请求；返回 null 让原生
       // WebView 接管，避免把“读取失败”误判成合法的空 Cookie。
       return null;
     }
   }
 
-  Future<({WebResourceResponse? response, bool riskGuard, bool stale})>
+  void _recordFallback(FailureReason reason, {bool riskGuard = false}) {
+    AppLogger.event(
+      level: 'WARN',
+      code:
+          riskGuard
+              ? 'webview.proxy.risk_guard'
+              : 'webview.proxy.native_fallback',
+      message: '教务代理恢复结果',
+      operation: UserOperationId.academicWebView,
+      failureReason: reason,
+      failureStage: FailureStage.proxy,
+    );
+  }
+
+  Future<
+    ({
+      WebResourceResponse? response,
+      bool riskGuard,
+      bool stale,
+      FailureReason? failure,
+    })
+  >
   _fetchWithBindingRecovery(
     Uri uri,
     WebResourceRequest request,
@@ -163,7 +195,12 @@ class ShuweiRequestProxy {
       binding = refreshed;
       headers.removeWhere((name, _) => name.toLowerCase() == 'cookie');
     }
-    return (response: _staleResponse(), riskGuard: false, stale: true);
+    return (
+      response: _staleResponse(),
+      riskGuard: false,
+      stale: true,
+      failure: FailureReason.sessionStale,
+    );
   }
 
   Future<WebViewSessionBinding?> _refreshStaleBinding(
@@ -193,7 +230,14 @@ class ShuweiRequestProxy {
     return future;
   }
 
-  Future<({WebResourceResponse? response, bool riskGuard, bool stale})>
+  Future<
+    ({
+      WebResourceResponse? response,
+      bool riskGuard,
+      bool stale,
+      FailureReason? failure,
+    })
+  >
   _fetchMainFrame(
     Uri uri,
     WebResourceRequest request,
@@ -204,7 +248,12 @@ class ShuweiRequestProxy {
     try {
       cookieHeader = await _readCookieHeader(request.url, binding);
     } on _ShuweiSessionStaleException {
-      return (response: _staleResponse(), riskGuard: false, stale: true);
+      return (
+        response: _staleResponse(),
+        riskGuard: false,
+        stale: true,
+        failure: FailureReason.sessionStale,
+      );
     }
     if (cookieHeader.isNotEmpty) {
       headers['Cookie'] = cookieHeader;
@@ -220,7 +269,12 @@ class ShuweiRequestProxy {
       try {
         await _writeResponseCookies(request.url, response.headers, binding);
       } on _ShuweiSessionStaleException {
-        return (response: _staleResponse(), riskGuard: false, stale: true);
+        return (
+          response: _staleResponse(),
+          riskGuard: false,
+          stale: true,
+          failure: FailureReason.sessionStale,
+        );
       } on _ShuweiCookieCommitException {
         _onFailure?.call(ShuweiRequestProxyFailureStage.cookieCommit);
         if (_onFailure != null) {
@@ -228,13 +282,19 @@ class ShuweiRequestProxy {
             response: _cookieCommitFailureResponse(),
             riskGuard: false,
             stale: false,
+            failure: FailureReason.cookieWrite,
           );
         }
         rethrow;
       }
       if (binding != null &&
           !await CampusWebViewCookieBridge.isBindingCurrent(binding)) {
-        return (response: _staleResponse(), riskGuard: false, stale: true);
+        return (
+          response: _staleResponse(),
+          riskGuard: false,
+          stale: true,
+          failure: FailureReason.sessionStale,
+        );
       }
 
       final contentType = _readContentType(
@@ -274,10 +334,16 @@ class ShuweiRequestProxy {
         ),
         riskGuard: riskGuard,
         stale: false,
+        failure: null,
       );
     } catch (error) {
       AppLogger.warn('教务 WebView 主文档代理失败 (${error.runtimeType})');
-      return (response: null, riskGuard: false, stale: false);
+      return (
+        response: null,
+        riskGuard: false,
+        stale: false,
+        failure: classifyFailure(error),
+      );
     }
   }
 
@@ -657,11 +723,15 @@ class ShuweiRequestProxy {
   );
 }
 
-class _ShuweiSessionStaleException implements Exception {
+class _ShuweiSessionStaleException implements Exception, ClassifiedFailure {
+  @override
+  FailureReason get failureReason => FailureReason.sessionStale;
   const _ShuweiSessionStaleException();
 }
 
-class _ShuweiCookieCommitException implements Exception {
+class _ShuweiCookieCommitException implements Exception, ClassifiedFailure {
+  @override
+  FailureReason get failureReason => FailureReason.cookieWrite;
   const _ShuweiCookieCommitException();
 }
 

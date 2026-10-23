@@ -1,10 +1,13 @@
+import 'failure_details.dart';
 import 'auth_service.dart';
 import 'portal_identity_service.dart';
 import 'portal_route_service.dart';
 
 enum AcademicAffairsBackend { undergraduate, graduate }
 
-class AcademicAffairsIdentityException implements Exception {
+class AcademicAffairsIdentityException implements Exception, ClassifiedFailure {
+  @override
+  FailureReason get failureReason => FailureReason.identityUnavailable;
   final String message;
 
   const AcademicAffairsIdentityException([
@@ -53,5 +56,4 @@ class AcademicAffairsBackendResolver {
     if (resolved == null) throw const AcademicAffairsIdentityException();
     return resolved;
   }
-
 }

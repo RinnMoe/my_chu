@@ -1,3 +1,4 @@
+import '../../services/failure_details.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -140,7 +141,10 @@ class TronclassService {
       throwOnHttpError: false,
     );
     if (response.statusCode != HttpStatus.ok) {
-      throw TronclassException('课程列表请求失败（HTTP ${response.statusCode}）');
+      throw TronclassException(
+        '课程列表请求失败（HTTP ${response.statusCode}）',
+        statusCode: response.statusCode,
+      );
     }
     final decoded = _decodeJson(response.body);
     final data =
@@ -176,7 +180,10 @@ class TronclassService {
     );
     final activities = data['activities'];
     if (activities is! List) {
-      throw const TronclassException('课件活动响应格式异常');
+      throw const TronclassException(
+        '课件活动响应格式异常',
+        reason: FailureReason.malformedResponse,
+      );
     }
     final files = parseCoursewareActivities(activities, course: course);
     onProgress?.call(
@@ -200,23 +207,35 @@ class TronclassService {
     final seenKeys = <String>{};
     for (final rawActivity in activities) {
       if (rawActivity is! Map) {
-        throw const TronclassException('课件活动响应格式异常');
+        throw const TronclassException(
+          '课件活动响应格式异常',
+          reason: FailureReason.malformedResponse,
+        );
       }
       final activity = Map<String, dynamic>.from(rawActivity);
       if (activity['type'] != 'material') continue;
       final activityId = activity['id']?.toString().trim() ?? '';
       if (activityId.isEmpty) {
-        throw const TronclassException('课件活动响应格式异常');
+        throw const TronclassException(
+          '课件活动响应格式异常',
+          reason: FailureReason.malformedResponse,
+        );
       }
       final rawUploads = activity['uploads'];
       if (rawUploads == null) continue;
       if (rawUploads is! List) {
-        throw const TronclassException('课件活动响应格式异常');
+        throw const TronclassException(
+          '课件活动响应格式异常',
+          reason: FailureReason.malformedResponse,
+        );
       }
 
       for (final rawUpload in rawUploads) {
         if (rawUpload is! Map) {
-          throw const TronclassException('课件活动响应格式异常');
+          throw const TronclassException(
+            '课件活动响应格式异常',
+            reason: FailureReason.malformedResponse,
+          );
         }
         final upload = Map<String, dynamic>.from(rawUpload);
         // 与 TronClass++ 一致：使用 reference_id 获取 preview=true 的文件链接，
@@ -228,7 +247,10 @@ class TronclassService {
           activityTitle: activity['title']?.toString().trim() ?? '',
         );
         if (file.fileId.isEmpty) {
-          throw const TronclassException('课件活动响应格式异常');
+          throw const TronclassException(
+            '课件活动响应格式异常',
+            reason: FailureReason.malformedResponse,
+          );
         }
         final key = '${course.id}:$activityId:${file.fileId}';
         if (seenKeys.add(key)) files.add(file);
@@ -244,7 +266,12 @@ class TronclassService {
     TronclassCoursewareFile file, {
     ValueChanged<InAppDownloadProgress>? onProgress,
   }) async {
-    if (file.fileId.isEmpty) throw const TronclassException('课件缺少文件 ID');
+    if (file.fileId.isEmpty) {
+      throw const TronclassException(
+        '课件缺少文件 ID',
+        reason: FailureReason.malformedResponse,
+      );
+    }
 
     final data = await _requestJson(
       'GET',
@@ -252,7 +279,13 @@ class TronclassService {
     );
     final url = data['url']?.toString().trim() ?? '';
     if (url.isEmpty || data['status'] == 'failed') {
-      throw const TronclassException('无法获取下载链接');
+      throw TronclassException(
+        '无法获取下载链接',
+        reason:
+            data['status'] == 'failed'
+                ? FailureReason.businessRejected
+                : FailureReason.malformedResponse,
+      );
     }
     final baseUri = Uri.parse(baseUrl);
     final downloadUri = baseUri.resolve(url);
@@ -277,11 +310,17 @@ class TronclassService {
       throwOnHttpError: false,
     );
     if (response.statusCode != HttpStatus.ok) {
-      throw TronclassException('请求失败（HTTP ${response.statusCode}）');
+      throw TronclassException(
+        '请求失败（HTTP ${response.statusCode}）',
+        statusCode: response.statusCode,
+      );
     }
     final decoded = _decodeJson(response.body);
     if (decoded is! Map<String, dynamic>) {
-      throw const TronclassException('接口返回格式异常');
+      throw const TronclassException(
+        '接口返回格式异常',
+        reason: FailureReason.malformedResponse,
+      );
     }
     return decoded;
   }

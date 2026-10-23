@@ -118,7 +118,7 @@ class ChannelResourcesService {
     final raw = _list(_decode(response), 'tags');
     return raw
         .map((item) => ChannelTag.fromJson(_map(item)))
-        .where((tag) => tag.name.isNotEmpty)
+        .where((tag) => tag.key.isNotEmpty && tag.value.isNotEmpty)
         .toList(growable: false);
   }
 

@@ -14,9 +14,20 @@ import 'logger_service.dart';
 import 'service_endpoints.dart';
 import 'session_runtime_fence.dart';
 
-/// Raised when an async request completed after its account/session fence was
-/// replaced. The response is deliberately not returned to feature code.
-class StaleSessionResultException implements Exception {
+/// Keeps HTTP status through the shared request boundary without parsing text.
+class CampusHttpException extends HttpException implements ClassifiedFailure {
+  CampusHttpException(int statusCode, {Uri? uri})
+    : failureReason =
+          classifyHttpFailure(statusCode) ?? FailureReason.httpTransport,
+      super('Request failed: $statusCode', uri: uri);
+  @override
+  final FailureReason failureReason;
+}
+
+/// Raised when a response belongs to a replaced account/session fence.
+class StaleSessionResultException implements Exception, ClassifiedFailure {
+  @override
+  FailureReason get failureReason => FailureReason.sessionStale;
   const StaleSessionResultException(this.serviceId);
 
   final CampusServiceId serviceId;
@@ -346,10 +357,7 @@ class CampusSession {
           AppLogger.warn(
             '$method ${_serviceLabel(serviceId)} 失败: ${response.statusCode}',
           );
-          throw HttpException(
-            'Request failed: ${response.statusCode}',
-            uri: uri,
-          );
+          throw CampusHttpException(response.statusCode, uri: uri);
         }
         return response;
       } catch (error) {

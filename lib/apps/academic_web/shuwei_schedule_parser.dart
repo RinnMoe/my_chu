@@ -1,3 +1,4 @@
+import '../../services/failure_details.dart';
 import 'dart:convert';
 
 import '../../capabilities/text_utils.dart';
@@ -466,10 +467,16 @@ abstract final class ShuweiScheduleParser {
     String semesterLabel = '',
   }) {
     if (rawActivities is! List) {
-      throw const AcademicAffairsException('树维课表数据缺少课程活动');
+      throw const AcademicAffairsException(
+        '树维课表数据缺少课程活动',
+        reason: FailureReason.malformedResponse,
+      );
     }
     if (unitCount < 1 || unitCount > 24) {
-      throw const AcademicAffairsException('树维课表节次数据无效');
+      throw const AcademicAffairsException(
+        '树维课表节次数据无效',
+        reason: FailureReason.malformedResponse,
+      );
     }
 
     final groups = <String, _ShuweiScheduleGroup>{};
@@ -539,7 +546,10 @@ abstract final class ShuweiScheduleParser {
       normalized = normalized.substring(marker + _jsonPrefixMarker.length);
     }
     if (normalized.isEmpty) {
-      throw const AcademicAffairsException('当前页面未检测到树维课表数据');
+      throw const AcademicAffairsException(
+        '当前页面未检测到树维课表数据',
+        reason: FailureReason.malformedResponse,
+      );
     }
 
     dynamic decoded;
@@ -547,10 +557,16 @@ abstract final class ShuweiScheduleParser {
       decoded = jsonDecode(normalized);
       if (decoded is String) decoded = jsonDecode(decoded);
     } catch (_) {
-      throw const AcademicAffairsException('树维课表数据格式无法识别');
+      throw const AcademicAffairsException(
+        '树维课表数据格式无法识别',
+        reason: FailureReason.malformedResponse,
+      );
     }
     if (decoded is! Map) {
-      throw const AcademicAffairsException('树维课表数据结构无效');
+      throw const AcademicAffairsException(
+        '树维课表数据结构无效',
+        reason: FailureReason.malformedResponse,
+      );
     }
     return Map<String, dynamic>.from(decoded);
   }

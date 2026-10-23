@@ -251,15 +251,15 @@ class _ChannelResourcesSubmitResourcePageState
                               children: [
                                 for (final tag in _availableTags)
                                   CheckboxListTile(
-                                    value: selected.contains(tag.id),
+                                    value: selected.contains(tag.key),
                                     contentPadding: EdgeInsets.zero,
-                                    title: Text(tag.name),
+                                    title: Text(tag.value),
                                     onChanged: (value) {
                                       setSheetState(() {
                                         if (value == true) {
-                                          selected.add(tag.id);
+                                          selected.add(tag.key);
                                         } else {
-                                          selected.remove(tag.id);
+                                          selected.remove(tag.key);
                                         }
                                       });
                                     },
@@ -297,7 +297,10 @@ class _ChannelResourcesSubmitResourcePageState
         name: _name.text,
         link: _link.text,
         points: int.tryParse(_points.text.trim()) ?? 0,
-        tags: _selectedTags.toList(growable: false),
+        tags: _availableTags
+            .where((tag) => _selectedTags.contains(tag.key))
+            .map((tag) => tag.key)
+            .toList(growable: false),
       );
       if (mounted) {
         showChannelResourcesSnack(context, '资料已提交，等待管理员审核。');
@@ -376,9 +379,10 @@ class _ChannelResourcesSubmitResourcePageState
                                   ? '请选择标签（可多选）'
                                   : _availableTags
                                       .where(
-                                        (tag) => _selectedTags.contains(tag.id),
+                                        (tag) =>
+                                            _selectedTags.contains(tag.key),
                                       )
-                                      .map((tag) => tag.name)
+                                      .map((tag) => tag.value)
                                       .join('、'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

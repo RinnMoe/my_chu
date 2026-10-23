@@ -10,21 +10,13 @@ param(
     [string]$BuildId,
     [string]$BuildTimeUtc,
     [string]$MapboxPublicAccessToken = $env:MAPBOX_PUBLIC_ACCESS_TOKEN,
-    [string]$UpgradeLinkBaseUrl = $env:MYCHU_UPGRADELINK_BASE_URL,
+    [string]$UpgradeLinkConfigFile,
     [switch]$SkipBuild,
     [switch]$Overwrite
 )
 
 $ErrorActionPreference = 'Stop'
-
-if (-not [string]::IsNullOrWhiteSpace($UpgradeLinkBaseUrl)) {
-    $gateway = $null
-    if (-not [Uri]::TryCreate($UpgradeLinkBaseUrl.Trim(), [UriKind]::Absolute, [ref]$gateway) -or
-        $gateway.Scheme -ne 'https' -or $gateway.UserInfo -or $gateway.Query -or $gateway.Fragment) {
-        throw 'UpgradeLinkBaseUrl must be a public HTTPS gateway root without credentials, query or fragment.'
-    }
-    $UpgradeLinkBaseUrl = $gateway.AbsoluteUri.TrimEnd('/')
-}
+. (Join-Path $PSScriptRoot 'upgradelink_build_config.ps1')
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $repoRoot
@@ -108,9 +100,8 @@ try {
         "--dart-define=MYCHU_BUILD_TIME_UTC=$BuildTimeUtc"
     )
     if (-not $SkipBuild) {
-        if (-not [string]::IsNullOrWhiteSpace($UpgradeLinkBaseUrl)) {
-            $buildArguments += "--dart-define=MYCHU_UPGRADELINK_BASE_URL=$UpgradeLinkBaseUrl"
-        }
+        $nativeConfig = Get-UpgradeLinkBuildConfig -Path $UpgradeLinkConfigFile -Required:($Channel -eq 'official')
+        if ($nativeConfig) { $buildArguments += "--dart-define-from-file=$nativeConfig" }
         $MapboxPublicAccessToken = if ($null -eq $MapboxPublicAccessToken) {
             ''
         } else {

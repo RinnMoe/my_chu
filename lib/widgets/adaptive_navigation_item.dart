@@ -18,9 +18,11 @@ class AdaptiveNavigationItem {
   final String label;
   final IconData icon;
   final IconData selectedIcon;
+  final String? badgeLabel;
 
   const AdaptiveNavigationItem({
     this.role = AdaptiveNavigationRole.custom,
+    this.badgeLabel,
     required this.label,
     required this.icon,
     required this.selectedIcon,

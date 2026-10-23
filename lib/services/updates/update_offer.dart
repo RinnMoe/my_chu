@@ -12,6 +12,7 @@ class UpdateOffer {
     required this.force,
     this.sizeBytes,
     this.fenfaRelease,
+    this.nativeMd5,
   });
 
   final UpdateProvider provider;
@@ -20,6 +21,7 @@ class UpdateOffer {
   final bool force;
   final int? sizeBytes;
   final FenfaRelease? fenfaRelease;
+  final String? nativeMd5;
 
   factory UpdateOffer.fromFenfa(FenfaRelease release) => UpdateOffer(
     provider: UpdateProvider.fenfa,

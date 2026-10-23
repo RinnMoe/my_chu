@@ -7,6 +7,10 @@ import 'package:flutter/foundation.dart'
 
 import '../capabilities/east8_time.dart';
 import 'app_log_event.dart';
+import 'failure_classifier.dart';
+import 'failure_details.dart';
+
+export 'failure_details.dart';
 
 export 'app_log_event.dart'
     show
@@ -44,6 +48,8 @@ class AppLogger {
     int? statusCode,
     bool? renderProcessCrashed,
     int? attempt,
+    FailureReason? failureReason,
+    FailureStage? failureStage,
   }) {
     // A feature-level catch may record the same object before it escapes into
     // one of the process-wide handlers. Mark it first so the global fallback
@@ -57,6 +63,14 @@ class AppLogger {
       operation: operation,
       fields: fields,
       exceptionType: error.runtimeType.toString(),
+      failureReason:
+          failureReason ??
+          classifyFailure(
+            error,
+            statusCode: statusCode,
+            renderProcessCrashed: renderProcessCrashed,
+          ),
+      failureStage: failureStage,
       statusCode: statusCode,
       renderProcessCrashed: renderProcessCrashed,
       attempt: attempt,
@@ -74,6 +88,8 @@ class AppLogger {
     int? statusCode,
     bool? renderProcessCrashed,
     int? attempt,
+    FailureReason? failureReason,
+    FailureStage? failureStage,
   }) {
     _add(
       AppLogEvent(
@@ -85,6 +101,8 @@ class AppLogger {
         operation: operation,
         domain: domain,
         exceptionType: exceptionType,
+        failureReason: failureReason,
+        failureStage: failureStage,
         statusCode: statusCode,
         renderProcessCrashed: renderProcessCrashed,
         attempt: attempt,
@@ -233,6 +251,7 @@ class RuntimeErrorReporter {
       message: message,
       error: error,
       domain: domain,
+      failureStage: FailureStage.runtime,
     );
   }
 

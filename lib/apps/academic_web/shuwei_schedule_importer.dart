@@ -9,6 +9,7 @@ import '../../capabilities/shuwei_request_proxy.dart';
 import '../../services/academic_affairs_backend.dart';
 import '../../services/campus_session.dart';
 import '../../services/logger_service.dart';
+import '../../services/failure_classifier.dart' show classifyFailure;
 import '../../services/service_endpoints.dart';
 import '../academic_affairs/academic_affairs_models.dart';
 import 'shuwei_schedule_parser.dart';
@@ -274,7 +275,10 @@ class ShuweiScheduleImporter {
         try {
           await _lifecycle.waitForForeground();
         } on _ShuweiScheduleImportResumeTimeoutException {
-          throw const AcademicAffairsException('课表加载等待前台恢复超时，请稍后重试。');
+          throw const AcademicAffairsException(
+            '课表加载等待前台恢复超时，请稍后重试。',
+            reason: FailureReason.timeout,
+          );
         }
         _debugLifecycleStage(
           'academic.schedule.resume_restart',
@@ -287,7 +291,10 @@ class ShuweiScheduleImporter {
               : _cookieRecoveryDelay,
         );
       } on _ShuweiScheduleImportResumeTimeoutException {
-        throw const AcademicAffairsException('课表加载等待前台恢复超时，请稍后重试。');
+        throw const AcademicAffairsException(
+          '课表加载等待前台恢复超时，请稍后重试。',
+          reason: FailureReason.timeout,
+        );
       }
     }
   }
@@ -322,9 +329,15 @@ class ShuweiScheduleImporter {
   ) {
     switch (reason) {
       case ShuweiScheduleImportAbortReason.background:
-        return const AcademicAffairsException('课表加载被后台切换中断，请回到前台后重试。');
+        return const AcademicAffairsException(
+          '课表加载被后台切换中断，请回到前台后重试。',
+          reason: FailureReason.cancelled,
+        );
       case ShuweiScheduleImportAbortReason.cookieCommit:
-        return const AcademicAffairsException('教务系统会话恢复失败，请稍后重试。');
+        return const AcademicAffairsException(
+          '教务系统会话恢复失败，请稍后重试。',
+          reason: FailureReason.cookieWrite,
+        );
     }
   }
 
@@ -362,8 +375,11 @@ class ShuweiScheduleImporter {
 
     try {
       await CampusSession.open();
-    } catch (_) {
-      throw const AcademicAffairsException('请先登录后查看我的课表');
+    } catch (error) {
+      throw AcademicAffairsException(
+        '请先登录后查看我的课表',
+        reason: classifyFailure(error),
+      );
     }
 
     final proxy = ShuweiRequestProxy(
@@ -427,7 +443,11 @@ class ShuweiScheduleImporter {
       final controller = await controllerCompleter.future.timeout(
         _controllerTimeout,
         onTimeout:
-            () => throw const AcademicAffairsException('教务系统页面启动超时，请稍后重试。'),
+            () =>
+                throw const AcademicAffairsException(
+                  '教务系统页面启动超时，请稍后重试。',
+                  reason: FailureReason.timeout,
+                ),
       );
       attemptContext.throwIfAborted();
       return await _readSchedule(
@@ -607,12 +627,21 @@ class ShuweiScheduleImporter {
       throw const AcademicAffairsException('教务系统课表页面加载失败，请稍后重试。');
     }
     if (!navigationRequested) {
-      throw const AcademicAffairsException('教务系统首页未找到“我的课表”入口。');
+      throw const AcademicAffairsException(
+        '教务系统首页未找到“我的课表”入口。',
+        reason: FailureReason.malformedResponse,
+      );
     }
     if (scope == AcademicScheduleScope.administrativeClass) {
-      throw const AcademicAffairsException('当前账号的班级课表加载超时，请稍后重试。');
+      throw const AcademicAffairsException(
+        '当前账号的班级课表加载超时，请稍后重试。',
+        reason: FailureReason.timeout,
+      );
     }
-    throw const AcademicAffairsException('教务系统课表加载超时，请稍后重试。');
+    throw const AcademicAffairsException(
+      '教务系统课表加载超时，请稍后重试。',
+      reason: FailureReason.timeout,
+    );
   }
 
   Future<bool> _isPageReady(InAppWebViewController controller) async {

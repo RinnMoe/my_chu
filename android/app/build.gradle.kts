@@ -25,8 +25,19 @@ fun readDartDefine(name: String): String? {
                 )
             }.getOrNull()
         }
-        .firstOrNull { it.startsWith("$name=") }
+        .lastOrNull { it.startsWith("$name=") }
         ?.substringAfter("=")
+}
+
+fun injectDartDefine(key: String, value: String) {
+    if (readDartDefine(key) != null) return
+    val encoded = Base64.getEncoder().encodeToString(
+        "$key=$value".toByteArray(StandardCharsets.UTF_8),
+    )
+    val existing = project.findProperty("dart-defines")?.toString().orEmpty()
+    project.extensions.extraProperties.set(
+        "dart-defines", listOf(existing, encoded).filter { it.isNotEmpty() }.joinToString(","),
+    )
 }
 
 // Android Studio's Gradle builds do not forward environment variables to Dart.
@@ -38,13 +49,7 @@ if (readDartDefine("MAPBOX_PUBLIC_ACCESS_TOKEN") == null) {
         require(publicToken.startsWith("pk.") && publicToken.length > 3) {
             "MAPBOX_PUBLIC_ACCESS_TOKEN must be a public pk.* token, not a downloads secret."
         }
-        val encodedToken = Base64.getEncoder().encodeToString(
-            "MAPBOX_PUBLIC_ACCESS_TOKEN=$publicToken".toByteArray(StandardCharsets.UTF_8),
-        )
-        val existing = project.findProperty("dart-defines")?.toString().orEmpty()
-        project.extensions.extraProperties.set(
-            "dart-defines", listOf(existing, encodedToken).filter { it.isNotEmpty() }.joinToString(","),
-        )
+        injectDartDefine("MAPBOX_PUBLIC_ACCESS_TOKEN", publicToken)
     }
 }
 

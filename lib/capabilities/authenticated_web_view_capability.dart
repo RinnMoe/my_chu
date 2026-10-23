@@ -522,7 +522,7 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
         operation: operationForAuthenticatedService(widget.serviceId.value),
         exceptionType: error.runtimeType.toString(),
       );
-      _loadAttempt?.fail(error);
+      _loadAttempt?.fail(error, stage: FailureStage.sessionPrepare);
       if (!mounted) return;
       setState(() {
         _preparedLoad = null;
@@ -703,6 +703,7 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
         !forceRecovery && !_isAuthenticationRedirect(redirectUri)) {
       return;
     }
+    final recoveryAttempt = _loadAttempt;
     _recovering = true;
     _recoveryAttempted = true;
     if (mounted) {
@@ -749,13 +750,15 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
         operation: _feedbackOperation,
       );
     } catch (error) {
-      AppLogger.event(
+      AppLogger.recordSafeFailure(
+        error: error,
+        failureStage: FailureStage.sessionRecovery,
         level: 'WARN',
         code: 'webview.session.recovery_failed',
         message: '认证 WebView 服务会话恢复失败',
         operation: _feedbackOperation,
-        exceptionType: error.runtimeType.toString(),
       );
+      recoveryAttempt?.fail(error, stage: FailureStage.sessionRecovery);
       if (mounted) {
         setState(() {
           _error = '登录状态已失效，请返回后重试或重新登录。';

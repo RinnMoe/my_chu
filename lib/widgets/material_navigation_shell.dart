@@ -51,11 +51,14 @@ class MaterialNavigationShell extends StatelessWidget {
                       NavigationRailDestination(
                         icon: Tooltip(
                           message: item.label,
-                          child: _navigationIcon(item.icon),
+                          child: _navigationIcon(item.icon, item.badgeLabel),
                         ),
                         selectedIcon: Tooltip(
                           message: item.label,
-                          child: _navigationIcon(item.selectedIcon),
+                          child: _navigationIcon(
+                            item.selectedIcon,
+                            item.badgeLabel,
+                          ),
                         ),
                         label: Text(item.label),
                       ),
@@ -84,8 +87,11 @@ class MaterialNavigationShell extends StatelessWidget {
                   destinations: [
                     for (final item in items)
                       NavigationDestination(
-                        icon: _navigationIcon(item.icon),
-                        selectedIcon: _navigationIcon(item.selectedIcon),
+                        icon: _navigationIcon(item.icon, item.badgeLabel),
+                        selectedIcon: _navigationIcon(
+                          item.selectedIcon,
+                          item.badgeLabel,
+                        ),
                         label: item.label,
                       ),
                   ],
@@ -94,5 +100,11 @@ class MaterialNavigationShell extends StatelessWidget {
     );
   }
 
-  Widget _navigationIcon(IconData icon) => Icon(icon);
+  Widget _navigationIcon(IconData icon, String? badgeLabel) =>
+      badgeLabel == null
+          ? Icon(icon)
+          : Semantics(
+            label: badgeLabel,
+            child: Badge(backgroundColor: Colors.red, child: Icon(icon)),
+          );
 }

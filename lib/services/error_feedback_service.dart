@@ -4,6 +4,9 @@ import 'package:flutter/foundation.dart';
 
 import 'app_log_event.dart';
 import 'logger_service.dart';
+import 'failure_classifier.dart';
+
+export 'failure_details.dart';
 
 export 'app_log_event.dart'
     show DiagnosticLogEvent, UserOperationId, operationForAuthenticatedService;
@@ -44,12 +47,19 @@ class DiagnosticLogBuffer {
     int? attempt,
     bool completeAttempt = false,
     Duration? duration,
+    FailureStage stage = FailureStage.operation,
   }) {
     RuntimeErrorReporter.markRecorded(error);
     final event = DiagnosticLogEvent(
       timestamp: timestamp ?? DateTime.now(),
       operation: operation,
       exceptionType: error.runtimeType.toString(),
+      failureReason: classifyFailure(
+        error,
+        statusCode: statusCode,
+        renderProcessCrashed: renderProcessCrashed,
+      ),
+      failureStage: stage,
       statusCode: statusCode,
       renderProcessCrashed: renderProcessCrashed,
       attempt: attempt,
@@ -98,6 +108,7 @@ class ErrorFeedbackAttempt {
     int? statusCode,
     bool? renderProcessCrashed,
     int? attempt,
+    FailureStage stage = FailureStage.operation,
   }) {
     if (_completed) return;
     _completed = true;
@@ -108,6 +119,7 @@ class ErrorFeedbackAttempt {
       statusCode: statusCode,
       renderProcessCrashed: renderProcessCrashed,
       attempt: attempt,
+      stage: stage,
       completeAttempt: true,
       duration: _stopwatch.elapsed,
     );
@@ -154,6 +166,7 @@ class ErrorFeedbackCoordinator {
     int? attempt,
     bool completeAttempt = false,
     Duration? duration,
+    FailureStage stage = FailureStage.operation,
   }) {
     diagnostics.recordFailure(
       operation: operation,
@@ -163,6 +176,7 @@ class ErrorFeedbackCoordinator {
       attempt: attempt,
       completeAttempt: completeAttempt,
       duration: duration,
+      stage: stage,
     );
   }
 

@@ -126,6 +126,7 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
       _error = null;
     });
     _startFeedbackAttempt();
+    var failureStage = FailureStage.sessionPrepare;
     try {
       final binding = await AuthenticatedWebViewCapability.seedServiceSession(
         serviceId: _serviceId,
@@ -133,11 +134,12 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
       );
       if (_disposed || !mounted) return;
       _proxy.bindSession(binding);
+      failureStage = FailureStage.mainFrame;
       await controller.reload();
       if (_disposed || !mounted) return;
       await _updateNavigationState();
     } catch (error) {
-      _showWebViewError(error);
+      _showWebViewError(error, stage: failureStage);
       if (!mounted) return;
       setState(() => _loading = false);
     }
@@ -184,7 +186,7 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
         _error = null;
       });
     } catch (error) {
-      _showWebViewError(error);
+      _showWebViewError(error, stage: FailureStage.sessionPrepare);
     }
   }
 
@@ -253,6 +255,7 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
       _loading = true;
       _error = null;
     });
+    var failureStage = FailureStage.sessionPrepare;
     try {
       final controller = _webViewController;
       if (controller == null) {
@@ -265,26 +268,31 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
         );
         if (_disposed || !mounted) return;
         _proxy.bindSession(binding);
+        failureStage = FailureStage.mainFrame;
         await controller.loadUrl(
           urlRequest: URLRequest(url: WebUri(_entryUri.toString())),
         );
       }
     } catch (error) {
-      _showWebViewError(error);
+      _showWebViewError(error, stage: failureStage);
       if (!mounted) return;
       setState(() => _loading = false);
     }
   }
 
-  void _showWebViewError(Object error, {bool countFailure = true}) {
-    if (countFailure) {
-      logUserFacingError(
-        UserErrorContext.webView,
-        error,
-        operationId: UserOperationId.academicWebView,
-        feedbackAttempt: _feedbackAttempt,
-      );
-    }
+  void _showWebViewError(
+    Object error, {
+    int? statusCode,
+    FailureStage stage = FailureStage.mainFrame,
+  }) {
+    logUserFacingError(
+      UserErrorContext.webView,
+      error,
+      operationId: UserOperationId.academicWebView,
+      feedbackAttempt: _feedbackAttempt,
+      statusCode: statusCode,
+      stage: stage,
+    );
     if (!mounted) return;
     setState(() {
       _error = userFacingError(UserErrorContext.webView, error);
@@ -407,10 +415,7 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
                     statusCode < 400) {
                   return;
                 }
-                _showWebViewError(
-                  errorResponse,
-                  countFailure: statusCode != 401 && statusCode != 403,
-                );
+                _showWebViewError(errorResponse, statusCode: statusCode);
               },
               onRenderProcessGone: (controller, detail) {
                 if (!mounted) return;

@@ -4,14 +4,24 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import 'failure_details.dart';
+import 'failure_classifier.dart' show classifyFailure;
+
 /// 公开 HTTP 请求失败（超时、网络错误或服务端异常状态）。
-class PublicHttpException implements Exception {
+class PublicHttpException implements Exception, ClassifiedFailure {
   final String message;
 
   /// 服务端返回的 HTTP 状态码；网络层失败时为 null。
   final int? statusCode;
 
-  const PublicHttpException(this.message, {this.statusCode});
+  const PublicHttpException(
+    this.message, {
+    this.statusCode,
+    FailureReason reason = FailureReason.unexpected,
+  }) : _reason = reason;
+  final FailureReason _reason;
+  @override
+  FailureReason get failureReason => classifyHttpFailure(statusCode) ?? _reason;
 
   @override
   String toString() => message;
@@ -57,9 +67,15 @@ class PublicHttpClient {
           .get(uri, headers: headers)
           .timeout(timeout ?? defaultTimeout);
     } on TimeoutException {
-      throw const PublicHttpException('请求超时，请稍后重试。');
-    } catch (_) {
-      throw const PublicHttpException('网络请求失败，请稍后重试。');
+      throw const PublicHttpException(
+        '请求超时，请稍后重试。',
+        reason: FailureReason.timeout,
+      );
+    } catch (error) {
+      throw PublicHttpException(
+        '网络请求失败，请稍后重试。',
+        reason: classifyFailure(error),
+      );
     }
   }
 
@@ -81,7 +97,10 @@ class PublicHttpClient {
     while (true) {
       // Recheck after retry backoff: a revoked gate must not start another GET.
       if (shouldContinue?.call() == false) {
-        throw const PublicHttpException('下载已停止。');
+        throw const PublicHttpException(
+          '下载已停止。',
+          reason: FailureReason.cancelled,
+        );
       }
       try {
         final response = await _downloadAttempt(
@@ -142,10 +161,16 @@ class PublicHttpClient {
       );
     } on TimeoutException {
       await sink?.close();
-      throw const PublicHttpException('请求超时，请稍后重试。');
-    } catch (_) {
+      throw const PublicHttpException(
+        '请求超时，请稍后重试。',
+        reason: FailureReason.timeout,
+      );
+    } catch (error) {
       await sink?.close();
-      throw const PublicHttpException('网络请求失败，请稍后重试。');
+      throw PublicHttpException(
+        '网络请求失败，请稍后重试。',
+        reason: classifyFailure(error),
+      );
     }
   }
 
@@ -167,9 +192,15 @@ class PublicHttpClient {
           .post(uri, headers: requestHeaders, body: jsonEncode(body))
           .timeout(timeout ?? defaultTimeout);
     } on TimeoutException {
-      throw const PublicHttpException('请求超时，请稍后重试。');
-    } catch (_) {
-      throw const PublicHttpException('网络请求失败，请稍后重试。');
+      throw const PublicHttpException(
+        '请求超时，请稍后重试。',
+        reason: FailureReason.timeout,
+      );
+    } catch (error) {
+      throw PublicHttpException(
+        '网络请求失败，请稍后重试。',
+        reason: classifyFailure(error),
+      );
     }
   }
 

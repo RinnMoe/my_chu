@@ -1,4 +1,5 @@
 import 'app_log_event.dart';
+import 'failure_details.dart';
 
 /// A second, strict boundary: diagnostic text and arbitrary fields never enter
 /// remote analytics. Only fixed identifiers and categories are projected.
@@ -15,6 +16,8 @@ class ReliabilityEvent {
 
   bool get shouldThrottle =>
       name == 'runtime_fault' ||
+      (name == 'recovery_finished' &&
+          properties['source'] == 'webview_proxy') ||
       (name == 'operation_finished' && !isCompleteOperation);
 
   static ReliabilityEvent? fromLog(AppLogEvent event) {
@@ -28,9 +31,16 @@ class ReliabilityEvent {
             event.code == 'user.operation.succeeded')) {
       final succeeded = event.code == 'user.operation.succeeded';
       return ReliabilityEvent._('operation_finished', {
+        'schema_version': '2',
         'operation': operation.key,
-        'result': succeeded ? 'success' : 'failed',
+        'result':
+            succeeded
+                ? 'success'
+                : _isCancelled(event)
+                ? 'cancelled'
+                : 'failed',
         'failure_kind': succeeded ? 'none' : _failure(event),
+        if (!succeeded) ..._details(event, FailureStage.operation),
         'coverage':
             event.fields['phase'] == 'complete' ? 'complete' : 'failure_only',
         if (event.fields['phase'] == 'complete')
@@ -46,7 +56,9 @@ class ReliabilityEvent {
     };
     if (runtimeSource != null) {
       return ReliabilityEvent._('runtime_fault', {
+        'schema_version': '2',
         'source': runtimeSource,
+        ..._details(event, FailureStage.runtime),
         'failure_kind': _failure(event),
       });
     }
@@ -68,11 +80,21 @@ class ReliabilityEvent {
       'identity.silent_login.network_error' => (
         'identity',
         'failed',
-        'network_or_response',
+        event.failureReason?.kind ?? 'network_or_response',
       ),
       // loadUrl accepted the recovered bootstrap; it is not proof that the
       // destination authenticated successfully. Keep that distinction visible.
       'webview.session.recovered' => ('webview', 'reload_requested', 'none'),
+      'webview.proxy.native_fallback' => (
+        'webview_proxy',
+        'fallback_requested',
+        _failure(event),
+      ),
+      'webview.proxy.risk_guard' => (
+        'webview_proxy',
+        'interaction_required',
+        _failure(event),
+      ),
       'webview.session.recovery_failed' => (
         'webview',
         'failed',
@@ -82,15 +104,40 @@ class ReliabilityEvent {
     };
     if (recovery == null) return null;
     return ReliabilityEvent._('recovery_finished', {
+      'schema_version': '2',
       'source': recovery.$1,
-      'result': recovery.$2,
+      'result':
+          recovery.$2 == 'failed' && _isCancelled(event)
+              ? 'cancelled'
+              : recovery.$2,
       'failure_kind': recovery.$3,
-      if (recovery.$1 == 'webview' && operation != null)
+      if (recovery.$3 != 'none')
+        ..._details(
+          event,
+          recovery.$1 == 'webview_proxy'
+              ? FailureStage.proxy
+              : FailureStage.sessionRecovery,
+        ),
+      if ((recovery.$1 == 'webview' || recovery.$1 == 'webview_proxy') &&
+          operation != null)
         'operation': operation.key,
     });
   }
 
+  static bool _isCancelled(AppLogEvent event) =>
+      event.failureReason == FailureReason.cancelled ||
+      event.failureReason == FailureReason.sessionStale;
+
+  static Map<String, String> _details(
+    AppLogEvent event,
+    FailureStage fallback,
+  ) => {
+    'failure_reason': event.failureReason?.key ?? _failure(event),
+    'failure_stage': (event.failureStage ?? fallback).key,
+  };
+
   static String _failure(AppLogEvent event) {
+    if (event.failureReason != null) return event.failureReason!.kind;
     if (event.renderProcessCrashed != null) {
       return event.renderProcessCrashed!
           ? 'renderer_crashed'

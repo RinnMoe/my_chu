@@ -1,3 +1,4 @@
+import '../../services/failure_details.dart';
 import 'dart:convert';
 
 enum CourseGradeScope { major, minor }
@@ -765,7 +766,10 @@ class SyllabusPageData {
   });
 }
 
-class AcademicAffairsAuthenticationException implements Exception {
+class AcademicAffairsAuthenticationException
+    implements Exception, ClassifiedFailure {
+  @override
+  FailureReason get failureReason => FailureReason.authentication;
   final String message;
 
   const AcademicAffairsAuthenticationException([
@@ -776,10 +780,19 @@ class AcademicAffairsAuthenticationException implements Exception {
   String toString() => message;
 }
 
-class AcademicAffairsException implements Exception {
+class AcademicAffairsException implements Exception, ClassifiedFailure {
   final String message;
 
-  const AcademicAffairsException(this.message);
+  const AcademicAffairsException(
+    this.message, {
+    this.statusCode,
+    FailureReason reason = FailureReason.unexpected,
+  }) : _reason = reason;
+
+  final int? statusCode;
+  final FailureReason _reason;
+  @override
+  FailureReason get failureReason => classifyHttpFailure(statusCode) ?? _reason;
 
   @override
   String toString() => message;

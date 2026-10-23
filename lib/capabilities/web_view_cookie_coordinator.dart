@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../services/session_materialization.dart';
+import '../services/failure_details.dart';
 
 /// The platform-independent cookie shape used at the WebView boundary.
 /// Credential values may cross this boundary, but never leave the host-side
@@ -36,7 +37,10 @@ class WebViewCookieValue {
 /// Signals that neither the native CookieManager adapter nor the Flutter
 /// CookieManager implementation could read the requested cookie header.
 /// An unavailable reader is not equivalent to a valid empty Cookie header.
-class WebViewCookieReadException extends StateError {
+class WebViewCookieReadException extends StateError
+    implements ClassifiedFailure {
+  @override
+  FailureReason get failureReason => FailureReason.cookieRead;
   WebViewCookieReadException(this.url, {this.cause})
     : super('无法读取 WebView Cookie (${url.host})');
 

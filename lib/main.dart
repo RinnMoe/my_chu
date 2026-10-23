@@ -49,6 +49,7 @@ import 'services/guide_preferences.dart';
 import 'services/onboarding_flow_service.dart';
 import 'theme/app_palette.dart';
 import 'pages/app_update_prompts.dart';
+import 'services/updates/app_update_service.dart';
 import 'pages/privacy_agreement_dialog.dart';
 import 'pages/app_sheet.dart';
 import 'pages/host_permission_purpose_overlay.dart';
@@ -922,21 +923,31 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         if (mounted) unawaited(_maybeStartOnboardingFlow());
       });
     }
-    return AdaptiveRootNavigation(
-      items: [
-        for (final tab in _tabs)
-          AdaptiveNavigationItem(
-            role: tab.role,
-            label: tab.label,
-            icon: tab.icon,
-            selectedIcon: tab.selectedIcon,
-          ),
-      ],
-      selectedIndex: _selectedIndex,
-      onSelected: _selectTab,
-      deviceFamilyOverride: widget.deviceFamilyOverride,
-      windowClassOverride: widget.windowClassOverride,
+    return ListenableBuilder(
+      listenable: AppUpdateService.shared,
       child: _buildIndexedPages(),
+      builder:
+          (context, child) => AdaptiveRootNavigation(
+            items: [
+              for (final tab in _tabs)
+                AdaptiveNavigationItem(
+                  role: tab.role,
+                  label: tab.label,
+                  icon: tab.icon,
+                  selectedIcon: tab.selectedIcon,
+                  badgeLabel:
+                      tab.role == AdaptiveNavigationRole.profile &&
+                              AppUpdateService.shared.offer != null
+                          ? '有可用更新'
+                          : null,
+                ),
+            ],
+            selectedIndex: _selectedIndex,
+            onSelected: _selectTab,
+            deviceFamilyOverride: widget.deviceFamilyOverride,
+            windowClassOverride: widget.windowClassOverride,
+            child: child!,
+          ),
     );
   }
 

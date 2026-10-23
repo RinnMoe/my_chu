@@ -66,7 +66,10 @@ class CampusWebViewSessionBootstrap {
 
 /// Signals that a bootstrap was invalidated while it was being materialized.
 /// Only this failure is safe for the shared host bridge to retry once.
-class CampusWebViewSessionFenceExpiredException extends StateError {
+class CampusWebViewSessionFenceExpiredException extends StateError
+    implements ClassifiedFailure {
+  @override
+  FailureReason get failureReason => FailureReason.sessionStale;
   final CampusServiceId serviceId;
 
   CampusWebViewSessionFenceExpiredException(this.serviceId)
@@ -76,7 +79,10 @@ class CampusWebViewSessionFenceExpiredException extends StateError {
 /// A platform CookieManager reset invalidates the whole WebView materialization
 /// lineage. Unlike a service-generation drift, an operation that started
 /// before this reset must fail closed instead of acquiring a new lease.
-class CampusWebViewCookieManagerResetException extends StateError {
+class CampusWebViewCookieManagerResetException extends StateError
+    implements ClassifiedFailure {
+  @override
+  FailureReason get failureReason => FailureReason.cookieManagerReset;
   final CampusServiceId serviceId;
 
   CampusWebViewCookieManagerResetException(this.serviceId)
@@ -230,7 +236,10 @@ class CampusWebViewCookieBridge {
       definition.id,
     );
     if (lease == null) {
-      throw StateError('认证 WebView 服务会话不可用');
+      throw ClassifiedStateError(
+        FailureReason.sessionUnavailable,
+        '认证 WebView 服务会话不可用',
+      );
     }
     final sessionUri = lease.session.sessionUri;
     final usesWebViewSessionMaterializer =
@@ -240,9 +249,10 @@ class CampusWebViewCookieBridge {
             !_isValidWebViewSessionUri(definition, sessionUri))) {
       throw StateError('认证 WebView 会话入口无效');
     }
-    final transientCookies = usesWebViewSessionMaterializer
-        ? _cookieSeedsForHeader(entryUri, lease.session.cookieHeader)
-        : const <CampusWebViewCookieSeed>[];
+    final transientCookies =
+        usesWebViewSessionMaterializer
+            ? _cookieSeedsForHeader(entryUri, lease.session.cookieHeader)
+            : const <CampusWebViewCookieSeed>[];
     // Acquisition may silently replace the identity for the same account.
     // Reopen after acquisition so reads use the new identity epoch.
     final store = await CampusSessionStore.open(accountKey: lease.accountKey);
@@ -287,7 +297,10 @@ class CampusWebViewCookieBridge {
     );
     final store = await CampusSessionStore.open(accountKey: account.accountKey);
     if ((await store.rootCookieJar.snapshot()).isEmpty) {
-      throw StateError('认证 WebView 根身份会话不可用');
+      throw ClassifiedStateError(
+        FailureReason.sessionUnavailable,
+        '认证 WebView 根身份会话不可用',
+      );
     }
     _assertExpectedCookieManagerEpoch(
       expectedCookieManagerEpoch,
@@ -443,7 +456,10 @@ class CampusWebViewCookieBridge {
         await _assertCurrentAccountKey(expectedAccountKey);
       }
     }
-    throw StateError('认证 WebView 会话恢复失败');
+    throw ClassifiedStateError(
+      FailureReason.sessionUnavailable,
+      '认证 WebView 会话恢复失败',
+    );
   }
 
   static Future<void> importFromWebView({
@@ -575,7 +591,10 @@ class CampusWebViewCookieBridge {
               ),
               exceptionType: 'CookieCommitFailure',
             );
-            throw StateError('认证 WebView Cookie 写入失败');
+            throw ClassifiedStateError(
+              FailureReason.cookieWrite,
+              '认证 WebView Cookie 写入失败',
+            );
           }
           written.add(
             _WebViewCookieMutation(

@@ -149,14 +149,7 @@ class AppUpdateCoordinator {
     ValueChanged<InAppDownloadProgress>? onProgress,
     bool preferDelta = true,
   }) async {
-    bool? legacy() {
-      if (release.requireManifest) {
-        throw const InAppDownloadException(InAppDownloadErrorType.network);
-      }
-      return null;
-    }
-
-    if (!_isEligible()) return legacy();
+    if (!_isEligible()) return null;
     final targetVersionCode = release.versionCode;
     if (_running) {
       throw const InAppDownloadException(InAppDownloadErrorType.cancelled);
@@ -184,7 +177,7 @@ class AppUpdateCoordinator {
       await check();
       final fullUrl = Uri.parse(release.downloadUrl);
       if (fullUrl.scheme != 'https' || fullUrl.userInfo.isNotEmpty) {
-        return legacy();
+        return null;
       }
       final manifestUri =
           release.deltaManifestUrl == null
@@ -194,14 +187,14 @@ class AppUpdateCoordinator {
           manifestUri.scheme != 'https' ||
           manifestUri.host.isEmpty ||
           manifestUri.userInfo.isNotEmpty) {
-        return legacy();
+        return null;
       }
       phase(AppUpdatePhase.preparing);
       try {
         source = await _native.inspect();
       } catch (_) {
         await check();
-        return legacy();
+        return null;
       }
       await check();
       final task = source;
@@ -225,12 +218,12 @@ class AppUpdateCoordinator {
             manifest.target.version != release.version ||
             manifest.target.versionCode != targetVersionCode ||
             manifest.target.versionCode <= task.versionCode) {
-          return legacy();
+          return null;
         }
       } catch (_) {
         await check();
         // Optional sidecar absent, malformed or unsupported: old Fenfa still works.
-        return legacy();
+        return null;
       }
       final patch =
           preferDelta && task.supportsDelta

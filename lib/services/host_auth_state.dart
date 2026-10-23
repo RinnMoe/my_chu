@@ -1,3 +1,4 @@
+import 'failure_details.dart';
 import 'package:flutter/foundation.dart';
 
 enum HostAuthStatus {
@@ -29,7 +30,9 @@ class HostAuthSnapshot {
       status == HostAuthStatus.loginRequired;
 }
 
-class CampusAuthenticationRequired implements Exception {
+class CampusAuthenticationRequired implements Exception, ClassifiedFailure {
+  @override
+  FailureReason get failureReason => FailureReason.authentication;
   const CampusAuthenticationRequired(this.status);
   final HostAuthStatus status;
   @override

@@ -10,7 +10,10 @@ import 'logger_service.dart';
 import 'mobile_campus_request_signer.dart';
 import 'service_endpoints.dart';
 
-class MobileCampusUserAuthenticationException implements Exception {
+class MobileCampusUserAuthenticationException
+    implements Exception, ClassifiedFailure {
+  @override
+  FailureReason get failureReason => FailureReason.authentication;
   final String message;
 
   const MobileCampusUserAuthenticationException([
@@ -21,10 +24,19 @@ class MobileCampusUserAuthenticationException implements Exception {
   String toString() => message;
 }
 
-class MobileCampusUserApiException implements Exception {
+class MobileCampusUserApiException implements Exception, ClassifiedFailure {
   final String message;
 
-  const MobileCampusUserApiException(this.message);
+  const MobileCampusUserApiException(
+    this.message, {
+    this.statusCode,
+    FailureReason reason = FailureReason.unexpected,
+  }) : _reason = reason;
+
+  final int? statusCode;
+  final FailureReason _reason;
+  @override
+  FailureReason get failureReason => classifyHttpFailure(statusCode) ?? _reason;
 
   @override
   String toString() => message;
@@ -132,6 +144,7 @@ class MobileCampusUserParser {
     if (response.statusCode != HttpStatus.ok) {
       throw MobileCampusUserApiException(
         '移动校园用户资料返回 HTTP ${response.statusCode}',
+        statusCode: response.statusCode,
       );
     }
     final raw =
@@ -148,7 +161,10 @@ class MobileCampusUserParser {
       if (looksLikeAuthenticationPage(raw)) {
         throw const MobileCampusUserAuthenticationException();
       }
-      throw const MobileCampusUserApiException('移动校园用户资料返回了无法识别的数据');
+      throw const MobileCampusUserApiException(
+        '移动校园用户资料返回了无法识别的数据',
+        reason: FailureReason.malformedResponse,
+      );
     }
     return parseProfile(decoded);
   }
@@ -192,6 +208,7 @@ class MobileCampusUserParser {
       }
       throw MobileCampusUserApiException(
         message.isEmpty ? '移动校园用户资料请求失败' : message,
+        reason: FailureReason.businessRejected,
       );
     }
     final errorCode = map['errcode'];
@@ -202,6 +219,7 @@ class MobileCampusUserParser {
       }
       throw MobileCampusUserApiException(
         message.isEmpty ? '移动校园用户资料请求失败' : message,
+        reason: FailureReason.businessRejected,
       );
     }
   }

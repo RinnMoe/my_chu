@@ -24,6 +24,7 @@ jobs:
     # Add these as secrets on the android-release environment:
     # ANDROID_RELEASE_KEYSTORE_BASE64, ANDROID_RELEASE_STORE_PASSWORD,
     # ANDROID_RELEASE_KEY_ALIAS, ANDROID_RELEASE_KEY_PASSWORD, MAPBOX_DOWNLOADS_TOKEN
+    # MYCHU_UPGRADELINK_CONFIG_JSON (same JSON schema as config/upgradelink.example.json)
     # Add MAPBOX_PUBLIC_ACCESS_TOKEN as an Actions variable on this environment.
     environment: android-release
     permissions:
@@ -131,6 +132,29 @@ jobs:
           Path("android/key.properties").write_text("\n".join(properties) + "\n", encoding="ascii")
           PY
 
+      - name: Prepare native UpgradeLink build configuration
+        shell: bash
+        env:
+          UL_CONFIG_JSON: ${{ secrets.MYCHU_UPGRADELINK_CONFIG_JSON }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          try:
+              config = json.loads(os.environ.get('UL_CONFIG_JSON', ''))
+          except ValueError:
+              raise SystemExit('Configure MYCHU_UPGRADELINK_CONFIG_JSON in the android-release environment.')
+          keys = ('MYCHU_UPGRADELINK_APK_KEY', 'MYCHU_UPGRADELINK_ACCESS_KEY', 'MYCHU_UPGRADELINK_SECRET_KEY')
+          if not isinstance(config, dict) or any(not isinstance(config.get(k), str) or not config[k].strip() for k in keys):
+              raise SystemExit('Incomplete native UpgradeLink build configuration.')
+          for k in keys:
+              print('::add-mask::' + config[k])
+          os.umask(0o077)
+          path = Path(os.environ['RUNNER_TEMP']) / 'mychu-upgradelink.json'
+          path.write_text(json.dumps(config), encoding='utf-8')
+          PY
+
       - name: Build and validate arm64-v8a Official APK
         id: build
         shell: bash
@@ -155,6 +179,7 @@ jobs:
           build_time="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           pwsh -NoLogo -NoProfile -File scripts/build_android_release.ps1 \
             -Channel official \
+            -UpgradeLinkConfigFile "$RUNNER_TEMP/mychu-upgradelink.json" \
             -GitSha "$GIT_SHA" \
             -BuildId "release-$RUN_ID" \
             -BuildTimeUtc "$build_time"
@@ -169,10 +194,10 @@ jobs:
           echo "apk_path=$release_apk_path" >> "$GITHUB_OUTPUT"
           sha256sum "$release_apk_path" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Remove signing files
+      - name: Remove private build files
         if: always()
         shell: bash
-        run: rm -f android/key.properties android/mychu-release.jks
+        run: rm -f android/key.properties android/mychu-release.jks "$RUNNER_TEMP/mychu-upgradelink.json"
 
       - name: Upload APK to the GitHub Release
         env:

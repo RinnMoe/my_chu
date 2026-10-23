@@ -1,3 +1,4 @@
+import '../../services/failure_details.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -155,7 +156,10 @@ class AcademicAffairsService {
     );
     final tagId = AcademicAffairsHtmlParser.syllabusSemesterTagId(overview);
     if (tagId == null || tagId.isEmpty) {
-      throw const AcademicAffairsException('未找到排课查询学期参数');
+      throw const AcademicAffairsException(
+        '未找到排课查询学期参数',
+        reason: FailureReason.malformedResponse,
+      );
     }
     final calendar = await _loadDocument(
       _syllabusDataQueryUri,
@@ -169,7 +173,10 @@ class AcademicAffairsService {
     );
     final options = AcademicAffairsHtmlParser.parseSemesterCalendar(calendar);
     if (options.isEmpty) {
-      throw const AcademicAffairsException('未找到排课查询学期数据');
+      throw const AcademicAffairsException(
+        '未找到排课查询学期数据',
+        reason: FailureReason.malformedResponse,
+      );
     }
     return options;
   }
@@ -265,7 +272,10 @@ class AcademicAffairsService {
     final selected =
         selection ?? AcademicAffairsHtmlParser.graduateScheduleSelection(first);
     if (selected.year.isEmpty || selected.term.isEmpty) {
-      throw const AcademicAffairsException('未找到研究生课表学期参数');
+      throw const AcademicAffairsException(
+        '未找到研究生课表学期参数',
+        reason: FailureReason.malformedResponse,
+      );
     }
 
     final semesters = AcademicAffairsHtmlParser.graduateScheduleSemesterOptions(
@@ -593,13 +603,22 @@ class AcademicAffairsService {
         throw const AcademicAffairsAuthenticationException();
       }
       if (response.statusCode != 200) {
-        throw AcademicAffairsException('教务服务返回 HTTP ${response.statusCode}');
+        throw AcademicAffairsException(
+          '教务服务返回 HTTP ${response.statusCode}',
+          statusCode: response.statusCode,
+        );
       }
       return html_parser.parse(responseBody);
     } on FormatException {
-      throw const AcademicAffairsException('教务服务返回了无法识别的数据');
+      throw const AcademicAffairsException(
+        '教务服务返回了无法识别的数据',
+        reason: FailureReason.malformedResponse,
+      );
     } on TimeoutException {
-      throw const AcademicAffairsException('教务响应超时，请稍后重试');
+      throw const AcademicAffairsException(
+        '教务响应超时，请稍后重试',
+        reason: FailureReason.timeout,
+      );
     }
   }
 
@@ -639,13 +658,22 @@ class AcademicAffairsService {
         throw const AcademicAffairsAuthenticationException();
       }
       if (response.statusCode != 200) {
-        throw AcademicAffairsException('教务服务返回 HTTP ${response.statusCode}');
+        throw AcademicAffairsException(
+          '教务服务返回 HTTP ${response.statusCode}',
+          statusCode: response.statusCode,
+        );
       }
       return html_parser.parse(responseBody);
     } on FormatException {
-      throw const AcademicAffairsException('教务服务返回了无法识别的数据');
+      throw const AcademicAffairsException(
+        '教务服务返回了无法识别的数据',
+        reason: FailureReason.malformedResponse,
+      );
     } on TimeoutException {
-      throw const AcademicAffairsException('教务响应超时，请稍后重试');
+      throw const AcademicAffairsException(
+        '教务响应超时，请稍后重试',
+        reason: FailureReason.timeout,
+      );
     }
   }
 

@@ -9,6 +9,7 @@ import 'auth_service.dart';
 import 'campus_session_store.dart';
 import 'identity_login_encryptor.dart';
 import 'logger_service.dart';
+import 'failure_classifier.dart';
 import 'saved_login_credential_service.dart';
 import 'scoped_cookie_jar.dart';
 import 'service_endpoints.dart';
@@ -37,8 +38,13 @@ enum IdentityRecoveryOutcome {
 class IdentitySilentLoginResult {
   final IdentityRecoveryOutcome outcome;
   final String? detail;
+  final FailureReason? failureReason;
 
-  const IdentitySilentLoginResult(this.outcome, [this.detail]);
+  const IdentitySilentLoginResult(
+    this.outcome, [
+    this.detail,
+    this.failureReason,
+  ]);
 
   bool get isSuccess => outcome == IdentityRecoveryOutcome.success;
 }
@@ -187,9 +193,10 @@ class IdentitySilentLoginService {
               ? await runner(credential)
               : await _runHttpRecovery(credential, accountKey: accountKey);
     } catch (error) {
-      result = const IdentitySilentLoginResult(
+      result = IdentitySilentLoginResult(
         IdentityRecoveryOutcome.networkError,
         '网络或登录页异常',
+        classifyFailure(error),
       );
     }
 
@@ -225,6 +232,9 @@ class IdentitySilentLoginService {
         AppLogger.event(
           level: 'WARN',
           code: 'identity.silent_login.network_error',
+          failureReason:
+              result.failureReason ?? FailureReason.networkOrResponse,
+          failureStage: FailureStage.sessionRecovery,
           message: '统一身份静默重登遇到网络或登录页异常',
           domain: 'identity',
         );
@@ -246,11 +256,18 @@ class IdentitySilentLoginService {
     );
     try {
       // 1. 登录页：拿表单隐藏字段与会话 Cookie。
-      final page = await _get(client, loginUri, jar);
+      FailureReason? requestFailure;
+      final page = await _get(
+        client,
+        loginUri,
+        jar,
+        onFailure: (reason) => requestFailure = reason,
+      );
       if (page == null) {
-        return const IdentitySilentLoginResult(
+        return IdentitySilentLoginResult(
           IdentityRecoveryOutcome.networkError,
           '登录页请求失败',
+          requestFailure ?? FailureReason.networkOrResponse,
         );
       }
       final formFields = _parseLoginForm(page);
@@ -258,6 +275,7 @@ class IdentitySilentLoginService {
         return const IdentitySilentLoginResult(
           IdentityRecoveryOutcome.networkError,
           '登录表单解析失败',
+          FailureReason.loginFormChanged,
         );
       }
 
@@ -288,11 +306,13 @@ class IdentitySilentLoginService {
         loginUri,
         jar,
         body: body,
+        onFailure: (reason) => requestFailure = reason,
       );
       if (postResult == null) {
-        return const IdentitySilentLoginResult(
+        return IdentitySilentLoginResult(
           IdentityRecoveryOutcome.networkError,
           '登录请求失败',
+          requestFailure ?? FailureReason.networkOrResponse,
         );
       }
       AppLogger.event(
@@ -314,6 +334,7 @@ class IdentitySilentLoginService {
             IdentityRecoveryOutcome.captchaRequired => '登录页要求验证码',
             _ => '登录页状态无法判定 (${_safeUri(postResult.finalUri)})',
           },
+          requestFailure ?? FailureReason.recoveryUnconfirmed,
         );
       }
 
@@ -327,6 +348,7 @@ class IdentitySilentLoginService {
           probe == IdentityProbeStatus.unauthenticated
               ? '统一会话探针未认证'
               : '统一会话探针无法判定 (${_safeUri(_probeUri)})',
+          requestFailure ?? FailureReason.recoveryUnconfirmed,
         );
       }
 
@@ -336,6 +358,7 @@ class IdentitySilentLoginService {
         return const IdentitySilentLoginResult(
           IdentityRecoveryOutcome.networkError,
           '未收集到统一身份 Cookie',
+          FailureReason.sessionUnavailable,
         );
       }
       final account = await AuthService.getCurrentAccount();
@@ -344,6 +367,7 @@ class IdentitySilentLoginService {
         return const IdentitySilentLoginResult(
           IdentityRecoveryOutcome.networkError,
           '当前无登录账号',
+          FailureReason.sessionStale,
         );
       }
       final updated = await AuthService.replaceIdentityCookies(
@@ -354,6 +378,7 @@ class IdentitySilentLoginService {
         return const IdentitySilentLoginResult(
           IdentityRecoveryOutcome.networkError,
           '统一身份 Cookie 写回失败',
+          FailureReason.cookieWrite,
         );
       }
       return const IdentitySilentLoginResult(IdentityRecoveryOutcome.success);
@@ -365,8 +390,9 @@ class IdentitySilentLoginService {
   static Future<String?> _get(
     HttpClient client,
     Uri uri,
-    ScopedCookieJar jar,
-  ) async {
+    ScopedCookieJar jar, {
+    void Function(FailureReason)? onFailure,
+  }) async {
     try {
       final request = await client.getUrl(uri).timeout(_connectionTimeout);
       final cookies = jar.headerFor(uri);
@@ -378,9 +404,16 @@ class IdentitySilentLoginService {
       final response = await request.close().timeout(_requestTimeout);
       jar.collect(uri, response);
       final body = await _readBody(response);
-      if (response.statusCode != HttpStatus.ok) return null;
+      if (response.statusCode != HttpStatus.ok) {
+        onFailure?.call(
+          classifyHttpFailure(response.statusCode) ??
+              FailureReason.httpTransport,
+        );
+        return null;
+      }
       return body;
-    } catch (_) {
+    } catch (error) {
+      onFailure?.call(classifyFailure(error));
       return null;
     }
   }
@@ -427,6 +460,7 @@ class IdentitySilentLoginService {
     Uri loginUri,
     ScopedCookieJar jar, {
     required String body,
+    void Function(FailureReason)? onFailure,
   }) async {
     try {
       final request = await client
@@ -460,6 +494,8 @@ class IdentitySilentLoginService {
                 ? response.headers.value(HttpHeaders.locationHeader)
                 : null;
         final text = await _readBody(response);
+        final httpFailure = classifyHttpFailure(response.statusCode);
+        if (httpFailure != null) onFailure?.call(httpFailure);
         if (!isRedirect || location == null || location.isEmpty) {
           // 未重定向：按最终 URI 与正文分类，离开登录页后交给探针确认。
           final stillLogin = _isIdsLoginPage(uri);
@@ -490,7 +526,8 @@ class IdentitySilentLoginService {
         finalUri: uri,
         failure: stillLogin ? IdentityRecoveryOutcome.networkError : null,
       );
-    } catch (_) {
+    } catch (error) {
+      onFailure?.call(classifyFailure(error));
       return null;
     }
   }

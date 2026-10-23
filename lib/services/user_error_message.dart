@@ -1,4 +1,5 @@
 import 'logger_service.dart';
+import 'failure_classifier.dart';
 import 'error_feedback_service.dart';
 
 /// User-facing operation categories used to keep implementation details out
@@ -32,19 +33,26 @@ void logUserFacingError(
   int? attempt,
   ErrorFeedbackAttempt? feedbackAttempt,
   ErrorFeedbackCoordinator? coordinator,
+  FailureStage? stage,
 }) {
   // User-facing error handling is also a feature-level boundary. Mark the
   // object before recording the safe operation event so a later Zone or
   // platform fallback does not report the same failure a second time.
   RuntimeErrorReporter.markRecorded(error);
   final trackedOperation = operationId ?? _legacyOperation(context, operation);
-  if (trackedOperation != null && !_isAuthenticationFailure(error)) {
+  if (trackedOperation != null &&
+      (feedbackAttempt != null || !_isAuthenticationFailure(error))) {
     if (feedbackAttempt != null) {
       feedbackAttempt.fail(
         error,
         statusCode: statusCode,
         renderProcessCrashed: renderProcessCrashed,
         attempt: attempt,
+        stage:
+            stage ??
+            (context == UserErrorContext.webView
+                ? FailureStage.mainFrame
+                : FailureStage.request),
       );
     } else {
       (coordinator ?? ErrorFeedbackCoordinator.shared).recordFailure(
@@ -53,17 +61,27 @@ void logUserFacingError(
         statusCode: statusCode,
         renderProcessCrashed: renderProcessCrashed,
         attempt: attempt,
+        stage:
+            stage ??
+            (context == UserErrorContext.webView
+                ? FailureStage.mainFrame
+                : FailureStage.request),
       );
     }
     return;
   }
-  AppLogger.event(
+  AppLogger.recordSafeFailure(
+    error: error,
+    failureStage:
+        stage ??
+        (context == UserErrorContext.webView
+            ? FailureStage.mainFrame
+            : FailureStage.request),
     level: 'WARN',
     code: 'user.operation.failed',
     message: '用户操作失败',
     domain: trackedOperation?.key.split('.').first ?? context.name,
     operation: trackedOperation,
-    exceptionType: error.runtimeType.toString(),
     statusCode: statusCode,
     renderProcessCrashed: renderProcessCrashed,
     attempt: attempt,
@@ -71,6 +89,7 @@ void logUserFacingError(
 }
 
 bool _isAuthenticationFailure(Object error) {
+  if (classifyFailure(error).kind == 'authentication') return true;
   final typeName = error.runtimeType.toString();
   return typeName == 'AcademicAffairsAuthenticationException' ||
       typeName.endsWith('AuthenticationException') ||

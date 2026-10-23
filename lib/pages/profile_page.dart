@@ -220,6 +220,7 @@ class _ProfilePageState extends State<ProfilePage>
                           refresh: _refreshNetworkStatus,
                         ),
               ),
+              AppUpdateSection(service: widget.updates),
               const SizedBox(height: 24),
               AdaptiveSettingsSection(
                 title: '账号',
@@ -282,7 +283,6 @@ class _ProfilePageState extends State<ProfilePage>
                   ),
                 ],
               ),
-              AppUpdateSection(service: widget.updates),
               const SizedBox(height: 8),
               if (_account != null)
                 SignOutAction(onPressed: _confirmSignOut)

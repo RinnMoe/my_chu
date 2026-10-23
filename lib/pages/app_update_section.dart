@@ -8,7 +8,7 @@ import 'app_update_progress.dart';
 
 String _size(int bytes) => '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 
-/// Appears after Profile's About group only while a newer release is known.
+/// Appears above Profile's account group only while a newer release is known.
 class AppUpdateSection extends StatefulWidget {
   const AppUpdateSection({super.key, this.service, this.refreshOnMount = true});
   final AppUpdateService? service;
@@ -144,7 +144,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
 
       return Padding(
         key: const ValueKey('profile-update-section'),
-        padding: const EdgeInsets.only(top: 24, bottom: 8),
+        padding: const EdgeInsets.only(top: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

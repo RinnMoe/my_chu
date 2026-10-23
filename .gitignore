@@ -1,1 +1,35 @@
 *.gradle
+# Local build credentials
+.local/
+
+# Flutter / IDE generated files
+.dart_tool/
+.pub/
+.packages
+.metadata
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec_overrides.yaml
+build/
+output/
+coverage/
+.idea/
+.vscode/*
+!.vscode/launch.json
+*.iml
+*.hprof
+__pycache__/
+# Machine-local SDK paths and signing material
+android/local.properties
+android/key.properties
+android/preview-key.properties
+*.jks
+*.keystore
+.env*
+# Plugin-generated platform files
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/ephemeral/
+ios/Runner/GeneratedPluginRegistrant.h
+ios/Runner/GeneratedPluginRegistrant.m

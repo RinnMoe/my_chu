@@ -1,3 +1,4 @@
+import '../../services/failure_details.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -13,7 +14,10 @@ import '../../services/service_endpoints.dart';
 import 'mobile_campus_notice_models.dart';
 import 'portal_notices_models.dart';
 
-class MobileCampusAuthenticationException implements Exception {
+class MobileCampusAuthenticationException
+    implements Exception, ClassifiedFailure {
+  @override
+  FailureReason get failureReason => FailureReason.authentication;
   final String message;
 
   const MobileCampusAuthenticationException([
@@ -24,10 +28,19 @@ class MobileCampusAuthenticationException implements Exception {
   String toString() => message;
 }
 
-class MobileCampusApiException implements Exception {
+class MobileCampusApiException implements Exception, ClassifiedFailure {
   final String message;
 
-  const MobileCampusApiException(this.message);
+  const MobileCampusApiException(
+    this.message, {
+    this.statusCode,
+    FailureReason reason = FailureReason.unexpected,
+  }) : _reason = reason;
+
+  final int? statusCode;
+  final FailureReason _reason;
+  @override
+  FailureReason get failureReason => classifyHttpFailure(statusCode) ?? _reason;
 
   @override
   String toString() => message;
@@ -199,7 +212,10 @@ class MobileCampusNoticeParser {
       throw const MobileCampusAuthenticationException();
     }
     if (response.statusCode != HttpStatus.ok) {
-      throw MobileCampusApiException('移动校园服务返回 HTTP ${response.statusCode}');
+      throw MobileCampusApiException(
+        '移动校园服务返回 HTTP ${response.statusCode}',
+        statusCode: response.statusCode,
+      );
     }
     final raw =
         response.body.startsWith('\uFEFF')
@@ -215,7 +231,10 @@ class MobileCampusNoticeParser {
       if (looksLikeAuthenticationPage(raw)) {
         throw const MobileCampusAuthenticationException();
       }
-      throw const MobileCampusApiException('移动校园服务返回了无法识别的数据');
+      throw const MobileCampusApiException(
+        '移动校园服务返回了无法识别的数据',
+        reason: FailureReason.malformedResponse,
+      );
     }
     final map = _asMap(decoded);
     throwIfFailed(map);
@@ -229,7 +248,10 @@ class MobileCampusNoticeParser {
       if (_looksLikeAuthenticationFailure(message)) {
         throw MobileCampusAuthenticationException(message);
       }
-      throw MobileCampusApiException(message.isEmpty ? '移动校园服务请求失败' : message);
+      throw MobileCampusApiException(
+        message.isEmpty ? '移动校园服务请求失败' : message,
+        reason: FailureReason.businessRejected,
+      );
     }
     final errorCode = map['errcode'];
     if (errorCode != null && errorCode.toString() != '0') {
@@ -237,7 +259,10 @@ class MobileCampusNoticeParser {
       if (_looksLikeAuthenticationFailure(message)) {
         throw MobileCampusAuthenticationException(message);
       }
-      throw MobileCampusApiException(message.isEmpty ? '移动校园服务请求失败' : message);
+      throw MobileCampusApiException(
+        message.isEmpty ? '移动校园服务请求失败' : message,
+        reason: FailureReason.businessRejected,
+      );
     }
   }
 
@@ -250,7 +275,10 @@ class MobileCampusNoticeParser {
     throwIfFailed(map);
     final rows = map['messageList'];
     if (rows is! List) {
-      throw const MobileCampusApiException('公告列表格式异常');
+      throw const MobileCampusApiException(
+        '公告列表格式异常',
+        reason: FailureReason.malformedResponse,
+      );
     }
     final items = rows
         .whereType<Map>()
@@ -273,7 +301,10 @@ class MobileCampusNoticeParser {
     throwIfFailed(map);
     final rows = map['messageSummary'];
     if (rows is! List) {
-      throw const MobileCampusApiException('栏目摘要格式异常');
+      throw const MobileCampusApiException(
+        '栏目摘要格式异常',
+        reason: FailureReason.malformedResponse,
+      );
     }
     return rows
         .whereType<Map>()
@@ -294,7 +325,10 @@ class MobileCampusNoticeParser {
     throwIfFailed(map);
     final rows = map['list'];
     if (rows is! List) {
-      throw const MobileCampusApiException('公告搜索格式异常');
+      throw const MobileCampusApiException(
+        '公告搜索格式异常',
+        reason: FailureReason.malformedResponse,
+      );
     }
     return rows
         .whereType<Map>()
@@ -323,7 +357,10 @@ class MobileCampusNoticeParser {
     throwIfFailed(map);
     final info = map['messageInfo'];
     if (info is! Map) {
-      throw const MobileCampusApiException('公告正文格式异常');
+      throw const MobileCampusApiException(
+        '公告正文格式异常',
+        reason: FailureReason.malformedResponse,
+      );
     }
     final fields = Map<String, dynamic>.from(info);
     return MobileCampusNoticeDetail(
@@ -385,7 +422,10 @@ class MobileCampusNoticeParser {
 
   static Map<String, dynamic> _asMap(Object? value) {
     if (value is Map) return Map<String, dynamic>.from(value);
-    throw const MobileCampusApiException('移动校园数据格式异常');
+    throw const MobileCampusApiException(
+      '移动校园数据格式异常',
+      reason: FailureReason.malformedResponse,
+    );
   }
 
   static int _int(Object? value) => int.tryParse(value?.toString() ?? '') ?? 0;

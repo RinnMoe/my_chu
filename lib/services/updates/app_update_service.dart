@@ -8,6 +8,7 @@ import '../../capabilities/in_app_download/in_app_download.dart';
 import '../app_remote_services_service.dart';
 import '../fenfa/fenfa_service.dart';
 import '../host_version.dart';
+import '../logger_service.dart';
 import '../platform_compatibility_service.dart';
 import '../privacy_agreement_service.dart';
 import 'update_offer.dart';
@@ -153,14 +154,26 @@ class AppUpdateService extends ChangeNotifier {
         try {
           final name = await _packageName();
           if (!await _current(epoch)) return;
+          // Debug keeps its own installation, but checks the official release
+          // stream using the same Android version-code convention as Release.
+          final debugReleaseCheck =
+              kDebugMode && name == 'moe.rinn.mychu.debug';
+          final updateCode = debugReleaseCheck ? 2000 + code : code;
+          localVersionCode = updateCode;
           result = await _upgradeLink.check(
-            versionCode: code,
-            packageName: name,
+            versionCode: updateCode,
+            packageName: debugReleaseCheck ? 'moe.rinn.mychu' : name,
           );
-        } catch (_) {
+        } catch (error) {
           // Only an unavailable/invalid source falls back. "No update" is
           // authoritative and must not resurrect a release from another source.
           useFenfa = true;
+          AppLogger.recordSafeFailure(
+            code: 'update.ul.fallback',
+            domain: 'update',
+            message: '更新服务暂不可用，已切换备用来源',
+            error: error,
+          );
         }
       }
       if (!await _current(epoch)) return;
@@ -189,7 +202,7 @@ class AppUpdateService extends ChangeNotifier {
           result == null
               ? UpdateCheckState.current
               : UpdateCheckState.available;
-      if (result != null) {
+      if (result != null && result.provider == UpdateProvider.fenfa) {
         planning = true;
         _planning = (_planning ?? Future<void>.value()).then(
           (_) => _plan(result!, epoch),
@@ -255,14 +268,15 @@ class AppUpdateService extends ChangeNotifier {
           onProgress: report,
         );
       } else {
-        opened =
-            await _coordinator.tryUpdatePackage(
-              selected.package,
-              install: _install,
-              preferDelta: preferDelta,
-              onProgress: report,
-            ) ??
-            false;
+        opened = await _upgradeLink.downloadAndInstall(
+          selected,
+          localVersionCode: localVersionCode,
+          shouldContinue: () => !_disposed && epoch == _epoch,
+          install: _install,
+          isAllowed:
+              () async => await _current(epoch) && identical(offer, selected),
+          onProgress: report,
+        );
       }
       if (!_disposed && epoch == _epoch) {
         installerOpened = opened;
