@@ -142,6 +142,9 @@ class AppMetadata {
     if (iconCodePoint == Icons.power_outlined.codePoint) {
       return Icons.power_outlined;
     }
+    if (iconCodePoint == Icons.ev_station_outlined.codePoint) {
+      return Icons.ev_station_outlined;
+    }
     if (iconCodePoint == Icons.camera_alt_outlined.codePoint) {
       return Icons.camera_alt_outlined;
     }
