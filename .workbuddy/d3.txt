@@ -1,0 +1,26 @@
+﻿TIME: 10/26/2026 23:40:25
+PROC cmd.exe pid=2084 cmd=C:\Windows\System32\cmd.exe  /c call "C:\Users\Weaver\.lingma\vscode\bin\2.6.10\x86_64_windows\Lingma.exe" start --workDir "C:\Users\Weaver\.lingma\vscode\share
+PROC cmd.exe pid=12444 cmd=C:\Windows\system32\cmd.exe /c npx bing-cn-mcp
+PROC cmd.exe pid=9592 cmd=C:\Windows\system32\cmd.exe /d /s /c bing-cn-mcp
+PROC cmd.exe pid=19452 cmd=C:\Windows\system32\cmd.exe /c npx --yes @negokaz/excel-mcp-server
+PROC cmd.exe pid=33724 cmd=C:\Windows\system32\cmd.exe /d /s /c excel-mcp-server
+PROC cmd.exe pid=34312 cmd=C:\Windows\system32\cmd.exe /c npx @playwright/mcp@latest
+PROC cmd.exe pid=34216 cmd=C:\Windows\system32\cmd.exe /d /s /c playwright-mcp
+PROC cmd.exe pid=37152 cmd="C:\Windows\system32\cmd.exe" /d /c npx -y rea-agents@6.8.0 mcp
+PROC cmd.exe pid=16728 cmd=C:\Windows\system32\cmd.exe /d /s /c rea mcp
+PROC cmd.exe pid=17868 cmd="C:\Windows\system32\cmd.exe" /d /s /c call ./scripts/launch_codex_app_tools_mcp.cmd ./server.mjs
+PROC cmd.exe pid=27492 cmd="C:\Windows\system32\cmd.exe" /d /c npx -y rea-agents@6.8.0 mcp
+PROC cmd.exe pid=35796 cmd="C:\Windows\system32\cmd.exe" /d /s /c call ./scripts/launch_codex_app_tools_mcp.cmd ./server.mjs
+PROC cmd.exe pid=34432 cmd="C:\Windows\system32\cmd.exe" /d /c npx -y rea-agents@6.8.0 mcp
+PROC cmd.exe pid=34964 cmd=C:\Windows\system32\cmd.exe /d /s /c rea mcp
+PROC cmd.exe pid=38368 cmd=C:\Windows\system32\cmd.exe /d /s /c rea mcp
+PROC cmd.exe pid=12460 cmd=C:\Windows\system32\cmd.exe /c ""C:\Users\Weaver\flutter\bin\flutter.bat" run -d emulator-5554"
+PROC dart.exe pid=23660 cmd="C:\Users\Weaver\flutter\bin\cache\dart-sdk\bin\dart.exe"  --packages="C:\Users\Weaver\flutter\packages\flutter_tools\.dart_tool\package_config.json"  "C:\Users
+PROC dart.exe pid=13012 cmd=C:\Users\Weaver\flutter\bin\cache\dart-sdk\bin\dart.EXE pub --suppress-analytics --color --directory ..\..\..\flutter\packages\flutter_tools get --example
+PROC cmd.exe pid=36760 cmd=C:\Windows\system32\cmd.exe /d /s /c "C:\Users\Weaver\.workbuddy\plugins\cache\workbuddy-builtin\weixinpay\1.6.109/bin/run-node.cmd C:\Users\Weaver\.workbuddy\p
+LOCKFILE exists=True
+LOCKFILE mtime=10/26/2026 23:38:41
+PUB_HOSTED_URL = 
+FLUTTER_STORAGE_BASE_URL = 
+GRADLE_USER_HOME = 
+JAVA_HOME = C:\Program Files\Java\jdk-17
