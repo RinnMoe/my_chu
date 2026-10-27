@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import '../services/charging_credential_service.dart';
-import '../services/public_http_client.dart';
+import 'charging_credential_service.dart';
+import 'charging_pile_http_client.dart';
 import 'charging_pile_models.dart';
 
 abstract interface class ChargingPileApi {
@@ -32,7 +32,7 @@ class ChargingPileApiClient implements ChargingPileApi {
       if (response.statusCode != 200) {
         throw const ChargingPileException(ChargingPileFailure.platform);
       }
-      final body = PublicHttpClient.decodeJsonMap(
+      final body = ChargingPileHttpClient.decodeJsonMap(
         utf8.decode(response.bodyBytes),
       );
       final code = body['code'].toString();

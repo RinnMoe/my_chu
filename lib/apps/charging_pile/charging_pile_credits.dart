@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../charging_piles/charging_pile_credits_service.dart';
+import 'charging_pile_credits_service.dart';
 
 Future<void> showChargingPileCredits(BuildContext context) async {
   await showDialog<void>(

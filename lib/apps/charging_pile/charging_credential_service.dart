@@ -6,10 +6,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:pointycastle/export.dart';
 
-import '../charging_piles/charging_pile_models.dart';
+import 'charging_pile_models.dart';
 import 'charging_sync_config.dart';
-import 'privacy_agreement_service.dart';
-import 'public_http_client.dart';
+import '../../services/privacy_agreement_service.dart';
+import 'charging_pile_http_client.dart';
 
 /// Decodes the source project's WebCrypto envelope. Runs off the UI isolate.
 /// This is encryption compatibility, not JWT signature verification.
@@ -42,20 +42,20 @@ String decryptChargingMailbox(Map<String, String> input) {
   }
 }
 
-/// Host-owned credentials for an independent third-party service, not CAS.
+/// Credentials owned by this feature's data layer, separate from campus CAS.
 ///
-/// PublicHttpClient supplies the existing HTTP transport. Only this host service
+/// ChargingPileHttpClient supplies the feature-local HTTP transport. Only this service
 /// may attach the credential, to the fixed scan-code endpoint, with redirects
 /// disabled by the transport's authenticated request helper. UI and repository
 /// never receive a token. There is no upload or mailbox write endpoint here.
 class ChargingCredentialService {
   ChargingCredentialService({
-    PublicHttpClient? httpClient,
+    ChargingPileHttpClient? httpClient,
     FlutterSecureStorage? storage,
     Future<bool> Function()? consent,
     DateTime Function()? now,
     Future<String> Function(Map<String, String>)? decrypt,
-  }) : _http = httpClient ?? PublicHttpClient(),
+  }) : _http = httpClient ?? ChargingPileHttpClient(),
        _storage = storage ?? const FlutterSecureStorage(),
        _consent = consent ?? PrivacyAgreementService.isAccepted,
        _now = now ?? DateTime.now,
@@ -69,7 +69,7 @@ class ChargingCredentialService {
   static final _scan = Uri.parse(
     'https://union.zhumanggroup.com/api/rent/scan-code',
   );
-  final PublicHttpClient _http;
+  final ChargingPileHttpClient _http;
   final FlutterSecureStorage _storage;
   final Future<bool> Function() _consent;
   final DateTime Function() _now;
@@ -227,7 +227,7 @@ class ChargingCredentialService {
       if (response.statusCode != 200) {
         throw const ChargingPileException(ChargingPileFailure.credentialSync);
       }
-      final box = PublicHttpClient.decodeJsonMap(
+      final box = ChargingPileHttpClient.decodeJsonMap(
         utf8.decode(response.bodyBytes),
       );
       if (box['ok'] != true || box['exists'] != true) {
@@ -303,7 +303,7 @@ class ChargingCredentialService {
     if (response.statusCode == 401 || response.statusCode == 403) return true;
     if (response.statusCode != 200) return false;
     try {
-      final body = PublicHttpClient.decodeJsonMap(
+      final body = ChargingPileHttpClient.decodeJsonMap(
         utf8.decode(response.bodyBytes),
       );
       return body['code'].toString() == '401' ||

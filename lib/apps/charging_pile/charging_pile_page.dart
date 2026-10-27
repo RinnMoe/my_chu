@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../charging_piles/charging_pile_models.dart';
-import '../../charging_piles/charging_pile_repository.dart';
+import 'charging_pile_models.dart';
+import 'charging_pile_service.dart';
 import 'charging_pile_widgets.dart';
 import 'charging_pile_credits.dart';
 

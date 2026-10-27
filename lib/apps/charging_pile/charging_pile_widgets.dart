@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../charging_piles/charging_pile_models.dart';
+import 'charging_pile_models.dart';
 
 String chargingPileTime(DateTime value, DateTime now) {
   final local = value.toLocal();

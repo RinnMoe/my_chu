@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 
-import '../services/privacy_agreement_service.dart';
-import '../services/public_http_client.dart';
+import '../../services/privacy_agreement_service.dart';
+import 'charging_pile_http_client.dart';
 import 'charging_pile_models.dart';
 
 class ChargingPileCreditText {
@@ -27,12 +27,12 @@ class ChargingPileCreditParagraph {
 /// rendered, and the source cannot provide instructions to the host.
 class ChargingPileCreditsService {
   ChargingPileCreditsService({
-    PublicHttpClient? httpClient,
+    ChargingPileHttpClient? httpClient,
     Future<bool> Function()? consent,
-  }) : _http = httpClient ?? PublicHttpClient(),
+  }) : _http = httpClient ?? ChargingPileHttpClient(),
        _consent = consent ?? PrivacyAgreementService.isAccepted;
   static final _source = Uri.parse('https://chd-charge.pages.dev/');
-  final PublicHttpClient _http;
+  final ChargingPileHttpClient _http;
   final Future<bool> Function() _consent;
   final _cancellation = ChargingPileCancellation();
 
