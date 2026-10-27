@@ -60,9 +60,19 @@ class PublicHttpClient {
     Uri uri, {
     Map<String, String>? headers,
     Duration? timeout,
+    Future<void>? abortTrigger,
   }) async {
     _ensureOpen();
     try {
+      if (abortTrigger != null) {
+        return await _sendAbortable(
+          'GET',
+          uri,
+          headers: headers,
+          timeout: timeout,
+          abortTrigger: abortTrigger,
+        );
+      }
       return await _client
           .get(uri, headers: headers)
           .timeout(timeout ?? defaultTimeout);
@@ -180,6 +190,8 @@ class PublicHttpClient {
     required Object body,
     Map<String, String>? headers,
     Duration? timeout,
+    bool followRedirects = true,
+    Future<void>? abortTrigger,
   }) async {
     _ensureOpen();
     final requestHeaders = <String, String>{
@@ -188,6 +200,17 @@ class PublicHttpClient {
       ...?headers,
     };
     try {
+      if (!followRedirects || abortTrigger != null) {
+        return await _sendAbortable(
+          'POST',
+          uri,
+          headers: requestHeaders,
+          body: jsonEncode(body),
+          followRedirects: followRedirects,
+          timeout: timeout,
+          abortTrigger: abortTrigger,
+        );
+      }
       return await _client
           .post(uri, headers: requestHeaders, body: jsonEncode(body))
           .timeout(timeout ?? defaultTimeout);
@@ -201,6 +224,38 @@ class PublicHttpClient {
         '网络请求失败，请稍后重试。',
         reason: classifyFailure(error),
       );
+    }
+  }
+
+  /// Reuse package:http cancellation; timeout also aborts the physical request.
+  Future<http.Response> _sendAbortable(
+    String method,
+    Uri uri, {
+    Map<String, String>? headers,
+    String? body,
+    bool followRedirects = false,
+    Duration? timeout,
+    Future<void>? abortTrigger,
+  }) async {
+    final timedOut = Completer<void>();
+    final limit = timeout ?? defaultTimeout;
+    final timer = Timer(limit, () => timedOut.complete());
+    try {
+      final request = http.AbortableRequest(
+        method,
+        uri,
+        abortTrigger:
+            abortTrigger == null
+                ? timedOut.future
+                : Future.any([timedOut.future, abortTrigger]),
+      )..followRedirects = followRedirects;
+      if (headers != null) request.headers.addAll(headers);
+      if (body != null) request.body = body;
+      return await (() async =>
+              http.Response.fromStream(await _client.send(request)))()
+          .timeout(limit);
+    } finally {
+      timer.cancel();
     }
   }
 

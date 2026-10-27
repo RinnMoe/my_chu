@@ -1,0 +1,11 @@
+{
+  "description": "Node crypto PBKDF2-SHA256/AES-256-GCM compatibility vector; synthetic token only.",
+  "passphrase": "fixture-only-public-sync-configuration",
+  "token": "eyJhbGciOiJub25lIn0.eyJleHAiOjQxMDI0NDQ4MDAsImZpeHR1cmUiOnRydWV9.fixture-signature",
+  "box": {
+    "ok": true,
+    "exists": true,
+    "updatedAt": 1790000000000,
+    "data": "{\"salt\":\"AAECAwQFBgcICQoLDA0ODw==\",\"cipher\":\"EBESExQVFhcYGRob20HviuxFz6l46Nr/kmVvr3AEVJJnQ6Z2+YE5kvFR3kcKv8oClDFC02lY9wmOlAqT4nWIQl8b+UnhEPKN2atSCYOzkt6Gk+DO7FGlBpnBfCh41aWoLaZAblKgwRrAX0aUy/8=\",\"kdf\":\"PBKDF2-SHA256-200000\"}"
+  }
+}
