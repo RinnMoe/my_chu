@@ -5,7 +5,11 @@ enum ChargingPileArea {
   chaohui('朝晖体育场南', '渭水-朝晖体育场南'),
   northGate('北门', '渭水-北门'),
   building20('20号楼', '渭水-20号楼'),
-  propertyCenter('物业服务中心', '渭水-物业服务中心');
+  propertyCenter('物业服务中心', '渭水-物业服务中心'),
+
+  /// Fallback for a catalog entry whose location has no mapping yet. A stale
+  /// catalog degrades to one "未分区" group instead of failing the whole page.
+  unknown('未分区', '');
 
   const ChargingPileArea(this.label, this.location);
   final String label;
@@ -24,8 +28,10 @@ class ChargingPileDevice {
   final String name;
   final String location;
   String get campusId => 'weishui';
-  ChargingPileArea get area =>
-      ChargingPileArea.values.singleWhere((area) => area.location == location);
+  ChargingPileArea get area => ChargingPileArea.values.firstWhere(
+    (area) => area.location == location,
+    orElse: () => ChargingPileArea.unknown,
+  );
 }
 
 class ChargingPileSlot {

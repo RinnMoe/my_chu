@@ -32,6 +32,10 @@ class ChargingPileCreditsService {
   }) : _http = httpClient ?? ChargingPileHttpClient(),
        _consent = consent ?? PrivacyAgreementService.isAccepted;
   static final _source = Uri.parse('https://chd-charge.pages.dev/');
+
+  /// The source page is third-party content, so only links to known project
+  /// hosts stay tappable; anything else degrades to plain text.
+  static const _allowedLinkHosts = {'github.com', 'www.github.com'};
   final ChargingPileHttpClient _http;
   final Future<bool> Function() _consent;
   final _cancellation = ChargingPileCancellation();
@@ -87,7 +91,9 @@ class ChargingPileCreditsService {
             target =
                 resolved != null &&
                         resolved.scheme == 'https' &&
-                        resolved.host.isNotEmpty
+                        _allowedLinkHosts.contains(
+                          resolved.host.toLowerCase(),
+                        )
                     ? resolved
                     : null;
           }

@@ -46,13 +46,18 @@ class ChargingPileRepository extends ChangeNotifier {
   DateTime? _updatedAt;
   bool _disposed = false;
   int _consumers = 0;
-  int _active = 0;
+  int _activeRequests = 0;
+  Completer<void> _slotReleased = Completer<void>();
+  bool _interrupted = false;
   int _completed = 0;
   int _total = 0;
   int _networkFailures = 0;
   ChargingPileFailure? _failure;
   DateTime? _pausedUntil;
   ChargingPileFailure? _pauseReason;
+
+  static const _maxConcurrent = 6;
+  static const _pageDedupWindow = Duration(seconds: 60);
 
   List<ChargingPileDevice> loadCatalog() => _catalog;
   List<ChargingPileArea> loadAreas() =>
@@ -67,6 +72,10 @@ class ChargingPileRepository extends ChangeNotifier {
   int get total => _total;
   ChargingPileFailure? get failure => _failure;
   DateTime? get pausedUntil => _pausedUntil;
+
+  /// True when no usable snapshot is on screen: either nothing has been loaded
+  /// yet, or the last page transaction was cancelled before it committed.
+  bool get needsRefresh => _interrupted || _states.isEmpty;
 
   /// A page/layer must release when hidden or disposed. The last release stops
   /// queued work/retries and fences in-flight page responses.
@@ -90,7 +99,11 @@ class ChargingPileRepository extends ChangeNotifier {
     _runtime.cancel();
     _runtime = ChargingPileCancellation();
     _pageFlight = null;
-    if (_pageLoading) _lastPageAttempt = null;
+    if (_pageLoading) {
+      // The transaction never committed, so the next activation resumes it.
+      _lastPageAttempt = null;
+      _interrupted = true;
+    }
     _pageLoading = false;
     _credentials?.cancelPending();
     _emit();
@@ -105,10 +118,10 @@ class ChargingPileRepository extends ChangeNotifier {
     _emit();
   }
 
-  Future<void> syncCredential() async {
+  Future<void> syncCredential({bool force = false}) async {
     final runtime = _runtime;
     try {
-      await _credentials?.syncCredential();
+      await _credentials?.syncCredential(force: force);
       if (runtime.isCancelled || _disposed) return;
       _failure = null;
       _lastPageAttempt = null;
@@ -121,12 +134,13 @@ class ChargingPileRepository extends ChangeNotifier {
 
   /// Refresh the entire directory as one page transaction. Consumers share the
   /// same in-flight batch; filters never create their own device requests.
-  Future<void> refreshAll() async {
+  /// [force] skips the short-lived dedupe window for an explicit user gesture.
+  Future<void> refreshAll({bool force = false}) async {
     if (_disposed) return;
     final pending = _pageFlight;
     if (pending != null) return pending;
     final runtime = _runtime;
-    final flight = _refreshPage(runtime);
+    final flight = _refreshPage(runtime, force: force);
     _pageFlight = flight;
     try {
       await flight;
@@ -135,7 +149,10 @@ class ChargingPileRepository extends ChangeNotifier {
     }
   }
 
-  Future<void> _refreshPage(ChargingPileCancellation runtime) async {
+  Future<void> _refreshPage(
+    ChargingPileCancellation runtime, {
+    required bool force,
+  }) async {
     if (runtime.isCancelled || _disposed) return;
     try {
       if (!await _consent()) {
@@ -156,9 +173,11 @@ class ChargingPileRepository extends ChangeNotifier {
     }
     // Deduplicate the whole page, not individual devices. No time-based expiry
     // is applied to displayed results; the next page transaction replaces them.
-    if (_lastPageAttempt != null &&
+    // An explicit gesture (pull-to-refresh, retry) bypasses this window.
+    if (!force &&
+        _lastPageAttempt != null &&
         _states.isNotEmpty &&
-        _now().difference(_lastPageAttempt!) < const Duration(seconds: 60))
+        _now().difference(_lastPageAttempt!) < _pageDedupWindow)
       return;
     _lastPageAttempt = _now();
     final devices = List<ChargingPileDevice>.of(_catalog);
@@ -167,11 +186,13 @@ class ChargingPileRepository extends ChangeNotifier {
     _total = devices.length;
     _failure = null;
     _networkFailures = 0;
-    _states.clear();
-    _updatedAt = null;
+    // The previous snapshot stays visible until this transaction commits, so a
+    // cancelled refresh never leaves the page blank.
     _emit();
     final results = <String, ChargingPileDeviceState>{};
     ChargingPileFailure? stopReason;
+    ChargingPileFailure? lastDeviceFailure;
+    var failures = 0;
     var index = 0;
     bool getStopped() => runtime.isCancelled || _disposed || stopReason != null;
 
@@ -195,7 +216,8 @@ class ChargingPileRepository extends ChangeNotifier {
           if (runtime.isCancelled || _disposed) return;
           if (e.failure == ChargingPileFailure.cancelled) return;
           results[device.id] = ChargingPileDeviceState(failure: e.failure);
-          _failure = e.failure;
+          failures++;
+          lastDeviceFailure = e.failure;
           if (e.failure == ChargingPileFailure.network) {
             _networkFailures++;
           } else {
@@ -217,7 +239,8 @@ class ChargingPileRepository extends ChangeNotifier {
           results[device.id] = const ChargingPileDeviceState(
             failure: ChargingPileFailure.platform,
           );
-          _failure = ChargingPileFailure.platform;
+          failures++;
+          lastDeviceFailure = ChargingPileFailure.platform;
         }
         if (runtime.isCancelled || _disposed) return;
         _completed++;
@@ -227,22 +250,37 @@ class ChargingPileRepository extends ChangeNotifier {
 
     try {
       await Future.wait(
-        List.generate(math.min(6, devices.length), (_) => worker()),
+        List.generate(
+          math.min(_maxConcurrent, devices.length),
+          (_) => worker(),
+        ),
       );
       if (runtime.isCancelled || _disposed) return;
-      final ids = _catalog.map((d) => d.id).toSet();
-      for (final device in devices) {
-        if (ids.contains(device.id)) {
-          _states[device.id] =
+      // Publish the whole page at once so no listener observes a half-filled
+      // grid, and a cancelled transaction leaves the previous snapshot intact.
+      _states
+        ..clear()
+        ..addEntries(
+          devices.map(
+            (device) => MapEntry(
+              device.id,
               results[device.id] ??
-              ChargingPileDeviceState(
-                failure: stopReason ?? ChargingPileFailure.platform,
-              );
-        }
-      }
-      _failure = stopReason ?? _failure;
+                  ChargingPileDeviceState(
+                    failure: stopReason ?? ChargingPileFailure.platform,
+                  ),
+            ),
+          ),
+        );
+      // A single failing pile is reported on its own card; only a systemic
+      // failure (stop reason or >=30% of the catalog) becomes a page banner.
+      _failure =
+          stopReason ??
+          (devices.isNotEmpty && failures * 10 >= devices.length * 3
+              ? lastDeviceFailure
+              : null);
       _updatedAt =
           results.values.any((entry) => entry.status != null) ? _now() : null;
+      _interrupted = false;
     } finally {
       if (identical(runtime, _runtime)) {
         _pageLoading = false;
@@ -256,11 +294,10 @@ class ChargingPileRepository extends ChangeNotifier {
     ChargingPileCancellation runtime,
     bool Function() stopped,
   ) async {
-    while (_active >= 6) {
-      await Future.any([
-        Future<void>.delayed(const Duration(milliseconds: 20)),
-        runtime.whenCancelled,
-      ]);
+    // Cancelled generations can still be draining when a new page starts.
+    // Keep the same request budget across generations without polling timers.
+    while (_activeRequests >= _maxConcurrent) {
+      await Future.any([_slotReleased.future, runtime.whenCancelled]);
       runtime.check();
       if (stopped())
         throw const ChargingPileException(ChargingPileFailure.cancelled);
@@ -268,7 +305,7 @@ class ChargingPileRepository extends ChangeNotifier {
     runtime.check();
     if (stopped())
       throw const ChargingPileException(ChargingPileFailure.cancelled);
-    _active++;
+    _activeRequests++;
     try {
       for (var attempt = 0; attempt < 2; attempt++) {
         runtime.check();
@@ -286,7 +323,10 @@ class ChargingPileRepository extends ChangeNotifier {
       }
       throw const ChargingPileException(ChargingPileFailure.platform);
     } finally {
-      _active--;
+      _activeRequests--;
+      final released = _slotReleased;
+      _slotReleased = Completer<void>();
+      released.complete();
     }
   }
 

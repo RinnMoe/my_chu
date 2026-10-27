@@ -184,12 +184,14 @@ class ChargingCredentialService {
   }
 
   /// Coalesced process-wide mailbox sync; a failed sync may use a valid local
-  /// credential. Explicit retry also respects the 60-second mailbox throttle.
-  Future<void> syncCredential() async {
+  /// credential. [force] bypasses the 60-second mailbox throttle so that an
+  /// explicit user retry always reaches the source instead of silently
+  /// replaying the previous failure.
+  Future<void> syncCredential({bool force = false}) async {
     final epoch = _epoch;
     await _guard(epoch, null);
     await _restore(epoch);
-    await _sync();
+    await _sync(bypassThrottle: force);
     await _guard(epoch, null);
     if (!_usable) {
       throw const ChargingPileException(
@@ -198,9 +200,9 @@ class ChargingCredentialService {
     }
   }
 
-  Future<void> _sync({bool authRecovery = false}) async {
+  Future<void> _sync({bool bypassThrottle = false}) async {
     if (_syncing case final flight?) return flight;
-    if (!authRecovery &&
+    if (!bypassThrottle &&
         _lastSync != null &&
         _now().difference(_lastSync!) < const Duration(seconds: 60))
       return;
@@ -283,7 +285,7 @@ class ChargingCredentialService {
       _recoveredToken = rejected;
       _rejected = true;
       await _persist(epoch);
-      await _sync(authRecovery: true);
+      await _sync(bypassThrottle: true);
       if (!_usable || _token == rejected) {
         throw const ChargingPileException(
           ChargingPileFailure.credentialUnavailable,

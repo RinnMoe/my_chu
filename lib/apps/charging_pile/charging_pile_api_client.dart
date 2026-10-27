@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../services/failure_details.dart';
 import 'charging_credential_service.dart';
 import 'charging_pile_http_client.dart';
 import 'charging_pile_models.dart';
@@ -74,8 +75,13 @@ class ChargingPileApiClient implements ChargingPileApi {
       return slots..sort((a, b) => a.slotId.compareTo(b.slotId));
     } on ChargingPileException {
       rethrow;
-    } on PublicHttpException {
-      throw const ChargingPileException(ChargingPileFailure.network);
+    } on PublicHttpException catch (error) {
+      // Cancellation must not be retried as if the network had failed.
+      throw ChargingPileException(
+        error.failureReason == FailureReason.cancelled
+            ? ChargingPileFailure.cancelled
+            : ChargingPileFailure.network,
+      );
     } catch (_) {
       throw const ChargingPileException(ChargingPileFailure.malformed);
     }

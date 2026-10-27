@@ -41,6 +41,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
   bool _searching = false;
   bool _visible = true;
   bool _foreground = true;
+  bool _resumeScheduled = false;
   int _favoriteRevision = 0;
   Future<void> _favoriteWrites = Future.value();
 
@@ -79,13 +80,15 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     _viewRevision.value++;
     final saved = _favorites.toList()..sort();
     _favoriteWrites = _favoriteWrites
-        .then((_) async {
+        .then<void>((_) async {
           final preferences = await SharedPreferences.getInstance();
           if (!await preferences.setStringList(_favoritesKey, saved)) {
             throw StateError('preference write failed');
           }
         })
-        .catchError((Object _) => _preferenceError());
+        .catchError((Object _) {
+          _preferenceError();
+        });
   }
 
   void _preferenceError() {
@@ -114,6 +117,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
   void _updateLease() {
     if (_visible && _foreground) {
       _release ??= _repository.acquire();
+      _scheduleResumeRefresh();
     } else {
       for (final request in _requests) {
         request.cancel();
@@ -121,6 +125,20 @@ class _ChargingPilePageState extends State<ChargingPilePage>
       _release?.call();
       _release = null;
     }
+  }
+
+  /// Resumes an interrupted page transaction when the page becomes active
+  /// again. Without this, backgrounding during a refresh would leave an empty
+  /// grid until the user pulled to refresh manually.
+  void _scheduleResumeRefresh() {
+    if (_resumeScheduled) return;
+    _resumeScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _resumeScheduled = false;
+      if (!mounted || !_visible || !_foreground) return;
+      if (!_repository.needsRefresh) return;
+      unawaited(_refresh());
+    });
   }
 
   void _changed() {
@@ -144,7 +162,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     super.dispose();
   }
 
-  Future<void> _refresh({bool sync = false}) async {
+  Future<void> _refresh({bool sync = false, bool force = false}) async {
     if (!_visible || !_foreground) return;
     _batch?.cancel();
     final request = ChargingPileCancellation();
@@ -153,11 +171,11 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     try {
       if (!mounted || request.isCancelled) return;
       if (sync) {
-        await _repository.syncCredential();
+        await _repository.syncCredential(force: force);
         if (_repository.failure != null) return;
       }
       if (!mounted || request.isCancelled) return;
-      await _repository.refreshAll();
+      await _repository.refreshAll(force: force);
     } finally {
       _requests.remove(request);
     }
@@ -309,7 +327,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                       .clamp(1, 4)
                       .toInt();
               return RefreshIndicator(
-                onRefresh: () => _refresh(),
+                onRefresh: () => _refresh(force: true),
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
@@ -406,7 +424,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                                       theme.colorScheme.surfaceContainerHigh,
                                   label: Text(
                                     _onlyFree
-                                        ? '空闲 ${filtered.length} 台'
+                                        ? '${filtered.length} 台有空闲'
                                         : '只看空闲',
                                   ),
                                   selected: _onlyFree,
@@ -490,7 +508,10 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                                         onPressed:
                                             _repository.isRefreshing
                                                 ? null
-                                                : () => _refresh(sync: true),
+                                                : () => _refresh(
+                                                  sync: true,
+                                                  force: true,
+                                                ),
                                         icon: const Icon(Icons.refresh),
                                         label: const Text('重试'),
                                       ),

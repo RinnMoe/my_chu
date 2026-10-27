@@ -43,7 +43,7 @@ class ChargingPileSummary extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
-          updatedDevices == 0 ? '空闲 —' : '空闲 $freeSlots / $knownSlots',
+          updatedDevices == 0 ? '空闲插座 —' : '空闲插座 $freeSlots / $knownSlots',
           style: theme.textTheme.titleMedium?.copyWith(color: colors.primary),
         ),
         Text(

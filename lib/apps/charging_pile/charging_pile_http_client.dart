@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../services/failure_details.dart';
 import '../../services/public_http_client.dart';
 export '../../services/public_http_client.dart' show PublicHttpException;
 
@@ -58,6 +59,7 @@ class ChargingPileHttpClient extends PublicHttpClient {
     uri,
     body: jsonEncode(body),
     timeout: timeout,
+    followRedirects: followRedirects,
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json; charset=utf-8',
@@ -72,36 +74,65 @@ class ChargingPileHttpClient extends PublicHttpClient {
     String? body,
     Map<String, String>? headers,
     Duration? timeout,
+    bool followRedirects = false,
     Future<void>? abortTrigger,
   }) async {
-    if (_closed) throw const PublicHttpException('请求已停止。');
+    if (_closed) throw _cancelled();
     final expired = Completer<void>();
     final limit = timeout ?? defaultTimeout;
-    final timer = Timer(limit, () => expired.complete());
+    FailureReason? abortReason;
+    void abort(FailureReason reason) {
+      if (expired.isCompleted) return;
+      abortReason = reason;
+      expired.complete();
+    }
+
+    final timer = Timer(limit, () => abort(FailureReason.timeout));
+    if (abortTrigger != null) {
+      unawaited(
+        abortTrigger.then<void>(
+          (_) => abort(FailureReason.cancelled),
+          onError: (Object _) => abort(FailureReason.cancelled),
+        ),
+      );
+    }
+    final authenticated =
+        headers?.keys.any((name) => name.toLowerCase() == 'authorization') ??
+        false;
     try {
       final request = http.AbortableRequest(
           method,
           uri,
-          abortTrigger:
-              abortTrigger == null
-                  ? expired.future
-                  : Future.any([expired.future, abortTrigger]),
+          abortTrigger: expired.future,
         )
         // Never send this feature's Bearer credential through a redirect.
-        ..followRedirects = false;
+        ..followRedirects = followRedirects && !authenticated;
       if (headers != null) request.headers.addAll(headers);
       if (body != null) request.body = body;
       return await (() async =>
               http.Response.fromStream(await _transport.send(request)))()
           .timeout(limit);
     } on TimeoutException {
-      throw const PublicHttpException('请求超时，请稍后重试。');
+      throw abortReason == FailureReason.cancelled ? _cancelled() : _timedOut();
+    } on http.RequestAbortedException {
+      throw abortReason == FailureReason.timeout ? _timedOut() : _cancelled();
     } catch (_) {
-      throw const PublicHttpException('网络请求失败，请稍后重试。');
+      if (abortReason == FailureReason.cancelled || _closed) throw _cancelled();
+      if (abortReason == FailureReason.timeout) throw _timedOut();
+      throw const PublicHttpException(
+        '网络请求失败，请稍后重试。',
+        reason: FailureReason.httpTransport,
+      );
     } finally {
       timer.cancel();
     }
   }
+
+  static PublicHttpException _timedOut() =>
+      const PublicHttpException('请求超时，请稍后重试。', reason: FailureReason.timeout);
+
+  static PublicHttpException _cancelled() =>
+      const PublicHttpException('请求已停止。', reason: FailureReason.cancelled);
 
   static Map<String, dynamic> decodeJsonMap(String body) =>
       PublicHttpClient.decodeJsonMap(body);
