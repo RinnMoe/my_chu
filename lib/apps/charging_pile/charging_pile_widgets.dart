@@ -37,73 +37,42 @@ class ChargingPileSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Card.filled(
-      margin: EdgeInsets.zero,
-      color: colors.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Wrap(
-          spacing: 32,
-          runSpacing: 16,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '空闲插座',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: colors.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  updatedDevices == 0 ? '—' : '$freeSlots',
-                  style: theme.textTheme.displaySmall?.copyWith(
-                    color: colors.onPrimaryContainer,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  updatedDevices == 0 ? '尚无实时数据' : '已统计 $knownSlots 个插座',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onPrimaryContainer,
-                  ),
-                ),
-              ],
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '已更新 $updatedDevices / $totalDevices 台',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: colors.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  latest == null
-                      ? '选择分区后查询'
-                      : '最近成功 ${chargingPileTime(latest!, now)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onPrimaryContainer,
-                  ),
-                ),
-                if (updatedDevices < totalDevices) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    '${totalDevices - updatedDevices} 台未知或历史数据',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.onPrimaryContainer,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ],
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          updatedDevices == 0 ? '空闲 —' : '空闲 $freeSlots / $knownSlots',
+          style: theme.textTheme.titleMedium?.copyWith(color: colors.primary),
         ),
-      ),
+        Text(
+          updatedDevices == totalDevices
+              ? '$totalDevices 台'
+              : '已更新 $updatedDevices/$totalDevices 台',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+        if (latest != null)
+          Semantics(
+            label: '最近成功更新时间 ${chargingPileTime(latest!, now)}',
+            excludeSemantics: true,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.schedule, size: 14, color: colors.onSurfaceVariant),
+                const SizedBox(width: 4),
+                Text(
+                  chargingPileTime(latest!, now),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
@@ -112,66 +81,124 @@ class ChargingPilePorts extends StatelessWidget {
   const ChargingPilePorts({
     super.key,
     required this.slots,
-    this.historical = false,
+    this.compact = false,
   });
   final List<ChargingPileSlot> slots;
-  final bool historical;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    if (slots.isEmpty) return const SizedBox.shrink();
+
+    Widget port(ChargingPileSlot slot) {
+      final available = slot.free;
+      final label =
+          slot.free
+              ? '空闲'
+              : slot.occupied
+              ? '占用'
+              : '状态 ${slot.status}';
+      final foreground =
+          available
+              ? (compact ? colors.onPrimary : colors.onPrimaryContainer)
+              : colors.onSurfaceVariant;
+      return Semantics(
+        label: '${slot.slotId} 号插座，$label',
+        excludeSemantics: true,
+        child: ColoredBox(
+          color:
+              available
+                  ? (compact ? colors.primary : colors.primaryContainer)
+                  : colors.surfaceContainerHighest,
+          child: Padding(
+            padding:
+                compact
+                    ? const EdgeInsets.symmetric(vertical: 5)
+                    : const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child:
+                compact
+                    ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '${slot.slotId}',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: foreground,
+                          ),
+                        ),
+                        if (slot.free || !slot.occupied) ...[
+                          const SizedBox(width: 2),
+                          Icon(
+                            slot.free ? Icons.check : Icons.help_outline,
+                            size: 12,
+                            color: foreground,
+                          ),
+                        ],
+                      ],
+                    )
+                    : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${slot.slotId}',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: foreground,
+                          ),
+                        ),
+                        Text(
+                          label,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: foreground,
+                          ),
+                        ),
+                      ],
+                    ),
+          ),
+        ),
+      );
+    }
+
+    if (compact) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
+          final columns =
+              (constraints.maxWidth / (30 * scale.clamp(1.0, 2.0)))
+                  .floor()
+                  .clamp(1, slots.length.clamp(1, 4))
+                  .toInt();
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Wrap(
+              runSpacing: 1,
+              children:
+                  slots
+                      .map(
+                        (slot) => SizedBox(
+                          width: constraints.maxWidth / columns,
+                          child: port(slot),
+                        ),
+                      )
+                      .toList(),
+            ),
+          );
+        },
+      );
+    }
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children:
-          slots.map((slot) {
-            final available = slot.free && !historical;
-            final foreground =
-                available ? colors.onPrimaryContainer : colors.onSurfaceVariant;
-            final label =
-                slot.free
-                    ? '空闲'
-                    : slot.occupied
-                    ? '占用'
-                    : '状态 ${slot.status}';
-            return Semantics(
-              label: '${slot.slotId} 号插座，${historical ? '历史数据，' : ''}$label',
-              excludeSemantics: true,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color:
-                      available
-                          ? colors.primaryContainer
-                          : colors.surfaceContainerHighest,
+          slots
+              .map(
+                (slot) => ClipRRect(
                   borderRadius: BorderRadius.circular(12),
+                  child: port(slot),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '${slot.slotId}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: foreground,
-                        ),
-                      ),
-                      Text(
-                        label,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: foreground,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
+              )
+              .toList(),
     );
   }
 }
@@ -181,65 +208,96 @@ class ChargingPileDeviceCard extends StatelessWidget {
     super.key,
     required this.device,
     required this.entry,
-    required this.now,
     required this.loading,
     required this.favorite,
     required this.onFavorite,
     required this.onOpen,
-    required this.onRefresh,
+    this.showArea = true,
   });
   final ChargingPileDevice device;
-  final ChargingPileCachedDevice entry;
-  final DateTime now;
+  final ChargingPileDeviceState entry;
   final bool loading;
   final bool favorite;
   final VoidCallback onFavorite;
   final VoidCallback onOpen;
-  final VoidCallback onRefresh;
+  final bool showArea;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final status = entry.status;
-    final historical = entry.isHistorical(now);
-    final confirmedFree = !historical && status != null && status.freeSlots > 0;
-    final badge =
-        status == null
-            ? (loading ? '查询中' : '未知')
-            : '${historical ? '历史 ' : ''}${status.freeSlots}/${status.slots.length} 空闲';
-    return Card.outlined(
+    final confirmedFree = status != null && status.freeSlots > 0;
+    return Card.filled(
       margin: EdgeInsets.zero,
+      color:
+          confirmedFree ? colors.primaryContainer : colors.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onOpen,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${device.code} 号桩',
-                            style: theme.textTheme.titleMedium,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Semantics(
+                          label: '${device.code} 号桩',
+                          excludeSemantics: true,
+                          child: Text(
+                            device.code,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color:
+                                  confirmedFree
+                                      ? colors.onPrimaryContainer
+                                      : colors.onSurface,
+                            ),
                           ),
-                          const SizedBox(height: 2),
+                        ),
+                        if (showArea)
                           Text(
                             device.area.label,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
+                              color:
+                                  confirmedFree
+                                      ? colors.onPrimaryContainer
+                                      : colors.onSurfaceVariant,
                             ),
                           ),
-                        ],
-                      ),
+                        if (status != null)
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                '${status.freeSlots}/${status.slots.length} 空闲',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color:
+                                      confirmedFree
+                                          ? colors.onPrimaryContainer
+                                          : colors.onSurfaceVariant,
+                                ),
+                              ),
+                              if (loading)
+                                SizedBox.square(
+                                  dimension: 12,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    semanticsLabel: '正在刷新 ${device.code}',
+                                  ),
+                                ),
+                            ],
+                          ),
+                      ],
                     ),
                   ),
                   IconButton(
@@ -248,83 +306,23 @@ class ChargingPileDeviceCard extends StatelessWidget {
                     selectedIcon: const Icon(Icons.star_rounded),
                     icon: const Icon(Icons.star_outline_rounded),
                     onPressed: onFavorite,
+                    color:
+                        confirmedFree
+                            ? colors.onPrimaryContainer
+                            : colors.onSurfaceVariant,
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color:
-                      confirmedFree
-                          ? colors.primaryContainer
-                          : colors.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  child: Text(
-                    badge,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color:
-                          confirmedFree
-                              ? colors.onPrimaryContainer
-                              : colors.onSurfaceVariant,
-                    ),
+              const SizedBox(height: 6),
+              if (status != null) ...[
+                ChargingPilePorts(slots: status.slots, compact: true),
+              ] else
+                Text(
+                  loading ? '查询中…' : entry.failure?.message ?? '尚未查询',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              if (status != null)
-                ChargingPilePorts(slots: status.slots, historical: historical)
-              else
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    loading
-                        ? '正在查询插座状态…'
-                        : entry.failure?.message ?? '尚未查询插座状态',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  if (historical) ...[
-                    Icon(
-                      Icons.history,
-                      size: 16,
-                      color: colors.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                  Expanded(
-                    child: Text(
-                      status == null
-                          ? (loading ? '查询中' : '暂无更新时间')
-                          : '${historical ? '历史' : '更新'} ${chargingPileTime(status.fetchedAt, now)}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: '刷新 ${device.code}',
-                    onPressed: loading ? null : onRefresh,
-                    icon:
-                        loading
-                            ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                            : const Icon(Icons.refresh, size: 20),
-                  ),
-                ],
-              ),
             ],
           ),
         ),

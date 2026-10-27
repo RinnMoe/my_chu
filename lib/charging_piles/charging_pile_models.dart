@@ -85,15 +85,10 @@ class ChargingPileException implements Exception {
   String toString() => 'ChargingPileException(${failure.name})';
 }
 
-class ChargingPileCachedDevice {
-  const ChargingPileCachedDevice({this.status, this.failure, this.attemptedAt});
+class ChargingPileDeviceState {
+  const ChargingPileDeviceState({this.status, this.failure});
   final ChargingPileDeviceStatus? status;
   final ChargingPileFailure? failure;
-  final DateTime? attemptedAt;
-  bool isHistorical(DateTime now) =>
-      status != null &&
-      (failure != null ||
-          now.difference(status!.fetchedAt) >= const Duration(seconds: 60));
 }
 
 /// Cooperative cancellation shared by queues, retry delays and response fences.

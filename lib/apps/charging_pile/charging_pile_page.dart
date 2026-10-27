@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../charging_piles/charging_pile_models.dart';
 import '../../charging_piles/charging_pile_repository.dart';
 import 'charging_pile_widgets.dart';
+import 'charging_pile_credits.dart';
 
 enum _PileSort {
   number('按编号'),
@@ -29,15 +30,15 @@ class _ChargingPilePageState extends State<ChargingPilePage>
   static const _favoritesKey = 'charging_pile.favorites.v1';
   late final ChargingPileRepository _repository;
   final _search = TextEditingController();
-  final _ticks = ValueNotifier<int>(0);
+  final _viewRevision = ValueNotifier<int>(0);
   final _requests = <ChargingPileCancellation>{};
   final _favorites = <String>{};
   VoidCallback? _release;
   ChargingPileCancellation? _batch;
-  Timer? _clock;
   ChargingPileArea? _area = ChargingPileArea.chaohui;
   _PileSort _sort = _PileSort.number;
   bool _onlyFree = false;
+  bool _searching = false;
   bool _visible = true;
   bool _foreground = true;
   int _favoriteRevision = 0;
@@ -52,12 +53,6 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     _repository.addListener(_changed);
     _release = _repository.acquire();
     unawaited(_loadFavorites());
-    _clock = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (mounted && _visible && _foreground) {
-        _ticks.value++;
-        _changed();
-      }
-    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _visible && _foreground) unawaited(_refresh());
     });
@@ -81,6 +76,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
       if (!_favorites.remove(id)) _favorites.add(id);
       _favoriteRevision++;
     });
+    _viewRevision.value++;
     final saved = _favorites.toList()..sort();
     _favoriteWrites = _favoriteWrites
         .then((_) async {
@@ -128,20 +124,23 @@ class _ChargingPilePageState extends State<ChargingPilePage>
   }
 
   void _changed() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final areas = _repository.loadAreas();
+    if (_area != null && areas.isNotEmpty && !areas.contains(_area))
+      _area = areas.first;
+    setState(() {});
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _clock?.cancel();
     _repository.removeListener(_changed);
     for (final request in _requests) {
       request.cancel();
     }
     _release?.call();
     _search.dispose();
-    _ticks.dispose();
+    _viewRevision.dispose();
     super.dispose();
   }
 
@@ -151,48 +150,31 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     final request = ChargingPileCancellation();
     _batch = request;
     _requests.add(request);
-    final area = _area;
     try {
+      if (!mounted || request.isCancelled) return;
       if (sync) {
         await _repository.syncCredential();
         if (_repository.failure != null) return;
       }
       if (!mounted || request.isCancelled) return;
-      if (area == null) {
-        await _repository.refreshAll(cancellation: request);
-      } else {
-        await _repository.refreshArea(area, cancellation: request);
-      }
-    } finally {
-      _requests.remove(request);
-    }
-  }
-
-  Future<void> _refreshDevice(String id) async {
-    if (!_visible || !_foreground) return;
-    final request = ChargingPileCancellation();
-    _requests.add(request);
-    try {
-      await _repository.refreshDevice(id, cancellation: request);
+      await _repository.refreshAll();
     } finally {
       _requests.remove(request);
     }
   }
 
   void _selectArea(String value) {
-    final area = value == 'all' ? null : ChargingPileArea.values.byName(value);
+    final area =
+        value == 'all'
+            ? null
+            : _repository.loadAreas().singleWhere((area) => area.name == value);
     if (area == _area) return;
-    _batch?.cancel();
     setState(() => _area = area);
-    // Viewing the whole catalog does not implicitly send 109 device requests.
-    if (area != null) unawaited(_refresh());
   }
 
   int _freeRank(ChargingPileDevice device) {
     final entry = _repository.stateFor(device.id);
-    return entry.status == null || entry.isHistorical(_repository.now)
-        ? -1
-        : entry.status!.freeSlots;
+    return entry.status == null ? -1 : entry.status!.freeSlots;
   }
 
   void _showDevice(ChargingPileDevice device) {
@@ -202,11 +184,10 @@ class _ChargingPilePageState extends State<ChargingPilePage>
       isScrollControlled: true,
       builder:
           (context) => AnimatedBuilder(
-            animation: Listenable.merge([_repository, _ticks]),
+            animation: Listenable.merge([_repository, _viewRevision]),
             builder: (context, _) {
               final entry = _repository.stateFor(device.id);
               final status = entry.status;
-              final historical = entry.isHistorical(_repository.now);
               final theme = Theme.of(context);
               return SafeArea(
                 child: SingleChildScrollView(
@@ -215,9 +196,23 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '${device.code} 号桩',
-                        style: theme.textTheme.headlineSmall,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${device.code} 号桩',
+                              style: theme.textTheme.headlineSmall,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip:
+                                _favorites.contains(device.id) ? '取消收藏' : '收藏',
+                            isSelected: _favorites.contains(device.id),
+                            icon: const Icon(Icons.star_outline_rounded),
+                            selectedIcon: const Icon(Icons.star_rounded),
+                            onPressed: () => _toggleFavorite(device.id),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -231,30 +226,18 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                           style: theme.textTheme.titleMedium,
                         ),
                         const SizedBox(height: 16),
-                        ChargingPilePorts(
-                          slots: status.slots,
-                          historical: historical,
-                        ),
+                        ChargingPilePorts(slots: status.slots),
                         const SizedBox(height: 16),
                         Text(
-                          '${historical ? '历史数据' : '更新时间'} ${chargingPileTime(status.fetchedAt, _repository.now)}',
+                          '更新时间 ${chargingPileTime(status.fetchedAt, _repository.now)}',
                           style: theme.textTheme.bodySmall,
                         ),
-                      ] else
+                      ] else if (entry.failure == null)
                         const Text('尚无插座状态'),
                       if (entry.failure != null) ...[
                         const SizedBox(height: 12),
                         Text(entry.failure!.message),
                       ],
-                      const SizedBox(height: 24),
-                      FilledButton.tonalIcon(
-                        onPressed:
-                            _repository.isDeviceRefreshing(device.id)
-                                ? null
-                                : () => _refreshDevice(device.id),
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('刷新此设备'),
-                      ),
                     ],
                   ),
                 ),
@@ -263,27 +246,6 @@ class _ChargingPilePageState extends State<ChargingPilePage>
           ),
     );
   }
-
-  Widget _filterMenu<T>({
-    required String label,
-    required T value,
-    required List<DropdownMenuItem<T>> items,
-    required ValueChanged<T?> onChanged,
-  }) => InputDecorator(
-    decoration: InputDecoration(
-      labelText: label,
-      border: const OutlineInputBorder(),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-    ),
-    child: DropdownButtonHideUnderline(
-      child: DropdownButton<T>(
-        value: value,
-        isExpanded: true,
-        items: items,
-        onChanged: onChanged,
-      ),
-    ),
-  );
 
   @override
   Widget build(BuildContext context) {
@@ -320,55 +282,17 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     final current =
         devices
             .map((d) => _repository.stateFor(d.id))
-            .where((e) => e.status != null && !e.isHistorical(now))
+            .where((e) => e.status != null)
             .toList();
-    final successful =
-        devices
-            .map((d) => _repository.stateFor(d.id).status?.fetchedAt)
-            .whereType<DateTime>()
-            .toList()
-          ..sort();
     final error = _repository.failure;
-    final areaMenu = _filterMenu<String>(
-      label: '分区',
-      value: _area?.name ?? 'all',
-      items: [
-        const DropdownMenuItem(value: 'all', child: Text('全部分区')),
-        ...ChargingPileArea.values.map(
-          (area) => DropdownMenuItem(
-            value: area.name,
-            child: Text(area.label, overflow: TextOverflow.ellipsis),
-          ),
-        ),
-      ],
-      onChanged: (value) {
-        if (value != null) _selectArea(value);
-      },
-    );
-    final sortMenu = _filterMenu<_PileSort>(
-      label: '排序',
-      value: _sort,
-      items:
-          _PileSort.values
-              .map(
-                (sort) => DropdownMenuItem(
-                  value: sort,
-                  child: Text(sort.label, overflow: TextOverflow.ellipsis),
-                ),
-              )
-              .toList(),
-      onChanged: (value) {
-        if (value != null) setState(() => _sort = value);
-      },
-    );
     return Scaffold(
       appBar: AppBar(
-        title: const Text('共享充电桩'),
+        title: const Text('空闲充电桩'),
         actions: [
           IconButton(
-            tooltip: _area == null ? '刷新全部分区' : '刷新当前分区',
-            onPressed: _repository.isRefreshing ? null : () => _refresh(),
-            icon: const Icon(Icons.refresh),
+            tooltip: '致谢&贡献名单',
+            icon: const Icon(Icons.help_outline),
+            onPressed: () => showChargingPileCredits(context),
           ),
         ],
       ),
@@ -377,12 +301,13 @@ class _ChargingPilePageState extends State<ChargingPilePage>
           constraints: const BoxConstraints(maxWidth: 1120),
           child: LayoutBuilder(
             builder: (context, constraints) {
+              final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+              final cardWidth = 156 * textScale.clamp(1.0, 2.0);
               final columns =
-                  constraints.maxWidth >= 1080
-                      ? 3
-                      : constraints.maxWidth >= 720
-                      ? 2
-                      : 1;
+                  ((constraints.maxWidth - 32 + 8) / (cardWidth + 8))
+                      .floor()
+                      .clamp(1, 4)
+                      .toInt();
               return RefreshIndicator(
                 onRefresh: () => _refresh(),
                 child: CustomScrollView(
@@ -394,6 +319,123 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: PopupMenuButton<String>(
+                                    tooltip: '选择分区',
+                                    initialValue: _area?.name ?? 'all',
+                                    onSelected: _selectArea,
+                                    itemBuilder:
+                                        (context) => [
+                                          CheckedPopupMenuItem(
+                                            value: 'all',
+                                            checked: _area == null,
+                                            child: const Text('全部分区'),
+                                          ),
+                                          ..._repository.loadAreas().map(
+                                            (area) => CheckedPopupMenuItem(
+                                              value: area.name,
+                                              checked: _area == area,
+                                              child: Text(area.label),
+                                            ),
+                                          ),
+                                        ],
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        minHeight: 48,
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 8,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                _area?.label ?? '全部分区',
+                                                style: theme
+                                                    .textTheme
+                                                    .titleMedium
+                                                    ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            const Icon(Icons.arrow_drop_down),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: _searching ? '关闭搜索' : '搜索',
+                                  isSelected: _searching,
+                                  icon: const Icon(Icons.search),
+                                  onPressed:
+                                      () => setState(() {
+                                        _searching = !_searching;
+                                        if (!_searching) _search.clear();
+                                      }),
+                                ),
+                                PopupMenuButton<_PileSort>(
+                                  tooltip: '排序：${_sort.label}',
+                                  icon: const Icon(Icons.sort),
+                                  initialValue: _sort,
+                                  onSelected:
+                                      (value) => setState(() => _sort = value),
+                                  itemBuilder:
+                                      (context) =>
+                                          _PileSort.values
+                                              .map(
+                                                (sort) => CheckedPopupMenuItem(
+                                                  value: sort,
+                                                  checked: _sort == sort,
+                                                  child: Text(sort.label),
+                                                ),
+                                              )
+                                              .toList(),
+                                ),
+                                const SizedBox(width: 4),
+                                FilterChip(
+                                  side: BorderSide.none,
+                                  backgroundColor:
+                                      theme.colorScheme.surfaceContainerHigh,
+                                  label: Text(
+                                    _onlyFree
+                                        ? '空闲 ${filtered.length} 台'
+                                        : '只看空闲',
+                                  ),
+                                  selected: _onlyFree,
+                                  onSelected:
+                                      (value) =>
+                                          setState(() => _onlyFree = value),
+                                ),
+                              ],
+                            ),
+                            if (_searching) ...[
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _search,
+                                autofocus: true,
+                                decoration: InputDecoration(
+                                  hintText: '桩号或设备编号',
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                  suffixIcon: IconButton(
+                                    tooltip: '清空搜索',
+                                    icon: const Icon(Icons.close),
+                                    onPressed:
+                                        () => setState(() => _search.clear()),
+                                  ),
+                                ),
+                                onChanged: (_) => setState(() {}),
+                              ),
+                            ],
+                            const SizedBox(height: 8),
                             ChargingPileSummary(
                               freeSlots: current.fold(
                                 0,
@@ -405,63 +447,8 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                               ),
                               updatedDevices: current.length,
                               totalDevices: devices.length,
-                              latest:
-                                  successful.isEmpty ? null : successful.last,
+                              latest: _repository.updatedAt,
                               now: now,
-                            ),
-                            const SizedBox(height: 20),
-                            SearchBar(
-                              controller: _search,
-                              hintText: '搜索桩号或设备编号',
-                              leading: const Icon(Icons.search),
-                              elevation: const WidgetStatePropertyAll(0),
-                              trailing: [
-                                if (_search.text.isNotEmpty)
-                                  IconButton(
-                                    tooltip: '清空搜索',
-                                    icon: const Icon(Icons.close),
-                                    onPressed: () {
-                                      _search.clear();
-                                      setState(() {});
-                                    },
-                                  ),
-                              ],
-                              onChanged: (_) => setState(() {}),
-                            ),
-                            const SizedBox(height: 16),
-                            if (constraints.maxWidth < 480 &&
-                                MediaQuery.textScalerOf(context).scale(14) > 20)
-                              Column(
-                                children: [
-                                  areaMenu,
-                                  const SizedBox(height: 16),
-                                  sortMenu,
-                                ],
-                              )
-                            else
-                              Row(
-                                children: [
-                                  Expanded(flex: 3, child: areaMenu),
-                                  const SizedBox(width: 12),
-                                  Expanded(flex: 2, child: sortMenu),
-                                ],
-                              ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                FilterChip(
-                                  label: const Text('只看空闲'),
-                                  selected: _onlyFree,
-                                  onSelected:
-                                      (value) =>
-                                          setState(() => _onlyFree = value),
-                                ),
-                                const Spacer(),
-                                Text(
-                                  '${filtered.length} 台',
-                                  style: theme.textTheme.labelLarge,
-                                ),
-                              ],
                             ),
                             if (_repository.isRefreshing) ...[
                               const SizedBox(height: 8),
@@ -516,7 +503,8 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                         ),
                       ),
                     ),
-                    if (filtered.isEmpty)
+                    if (filtered.isEmpty &&
+                        _repository.loadCatalog().isNotEmpty)
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.all(32),
@@ -545,14 +533,14 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                           ),
                         ),
                       )
-                    else
+                    else if (filtered.isNotEmpty)
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         sliver: SliverList.builder(
                           itemCount: (filtered.length / columns).ceil(),
                           itemBuilder:
                               (context, row) => Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.only(bottom: 8),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: List.generate(columns, (column) {
@@ -560,7 +548,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                                     return Expanded(
                                       child: Padding(
                                         padding: EdgeInsets.only(
-                                          left: column == 0 ? 0 : 12,
+                                          left: column == 0 ? 0 : 8,
                                         ),
                                         child:
                                             index >= filtered.length
@@ -570,11 +558,8 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                                                   entry: _repository.stateFor(
                                                     filtered[index].id,
                                                   ),
-                                                  now: now,
-                                                  loading: _repository
-                                                      .isDeviceRefreshing(
-                                                        filtered[index].id,
-                                                      ),
+                                                  loading:
+                                                      _repository.isRefreshing,
                                                   favorite: _favorites.contains(
                                                     filtered[index].id,
                                                   ),
@@ -586,10 +571,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                                                       () => _showDevice(
                                                         filtered[index],
                                                       ),
-                                                  onRefresh:
-                                                      () => _refreshDevice(
-                                                        filtered[index].id,
-                                                      ),
+                                                  showArea: _area == null,
                                                 ),
                                       ),
                                     );

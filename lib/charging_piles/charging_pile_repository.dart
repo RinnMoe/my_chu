@@ -10,7 +10,7 @@ import 'charging_pile_catalog.dart';
 import 'charging_pile_models.dart';
 
 /// One process-wide source of truth, shared by native pages and future clients.
-/// No polling: consumers explicitly request their visible area/devices.
+/// No polling: consumers explicitly refresh the entire page.
 class ChargingPileRepository extends ChangeNotifier {
   factory ChargingPileRepository.shared() =>
       _shared ??= ChargingPileRepository();
@@ -19,13 +19,13 @@ class ChargingPileRepository extends ChangeNotifier {
   ChargingPileRepository({
     ChargingPileApi? api,
     ChargingCredentialService? credentials,
-    List<ChargingPileDevice> catalog = kChargingPileDevices,
+    List<ChargingPileDevice>? catalog,
     DateTime Function()? now,
     Future<bool> Function()? consent,
     this.retryDelay = const Duration(milliseconds: 800),
   }) : _credentials =
            credentials ?? (api == null ? ChargingCredentialService() : null),
-       _catalog = List.unmodifiable(catalog),
+       _catalog = List.unmodifiable(catalog ?? kChargingPileDevices),
        _now = now ?? DateTime.now,
        _consent = consent ?? PrivacyAgreementService.isAccepted {
     _api = api ?? ChargingPileApiClient(_credentials!);
@@ -38,10 +38,12 @@ class ChargingPileRepository extends ChangeNotifier {
   final DateTime Function() _now;
   final Future<bool> Function() _consent;
   final Duration retryDelay;
-  final _cache = <String, ChargingPileCachedDevice>{};
-  final _inFlight = <String, Future<void>>{};
+  final _states = <String, ChargingPileDeviceState>{};
+  Future<void>? _pageFlight;
   ChargingPileCancellation _runtime = ChargingPileCancellation();
-  final _batches = <ChargingPileCancellation>{};
+  bool _pageLoading = false;
+  DateTime? _lastPageAttempt;
+  DateTime? _updatedAt;
   bool _disposed = false;
   int _consumers = 0;
   int _active = 0;
@@ -53,20 +55,21 @@ class ChargingPileRepository extends ChangeNotifier {
   ChargingPileFailure? _pauseReason;
 
   List<ChargingPileDevice> loadCatalog() => _catalog;
-  Map<String, ChargingPileCachedDevice> getCachedState() =>
-      Map.unmodifiable(_cache);
-  ChargingPileCachedDevice stateFor(String id) =>
-      _cache[id] ?? const ChargingPileCachedDevice();
+  List<ChargingPileArea> loadAreas() =>
+      List.unmodifiable(_catalog.map((d) => d.area).toSet());
+  Map<String, ChargingPileDeviceState> getState() => Map.unmodifiable(_states);
+  ChargingPileDeviceState stateFor(String id) =>
+      _states[id] ?? const ChargingPileDeviceState();
   DateTime get now => _now();
-  bool get isRefreshing => _batches.isNotEmpty;
-  bool isDeviceRefreshing(String id) => _inFlight.containsKey(id);
+  bool get isRefreshing => _pageLoading;
+  DateTime? get updatedAt => _updatedAt;
   int get completed => _completed;
   int get total => _total;
   ChargingPileFailure? get failure => _failure;
   DateTime? get pausedUntil => _pausedUntil;
 
   /// A page/layer must release when hidden or disposed. The last release stops
-  /// queued work/retries and fences in-flight responses; cached data survives.
+  /// queued work/retries and fences in-flight page responses.
   VoidCallback acquire() {
     if (_disposed) throw StateError('Repository disposed');
     _consumers++;
@@ -86,11 +89,9 @@ class ChargingPileRepository extends ChangeNotifier {
   void _cancelWork() {
     _runtime.cancel();
     _runtime = ChargingPileCancellation();
-    for (final batch in _batches) {
-      batch.cancel();
-    }
-    _batches.clear();
-    _inFlight.clear();
+    _pageFlight = null;
+    if (_pageLoading) _lastPageAttempt = null;
+    _pageLoading = false;
     _credentials?.cancelPending();
     _emit();
   }
@@ -98,7 +99,8 @@ class ChargingPileRepository extends ChangeNotifier {
   void _privacyChanged() {
     // Invalidate immediately, before the async preferences read can complete.
     _cancelWork();
-    _cache.clear();
+    _states.clear();
+    _updatedAt = null;
     _failure = ChargingPileFailure.consentRequired;
     _emit();
   }
@@ -109,13 +111,7 @@ class ChargingPileRepository extends ChangeNotifier {
       await _credentials?.syncCredential();
       if (runtime.isCancelled || _disposed) return;
       _failure = null;
-      for (final id in _cache.keys.toList()) {
-        final entry = _cache[id]!;
-        if (entry.failure == ChargingPileFailure.credentialUnavailable ||
-            entry.failure == ChargingPileFailure.credentialSync) {
-          _cache[id] = ChargingPileCachedDevice(status: entry.status);
-        }
-      }
+      _lastPageAttempt = null;
     } on ChargingPileException catch (e) {
       if (runtime.isCancelled || _disposed) return;
       _failure = e.failure;
@@ -123,83 +119,109 @@ class ChargingPileRepository extends ChangeNotifier {
     _emit();
   }
 
-  Future<void> refreshArea(
-    ChargingPileArea area, {
-    ChargingPileCancellation? cancellation,
-  }) => _refresh(
-    _catalog.where((device) => device.area == area).toList(),
-    cancellation,
-  );
-
-  /// Explicit caller intent only; not called on page creation or a timer.
-  Future<void> refreshAll({ChargingPileCancellation? cancellation}) =>
-      _refresh(_catalog, cancellation);
-
-  Future<void> refreshDevice(
-    String id, {
-    ChargingPileCancellation? cancellation,
-  }) => _refresh([
-    _catalog.singleWhere((device) => device.id == id),
-  ], cancellation);
-
-  Future<void> _refresh(
-    List<ChargingPileDevice> devices,
-    ChargingPileCancellation? cancellation,
-  ) async {
+  /// Refresh the entire directory as one page transaction. Consumers share the
+  /// same in-flight batch; filters never create their own device requests.
+  Future<void> refreshAll() async {
     if (_disposed) return;
+    final pending = _pageFlight;
+    if (pending != null) return pending;
     final runtime = _runtime;
-    bool accepted;
+    final flight = _refreshPage(runtime);
+    _pageFlight = flight;
     try {
-      accepted = await _consent();
+      await flight;
+    } finally {
+      if (identical(_pageFlight, flight)) _pageFlight = null;
+    }
+  }
+
+  Future<void> _refreshPage(ChargingPileCancellation runtime) async {
+    if (runtime.isCancelled || _disposed) return;
+    try {
+      if (!await _consent()) {
+        _failure = ChargingPileFailure.consentRequired;
+        _emit();
+        return;
+      }
     } catch (_) {
       _failure = ChargingPileFailure.storage;
       _emit();
       return;
     }
-    if (!accepted) {
-      _failure = ChargingPileFailure.consentRequired;
-      _emit();
-      return;
-    }
-    if (runtime.isCancelled || _disposed || cancellation?.isCancelled == true)
-      return;
+    if (runtime.isCancelled || _disposed) return;
     if (_pausedUntil?.isAfter(_now()) == true) {
       _failure = _pauseReason;
       _emit();
       return;
     }
-    final batch = cancellation ?? ChargingPileCancellation();
-    if (_batches.isEmpty) {
-      _completed = 0;
-      _total = 0;
-      _failure = null;
-      _networkFailures = 0;
-    }
-    _total += devices.length;
-    _batches.add(batch);
+    // Deduplicate the whole page, not individual devices. No time-based expiry
+    // is applied to displayed results; the next page transaction replaces them.
+    if (_lastPageAttempt != null &&
+        _states.isNotEmpty &&
+        _now().difference(_lastPageAttempt!) < const Duration(seconds: 60))
+      return;
+    _lastPageAttempt = _now();
+    final devices = List<ChargingPileDevice>.of(_catalog);
+    _pageLoading = true;
+    _completed = 0;
+    _total = devices.length;
+    _failure = null;
+    _networkFailures = 0;
+    _states.clear();
+    _updatedAt = null;
     _emit();
+    final results = <String, ChargingPileDeviceState>{};
+    ChargingPileFailure? stopReason;
     var index = 0;
-    var stopped = false;
+    bool getStopped() => runtime.isCancelled || _disposed || stopReason != null;
+
     Future<void> worker() async {
-      while (!stopped &&
-          !batch.isCancelled &&
-          !runtime.isCancelled &&
-          !_disposed) {
-        if (_pausedUntil?.isAfter(_now()) == true) return;
-        final current = index++;
-        if (current >= devices.length) return;
-        final device = devices[current];
-        await _refreshOne(device, runtime);
-        if (batch.isCancelled || runtime.isCancelled || _disposed) return;
-        final error = stateFor(device.id).failure;
-        if (error != null) _failure = error;
-        if (error == ChargingPileFailure.credentialUnavailable ||
-            error == ChargingPileFailure.credentialSync ||
-            error == ChargingPileFailure.storage ||
-            error == ChargingPileFailure.consentRequired)
-          stopped = true;
+      while (!getStopped()) {
+        final position = index++;
+        if (position >= devices.length) return;
+        final device = devices[position];
+        try {
+          final slots = await _querySlots(device.id, runtime, getStopped);
+          if (runtime.isCancelled || _disposed) return;
+          _networkFailures = 0;
+          results[device.id] = ChargingPileDeviceState(
+            status: ChargingPileDeviceStatus(
+              device: device,
+              slots: slots,
+              fetchedAt: _now(),
+            ),
+          );
+        } on ChargingPileException catch (e) {
+          if (runtime.isCancelled || _disposed) return;
+          if (e.failure == ChargingPileFailure.cancelled) return;
+          results[device.id] = ChargingPileDeviceState(failure: e.failure);
+          _failure = e.failure;
+          if (e.failure == ChargingPileFailure.network) {
+            _networkFailures++;
+          } else {
+            _networkFailures = 0;
+          }
+          if (e.failure == ChargingPileFailure.rateLimited ||
+              _networkFailures >= 5) {
+            stopReason ??= e.failure;
+            _pauseReason = e.failure;
+            _pausedUntil = _now().add(const Duration(minutes: 10));
+          } else if (e.failure == ChargingPileFailure.credentialUnavailable ||
+              e.failure == ChargingPileFailure.credentialSync ||
+              e.failure == ChargingPileFailure.storage ||
+              e.failure == ChargingPileFailure.consentRequired) {
+            stopReason ??= e.failure;
+          }
+        } catch (_) {
+          if (runtime.isCancelled || _disposed) return;
+          results[device.id] = const ChargingPileDeviceState(
+            failure: ChargingPileFailure.platform,
+          );
+          _failure = ChargingPileFailure.platform;
+        }
+        if (runtime.isCancelled || _disposed) return;
         _completed++;
-        _emit();
+        _emit(); // Progress only; device results publish together below.
       }
     }
 
@@ -207,57 +229,53 @@ class ChargingPileRepository extends ChangeNotifier {
       await Future.wait(
         List.generate(math.min(6, devices.length), (_) => worker()),
       );
+      if (runtime.isCancelled || _disposed) return;
+      final ids = _catalog.map((d) => d.id).toSet();
+      for (final device in devices) {
+        if (ids.contains(device.id)) {
+          _states[device.id] =
+              results[device.id] ??
+              ChargingPileDeviceState(
+                failure: stopReason ?? ChargingPileFailure.platform,
+              );
+        }
+      }
+      _failure = stopReason ?? _failure;
+      _updatedAt =
+          results.values.any((entry) => entry.status != null) ? _now() : null;
     } finally {
-      _batches.remove(batch);
-      _emit();
+      if (identical(runtime, _runtime)) {
+        _pageLoading = false;
+        _emit();
+      }
     }
   }
 
-  Future<void> _refreshOne(
-    ChargingPileDevice device,
+  Future<List<ChargingPileSlot>> _querySlots(
+    String id,
     ChargingPileCancellation runtime,
+    bool Function() stopped,
   ) async {
-    final existing = _inFlight[device.id];
-    if (existing != null) return existing;
-    final attempted = _cache[device.id]?.attemptedAt;
-    if (attempted != null &&
-        _now().difference(attempted) < const Duration(seconds: 60))
-      return;
-    final flight = _query(device, runtime);
-    _inFlight[device.id] = flight;
-    try {
-      await flight;
-    } finally {
-      if (identical(_inFlight[device.id], flight)) _inFlight.remove(device.id);
-    }
-  }
-
-  Future<void> _query(
-    ChargingPileDevice device,
-    ChargingPileCancellation runtime,
-  ) async {
-    // Global across overlapping batches/pages, not six per refresh call.
     while (_active >= 6) {
       await Future.any([
         Future<void>.delayed(const Duration(milliseconds: 20)),
         runtime.whenCancelled,
       ]);
-      if (runtime.isCancelled || _disposed) return;
+      runtime.check();
+      if (stopped())
+        throw const ChargingPileException(ChargingPileFailure.cancelled);
     }
-    if (runtime.isCancelled ||
-        _disposed ||
-        _pausedUntil?.isAfter(_now()) == true)
-      return;
+    runtime.check();
+    if (stopped())
+      throw const ChargingPileException(ChargingPileFailure.cancelled);
     _active++;
-    final attemptedAt = _now();
     try {
-      List<ChargingPileSlot>? slots;
       for (var attempt = 0; attempt < 2; attempt++) {
         runtime.check();
-        if (_pausedUntil?.isAfter(_now()) == true) return;
+        if (stopped())
+          throw const ChargingPileException(ChargingPileFailure.cancelled);
         try {
-          slots = await _api.queryDevice(device.id, runtime);
-          break;
+          return await _api.queryDevice(id, runtime);
         } on ChargingPileException catch (e) {
           if (e.failure != ChargingPileFailure.network || attempt == 1) rethrow;
           await Future.any([
@@ -266,51 +284,9 @@ class ChargingPileRepository extends ChangeNotifier {
           ]);
         }
       }
-      runtime.check();
-      if (_disposed) return;
-      _networkFailures = 0;
-      _cache[device.id] = ChargingPileCachedDevice(
-        status: ChargingPileDeviceStatus(
-          device: device,
-          slots: slots!,
-          fetchedAt: _now(),
-        ),
-        attemptedAt: attemptedAt,
-      );
-    } on ChargingPileException catch (e) {
-      if (runtime.isCancelled ||
-          _disposed ||
-          e.failure == ChargingPileFailure.cancelled)
-        return;
-      _recordFailure(device, e.failure, attemptedAt);
-    } catch (_) {
-      if (!runtime.isCancelled && !_disposed)
-        _recordFailure(device, ChargingPileFailure.platform, attemptedAt);
+      throw const ChargingPileException(ChargingPileFailure.platform);
     } finally {
       _active--;
-      _emit();
-    }
-  }
-
-  void _recordFailure(
-    ChargingPileDevice device,
-    ChargingPileFailure failure,
-    DateTime attemptedAt,
-  ) {
-    _failure = failure;
-    _cache[device.id] = ChargingPileCachedDevice(
-      status: _cache[device.id]?.status,
-      failure: failure,
-      attemptedAt: attemptedAt,
-    );
-    if (failure == ChargingPileFailure.network) {
-      _networkFailures++;
-    } else {
-      _networkFailures = 0;
-    }
-    if (failure == ChargingPileFailure.rateLimited || _networkFailures >= 5) {
-      _pauseReason = failure;
-      _pausedUntil = _now().add(const Duration(minutes: 10));
     }
   }
 
