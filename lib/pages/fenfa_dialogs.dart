@@ -105,7 +105,7 @@ class _FenfaUpdateDialogState extends State<FenfaUpdateDialog> {
     return PopScope(
       canPop: !widget.force,
       child: AlertDialog(
-        title: Text(widget.force ? '发现新版本（强制更新）' : '发现新版本'),
+        title: const Text('发现新版本'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -134,7 +134,7 @@ class _FenfaUpdateDialogState extends State<FenfaUpdateDialog> {
                 ),
               const SizedBox(height: 12),
               Text(
-                '安装包将在应用内下载，完成后由系统安装程序确认安装。',
+                '下载完成后，请按系统提示完成安装。',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colors.onSurfaceVariant,
                 ),
@@ -142,7 +142,7 @@ class _FenfaUpdateDialogState extends State<FenfaUpdateDialog> {
               if (widget.force) ...[
                 const SizedBox(height: 12),
                 Text(
-                  '本次为强制更新，请立即完成升级。',
+                  '此版本需要更新后才能继续使用。',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colors.error,
                   ),

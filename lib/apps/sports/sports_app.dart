@@ -10,7 +10,7 @@ final sportsApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.sports.portal',
     name: '长大体育',
-    description: '场馆预约、体测成绩查询、体育选课',
+    description: '预约场馆、查询体测成绩与体育选课。',
     iconCodePoint: Icons.fitness_center_outlined.codePoint,
     category: AppCategory.academic,
     developmentFlag: DevelopmentFlag.none,

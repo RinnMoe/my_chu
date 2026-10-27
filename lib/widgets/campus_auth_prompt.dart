@@ -24,7 +24,7 @@ class CampusAuthPrompt extends StatelessWidget {
       }
       final storageError = state.status == HostAuthStatus.storageError;
       final theme = Theme.of(context);
-      final description = storageError ? '账号暂时无法读取，可重试后继续。' : '登录校园账号后同步$title';
+      final description = storageError ? '账号暂时无法读取，可重试后继续。' : '登录校园账号后查看$title';
       void activate() {
         if (storageError) {
           HostAuthCoordinator.retry();
@@ -142,7 +142,7 @@ class CampusAuthStatusOverlay extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 8),
-                const Expanded(child: Text('登录已失效，已保留本地数据')),
+                const Expanded(child: Text('登录已过期，已保留此前加载的内容')),
                 TextButton(
                   onPressed: () => HostLogin.open(context),
                   child: const Text('重新登录'),

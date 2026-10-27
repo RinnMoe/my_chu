@@ -2,11 +2,11 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "MyCHU HarmonyOS module"
+      "value": "MyCHU 校园服务模块"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "MyCHU main window"
+      "value": "MyCHU 主界面"
     },
     {
       "name": "EntryAbility_label",
@@ -22,7 +22,7 @@
     },
     {
       "name": "bluetooth_permission_reason",
-      "value": "仅在你主动测试时扫描附近 BLE 设备并连接二维码对应的设备。"
+      "value": "用于连接你主动扫码的插座设备。"
     },
     {
       "name": "week_schedule_widget_label",

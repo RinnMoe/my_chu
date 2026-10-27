@@ -295,7 +295,7 @@ class _TronclassRollcallPageState extends State<TronclassRollcallPage> {
                       onTap: () => _choose(item),
                     )
                 else if (!_store.loading)
-                  const Text('暂无待应答点名，可下拉首页或点击刷新查看。'),
+                  const Text('暂无待应答点名'),
               ],
             ),
           ),

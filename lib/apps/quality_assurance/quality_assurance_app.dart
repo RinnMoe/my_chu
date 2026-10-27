@@ -9,7 +9,7 @@ final qualityAssuranceApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.quality.assurance',
     name: '评教系统',
-    description: '教学质量评价',
+    description: '参与课程教学质量评价。',
     iconCodePoint: Icons.fact_check_outlined.codePoint,
     category: AppCategory.academic,
     developmentFlag: DevelopmentFlag.none,

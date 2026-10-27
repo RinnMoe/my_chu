@@ -42,7 +42,7 @@ class AuthRecoveryPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    retryable ? '正在恢复登录状态' : '需要重新登录',
+                    retryable ? '登录状态需要恢复' : '需要重新登录',
                     style: theme.textTheme.headlineSmall,
                     textAlign: TextAlign.center,
                   ),
@@ -72,7 +72,7 @@ class AuthRecoveryPage extends StatelessWidget {
                   ),
                   TextButton(
                     onPressed: onClearAccount,
-                    child: const Text('清除本地账号'),
+                    child: const Text('清除此设备上的登录信息'),
                   ),
                 ],
               ),

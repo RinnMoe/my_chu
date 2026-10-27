@@ -10,7 +10,7 @@ final libraryApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.library.opac',
     name: '图书馆服务',
-    description: '馆藏图书检索、图书借阅',
+    description: '检索馆藏图书、查看借阅记录。',
     iconCodePoint: Icons.local_library_outlined.codePoint,
     category: AppCategory.learning,
     developmentFlag: DevelopmentFlag.none,

@@ -682,7 +682,6 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
                       ],
                     ],
                   ),
-                  subtitle: Text(metadata.description),
                 ),
                 const Divider(height: 1),
                 ListTile(

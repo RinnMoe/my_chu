@@ -3,6 +3,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:mychu/widgets/dual_pane_placeholder.dart';
+
 import '../../services/platform_environment.dart';
 import '../../services/logger_service.dart';
 import '../../services/user_error_message.dart';
@@ -303,7 +305,7 @@ class PortalNoticesPanelState extends State<PortalNoticesPanel>
 
   Future<void> _openNotice(PortalNotice notice) async {
     if (notice.id.isEmpty) {
-      _showMessage('该公告暂无详情页面');
+      _showMessage('这条公告暂时无法查看，请稍后重试。');
       return;
     }
 
@@ -409,7 +411,7 @@ class PortalNoticesPanelState extends State<PortalNoticesPanel>
               selected == null
                   ? const KeyedSubtree(
                     key: ValueKey('material-portal-notices-detail'),
-                    child: _MaterialNoticeDetailPlaceholder(),
+                    child: DualPanePlaceholder(icon: Icons.article_outlined),
                   )
                   : PortalNoticeDetailPage(
                     key: ValueKey(
@@ -810,31 +812,6 @@ class _NoticeList extends StatelessWidget {
   String _publisher(PortalNotice notice) {
     final column = notice.column.isEmpty ? notice.department : notice.column;
     return column;
-  }
-}
-
-class _MaterialNoticeDetailPlaceholder extends StatelessWidget {
-  const _MaterialNoticeDetailPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return ColoredBox(
-      color: colors.surface,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.article_outlined, size: 40, color: colors.outline),
-            const SizedBox(height: 12),
-            Text(
-              '选择一条公告查看详情',
-              style: TextStyle(color: colors.onSurfaceVariant),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

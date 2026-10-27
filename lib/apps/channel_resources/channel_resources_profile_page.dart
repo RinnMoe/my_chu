@@ -345,7 +345,7 @@ class _ChannelResourcesSubmitResourcePageState
                 if (uri == null ||
                     (uri.scheme != 'http' && uri.scheme != 'https') ||
                     uri.host.isEmpty) {
-                  return '请输入有效的 HTTP(S) 链接。';
+                  return '请输入以 http:// 或 https:// 开头的完整链接。';
                 }
                 return null;
               },

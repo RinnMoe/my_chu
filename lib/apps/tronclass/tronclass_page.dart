@@ -265,17 +265,7 @@ class _CoursewareTabState extends State<_CoursewareTab>
                                         ],
                                       )
                                       : _page < _pages
-                                      ? Text(
-                                        '继续上滑加载更多课程',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.labelSmall?.copyWith(
-                                          color:
-                                              Theme.of(
-                                                context,
-                                              ).colorScheme.onSurfaceVariant,
-                                        ),
-                                      )
+                                      ? const SizedBox.shrink()
                                       : Text(
                                         '已显示全部 ${results.length} 门课程',
                                         style: Theme.of(
@@ -467,11 +457,7 @@ class _CoursewareFilesPageState extends State<_CoursewareFilesPage>
       );
       if (!mounted) return;
       setState(() => _downloadedFiles[file.fileId] = downloaded);
-      final savedLocation =
-          downloaded.path.startsWith('content://')
-              ? 'Download/MyCHU/${downloaded.fileName}'
-              : downloaded.path;
-      await _showFeedback('已保存到：$savedLocation');
+      await _showFeedback('已保存到「下载 / MyCHU」：${downloaded.fileName}');
     } catch (error) {
       if (!mounted) return;
       logUserFacingError(
@@ -566,8 +552,7 @@ class _CoursewareFilesPageState extends State<_CoursewareFilesPage>
             if (_progress case final progress?) ...[
               const SizedBox(height: 16),
               Text(
-                '扫描课件活动 ${progress.completed}/${progress.total}'
-                '，已发现 ${progress.found} 个文件',
+                '正在加载课件…（${progress.completed}/${progress.total}）',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

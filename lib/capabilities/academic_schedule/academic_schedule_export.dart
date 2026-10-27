@@ -9,7 +9,7 @@ class AcademicScheduleExportDateMappingException implements Exception {
   final String message;
 
   const AcademicScheduleExportDateMappingException([
-    this.message = '导出范围内的校历日期尚未加载，ICS 导出暂不可用。',
+    this.message = '课表尚未加载完成，请稍后重试。',
   ]);
 
   @override

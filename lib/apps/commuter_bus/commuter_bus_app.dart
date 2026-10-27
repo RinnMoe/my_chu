@@ -8,7 +8,7 @@ final commuterBusApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.commuter.bus',
     name: '通勤车',
-    description: '通勤车班次查询',
+    description: '查询通勤车班次与站点。',
     iconCodePoint: Icons.directions_bus_outlined.codePoint,
     category: AppCategory.campus,
     developmentFlag: DevelopmentFlag.none,

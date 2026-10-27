@@ -9,7 +9,7 @@ final channelResourcesApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.channel.resources',
     name: '频道资料站',
-    description: '校园学习资料与频道服务',
+    description: '浏览和下载校园学习资料。',
     iconCodePoint: Icons.folder_open_outlined.codePoint,
     category: AppCategory.learning,
     developmentFlag: DevelopmentFlag.none,

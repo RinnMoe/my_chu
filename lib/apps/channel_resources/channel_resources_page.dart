@@ -196,7 +196,7 @@ class _ChannelResourcesPageState extends State<ChannelResourcesPage> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        '本功能由校园频道运营，需要通过独立的校园频道账号登录。',
+                        '资料站使用频道账号，与统一身份认证分开登录。',
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 20),
@@ -232,7 +232,7 @@ class _ChannelResourcesPageState extends State<ChannelResourcesPage> {
                   NavigationDestination(
                     icon: Icon(Icons.person_outline),
                     selectedIcon: Icon(Icons.person),
-                    label: '账户',
+                    label: '账号',
                   ),
                 ],
               ),

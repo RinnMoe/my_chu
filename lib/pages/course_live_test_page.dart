@@ -56,7 +56,7 @@ class _CourseLiveTestPageState extends State<CourseLiveTestPage> {
     ),
     body:
         !kDebugMode || !PlatformCompatibilityService.isAndroid
-            ? const Center(child: Text('仅 Android Debug 可用'))
+            ? const Center(child: Text('仅 Android 开发版可用'))
             : ListView(
               padding: const EdgeInsets.all(16),
               children: [

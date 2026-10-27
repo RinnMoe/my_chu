@@ -9,7 +9,7 @@ final classroomUsageApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.classroom.usage',
     name: '空教室查询',
-    description: '查询各时段可用的空教室。',
+    description: '查询各时段的空闲教室。',
     iconCodePoint: Icons.meeting_room_outlined.codePoint,
     category: AppCategory.learning,
     developmentFlag: DevelopmentFlag.none,

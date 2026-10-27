@@ -34,7 +34,7 @@ class _PageManagementPageState extends State<PageManagementPage> {
         appBar: WindowControlsAwareAppBar(
           child: AppBar(
             title: const Text('页面管理'),
-            bottom: const TabBar(tabs: [Tab(text: '首页管理'), Tab(text: '底栏管理')]),
+            bottom: const TabBar(tabs: [Tab(text: '首页管理'), Tab(text: '底部导航栏')]),
           ),
         ),
         body: const TabBarView(
@@ -91,7 +91,7 @@ class _PageManagementPageState extends State<PageManagementPage> {
               ListTile(
                 selected: _selectedIndex == 1,
                 leading: const Icon(Icons.view_list_outlined),
-                title: const Text('底栏管理'),
+                title: const Text('底部导航栏'),
                 onTap: () => setState(() => _selectedIndex = 1),
               ),
             ],

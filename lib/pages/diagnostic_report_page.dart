@@ -126,7 +126,7 @@ class _DiagnosticReportPageState extends State<DiagnosticReportPage> {
   Future<void> _copy() async {
     await Clipboard.setData(ClipboardData(text: _currentReport.toText()));
     if (!mounted) return;
-    setState(() => _statusMessage = '诊断日志已复制到剪贴板。');
+    setState(() => _statusMessage = '诊断信息已复制到剪贴板。');
     _showMessage(_statusMessage!);
   }
 
@@ -180,8 +180,8 @@ class _DiagnosticReportPageState extends State<DiagnosticReportPage> {
       context: context,
       builder:
           (dialogContext) => AlertDialog(
-            title: const Text('清空诊断日志？'),
-            content: const Text('仅清除当前进程内的诊断事件，无法恢复。'),
+            title: const Text('清空诊断信息？'),
+            content: const Text('仅清除本次运行期间记录的信息，清除后无法恢复。'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext, false),
@@ -243,7 +243,7 @@ class _DiagnosticReportPageState extends State<DiagnosticReportPage> {
               icon: const Icon(Icons.share_outlined),
             ),
             IconButton(
-              tooltip: '清空诊断日志',
+              tooltip: '清空诊断信息',
               onPressed: _clear,
               icon: const Icon(Icons.delete_outline),
             ),

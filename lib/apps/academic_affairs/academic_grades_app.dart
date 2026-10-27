@@ -9,7 +9,7 @@ final academicGradesApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.academic.grades',
     name: '成绩',
-    description: '成绩、绩点与学分',
+    description: '查询课程成绩、绩点与学分。',
     iconCodePoint: Icons.grade_outlined.codePoint,
     category: AppCategory.academic,
     developmentFlag: DevelopmentFlag.none,

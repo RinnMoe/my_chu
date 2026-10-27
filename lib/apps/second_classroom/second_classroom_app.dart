@@ -12,7 +12,7 @@ final secondClassroomApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.second.classroom',
     name: '第二课堂',
-    description: '活动报名',
+    description: '报名第二课堂活动。',
     iconCodePoint: Icons.volunteer_activism_outlined.codePoint,
     category: AppCategory.learning,
     developmentFlag: DevelopmentFlag.none,

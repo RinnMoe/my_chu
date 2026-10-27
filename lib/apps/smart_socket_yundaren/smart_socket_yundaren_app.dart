@@ -8,7 +8,7 @@ final smartSocketYundarenApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.smart_socket.yundaren',
     name: '云达人',
-    description: '无需云达人使用插座',
+    description: '扫码启动宿舍插座，无需安装云达人。',
     iconCodePoint: Icons.power_outlined.codePoint,
     category: AppCategory.life,
     developmentFlag: DevelopmentFlag.none,

@@ -78,7 +78,7 @@ class _PortalPersonalPageState extends State<PortalPersonalPage>
             ],
             bottom: TabBar(
               controller: _tabController,
-              tabs: const [Tab(text: '个人状态'), Tab(text: '课程待办')],
+              tabs: const [Tab(text: '校园信息'), Tab(text: '课程待办')],
             ),
           ),
         ),
@@ -315,7 +315,7 @@ class _PersonalStatusPanel extends StatelessWidget {
 
   String _libraryValue(PortalPersonalInfo? info) {
     if (info == null) return '暂不可用';
-    return '${info.homeValue} 本未还';
+    return '${info.homeValue} 本图书未归还';
   }
 
   bool _hasDisplayValue(PortalPersonalInfo? info) {

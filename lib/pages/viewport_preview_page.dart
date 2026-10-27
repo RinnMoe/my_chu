@@ -110,7 +110,7 @@ class ViewportPreviewPage extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            '只在 DEV 中生效',
+                            '仅在开发模式生效',
                             style: TextStyle(fontWeight: FontWeight.w700),
                           ),
                         ),
@@ -119,7 +119,7 @@ class ViewportPreviewPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '在 iPad 上约束完整应用为 iPhone 逻辑尺寸，用于检查 compact 布局。重启应用后自动恢复真实 iPad 视图。',
+                      '在 iPad 上把应用限制为 iPhone 尺寸，用于检查紧凑布局。重启应用后恢复真实 iPad 视图。',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],

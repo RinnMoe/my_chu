@@ -8,7 +8,7 @@ final tronclassMobileApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.tronclass.mobile',
     name: '畅课',
-    description: '畅课APP',
+    description: '打开畅课移动端，查看课程与通知。',
     iconCodePoint: Icons.play_circle_outline.codePoint,
     category: AppCategory.learning,
     developmentFlag: DevelopmentFlag.none,

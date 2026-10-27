@@ -125,7 +125,7 @@ class CredentialSyncService {
       runId: runId,
       isSyncing: serviceList.isNotEmpty,
       totalSteps: serviceList.length,
-      message: serviceList.isEmpty ? '' : '正在同步核心应用会话…',
+      message: serviceList.isEmpty ? '' : '正在准备校园服务…',
       items: Map.unmodifiable(items),
     );
     if (serviceList.isEmpty) return;
@@ -171,7 +171,7 @@ class CredentialSyncService {
               available
                   ? CredentialSyncItemStatus.success
                   : CredentialSyncItemStatus.failed,
-          message: available ? '已完成' : '暂未获取到会话',
+          message: available ? '已就绪' : '暂未就绪',
         ),
       );
     } catch (error) {
@@ -230,10 +230,10 @@ class CredentialSyncService {
       totalSteps: current.totalSteps,
       message:
           !finished
-              ? '正在同步 ${_serviceLabel(serviceId)}…'
+              ? '正在准备 ${_serviceLabel(serviceId)}…'
               : hasError
-              ? '部分核心会话暂未同步，打开对应应用时会自动重试'
-              : '核心应用会话已同步',
+              ? '部分校园服务暂不可用，稍后会自动重试'
+              : '校园服务已准备就绪',
       items: Map.unmodifiable(items),
     );
   }

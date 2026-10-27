@@ -299,8 +299,8 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
     _SmartSocketView.unsupported => const _SmartSocketState(
       key: ValueKey('unsupported'),
       icon: Icons.phone_android_outlined,
-      title: '当前设备暂不支持',
-      message: '请使用支持的设备启动插座。',
+      title: '此设备暂不支持',
+      message: '请使用支持该功能的手机重试。',
     ),
   };
 
@@ -311,7 +311,6 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
       const _SmartSocketState(
         icon: Icons.power_outlined,
         title: '扫码启动插座',
-        message: '扫描设备码以开启',
       ),
       const SizedBox(height: 16),
       FilledButton.icon(
@@ -321,7 +320,7 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
       ),
       const SizedBox(height: 32),
       Text(
-        '本功能只支持该类设备',
+        '仅支持下图这种扫码插座。',
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.titleSmall,
       ),
@@ -347,7 +346,7 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
       const _SmartSocketState(
         icon: Icons.power_outlined,
         title: '识别成功',
-        message: '开启时长：5分钟',
+        message: '开启时长：5 分钟',
       ),
       const SizedBox(height: 20),
       FilledButton.icon(
@@ -445,7 +444,7 @@ class _SmartSocketState extends StatelessWidget {
     super.key,
     required this.icon,
     required this.title,
-    required this.message,
+    this.message,
     this.loading = false,
     this.error = false,
   });

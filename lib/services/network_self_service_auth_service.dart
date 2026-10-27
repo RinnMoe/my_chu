@@ -171,7 +171,7 @@ class NetworkSelfServiceAuthService {
         key,
         const NetworkSelfServiceAuthState(
           NetworkSelfServiceAuthStatus.missingCredential,
-          message: '请退出 MyCHU 后重新进行统一身份登录；登录成功后账号凭据会自动安全保存。',
+          message: '请重新登录统一身份认证；登录成功后即可查看套餐与在线设备。',
         ),
       );
       return null;
@@ -625,7 +625,7 @@ class NetworkSelfServiceAuthService {
         NetworkSelfServiceAuthStatus.captchaInputRequired,
         challengeId: transaction.challengeId,
         captchaBytes: transaction.captchaBytes,
-        message: message ?? '正在自动识别失败，请输入图形验证码。',
+        message: message ?? '自动识别未成功，请输入图片中的验证码。',
       ),
     );
   }
@@ -643,7 +643,7 @@ class NetworkSelfServiceAuthService {
       key,
       const NetworkSelfServiceAuthState(
         NetworkSelfServiceAuthStatus.invalidCredential,
-        message: '网络自服账号或密码不正确，请在统一身份登录安全设置中更新凭证。',
+        message: '账号或密码不正确，请退出后重新登录统一身份认证。',
       ),
     );
     _discardTransaction(key, transaction);

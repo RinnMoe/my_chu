@@ -101,21 +101,21 @@ class HostPermissionService {
   static const HostPermissionPurpose _nearbyScanPurpose = HostPermissionPurpose(
     permission: Permission.bluetoothScan,
     title: '附近设备权限申请',
-    message: '用于在你主动测试时查找二维码对应的 BLE 设备。',
+    message: '用于连接你主动扫码的插座设备，仅在使用该功能时访问。',
   );
 
   static const HostPermissionPurpose _nearbyConnectPurpose =
       HostPermissionPurpose(
         permission: Permission.bluetoothConnect,
         title: '附近设备权限申请',
-        message: '用于在你确认测试后连接并向目标 BLE 设备发送协议指令。',
+        message: '用于连接你主动扫码的插座设备，仅在使用该功能时访问。',
       );
 
   static const HostPermissionPurpose harmonyBleCentralPurpose =
       HostPermissionPurpose(
         permission: Permission.bluetoothScan,
         title: '附近设备权限申请',
-        message: '仅在你主动测试时扫描附近 BLE 设备，并连接二维码对应的设备。',
+        message: '用于连接你主动扫码的插座设备，仅在使用该功能时访问。',
       );
 
   static const List<HostPermissionPurpose> bleCentralPurposes = [
@@ -127,7 +127,7 @@ class HostPermissionService {
       HostPermissionPurpose(
         permission: Permission.locationWhenInUse,
         title: '定位权限申请',
-        message: '旧版 Android 扫描附近 BLE 设备时需要定位权限。',
+        message: '旧版 Android 连接插座设备时需要定位权限。',
       );
 
   static const int androidLegacyBleLocationMaxSdk = 30;

@@ -8,7 +8,7 @@ final academicWebApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.academic.web',
     name: '教务系统',
-    description: '教务系统网页版',
+    description: '打开教务系统网页版办理教务事项。',
     iconCodePoint: Icons.dashboard_outlined.codePoint,
     category: AppCategory.academic,
     developmentFlag: DevelopmentFlag.none,

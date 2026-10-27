@@ -14,7 +14,7 @@ class OpenSourcePage extends StatelessWidget {
     _DependencyEntry('flutter_secure_storage', '安全存储'),
     _DependencyEntry('shared_preferences', '本地设置存储'),
     _DependencyEntry('mobile_scanner', '二维码与条码扫描'),
-    _DependencyEntry('flutter_blue_plus', 'BLE 设备连接'),
+    _DependencyEntry('flutter_blue_plus', '蓝牙设备连接'),
     _DependencyEntry('geolocator', '定位'),
     _DependencyEntry('flutter_local_notifications', '本地通知'),
     _DependencyEntry('aptabase_flutter', '匿名使用统计'),
@@ -70,7 +70,7 @@ class OpenSourcePage extends StatelessWidget {
           _MaterialSectionHeading('开源许可', style: theme.textTheme.titleSmall),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Text('本应用依照 Mozilla Public License 2.0协议开源。'),
+            child: Text('本应用依照 Mozilla Public License 2.0 协议开源。'),
           ),
           ListTile(
             title: const Text('查看开源仓库'),

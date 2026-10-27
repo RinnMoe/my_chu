@@ -155,7 +155,7 @@ class _FenfaFeedbackPageState extends State<FenfaFeedbackPage> {
     }
     if (_contentController.text.runes.length >
         kFenfaFeedbackWithDiagnosticsMaxContentLength) {
-      setState(() => _errorMessage = '附带诊断信息时，反馈内容最多 2700 字');
+      setState(() => _errorMessage = '已附带诊断信息，反馈内容请控制在 2700 字以内。');
       return;
     }
     setState(() {
@@ -187,7 +187,7 @@ class _FenfaFeedbackPageState extends State<FenfaFeedbackPage> {
       context: context,
       builder:
           (dialogContext) => AlertDialog(
-            title: const Text('诊断日志预览'),
+            title: const Text('诊断信息预览'),
             content: SizedBox(
               width: 520,
               height: 240,
@@ -239,12 +239,6 @@ class _FenfaFeedbackPageState extends State<FenfaFeedbackPage> {
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Divider(height: 1),
           ),
-          Text(
-            '告诉我们你遇到的问题或想要的改进。',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
           const SizedBox(height: 20),
           DropdownButtonFormField<FenfaFeedbackCategory>(
             initialValue: _category,
@@ -294,7 +288,7 @@ class _FenfaFeedbackPageState extends State<FenfaFeedbackPage> {
             textInputAction: TextInputAction.done,
             decoration: const InputDecoration(
               labelText: '联系方式（可选）',
-              hintText: '建议使用邮箱以便开发者与您联系',
+              hintText: '建议使用邮箱以便开发者与你联系',
             ),
           ),
           const SizedBox(height: 12),
@@ -306,7 +300,7 @@ class _FenfaFeedbackPageState extends State<FenfaFeedbackPage> {
                     ? null
                     : _setAttachDiagnostics,
             title: const Text('附带诊断信息'),
-            subtitle: const Text('勾选本项有助于开发者排查故障。诊断信息完全匿名。'),
+            subtitle: const Text('勾选本项有助于开发者排查故障。诊断信息不包含账号、课程等个人信息。'),
             secondary: IconButton(
               tooltip: '预览诊断信息',
               onPressed:
@@ -390,7 +384,7 @@ class _FenfaFeedbackPageState extends State<FenfaFeedbackPage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '近期我正在升级迁移反馈系统，为了能及时收到你的反馈，建议通过公众号私信或邮箱反馈～\n公众号：Rinn.Log\n邮箱：mychu@rinn.moe',
+                  '反馈系统升级中，建议通过公众号或邮箱联系我们。\n公众号：Rinn.Log\n邮箱：mychu@rinn.moe',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

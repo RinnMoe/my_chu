@@ -248,7 +248,7 @@ class _AcademicCalendarPageState extends State<AcademicCalendarPage> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: MaterialBanner(
-                content: Text('刷新失败：$_error'),
+                content: Text('刷新失败：${_calendarErrorMessage(_error!)}'),
                 actions: [
                   TextButton(onPressed: _loadInitial, child: const Text('重试')),
                 ],
@@ -992,6 +992,13 @@ class _CalendarSkeleton extends StatelessWidget {
   }
 }
 
+String _calendarErrorMessage(Object error) {
+  if (error is AcademicCalendarAuthenticationException) {
+    return error.message;
+  }
+  return '校历暂时无法加载，请检查网络后重试。';
+}
+
 class _CalendarError extends StatelessWidget {
   final Object error;
   final Future<void> Function({bool force}) onRetry;
@@ -1007,7 +1014,7 @@ class _CalendarError extends StatelessWidget {
         children: [
           const Icon(Icons.event_busy_outlined, size: 48),
           const SizedBox(height: 12),
-          Text('$error', textAlign: TextAlign.center),
+          Text(_calendarErrorMessage(error), textAlign: TextAlign.center),
           const SizedBox(height: 12),
           FilledButton(
             onPressed: () => onRetry(force: true),

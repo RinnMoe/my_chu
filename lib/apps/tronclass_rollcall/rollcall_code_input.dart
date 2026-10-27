@@ -130,7 +130,7 @@ class _RollcallCodeInputState extends State<RollcallCodeInput> {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Text('四位签到码'),
+      const Text('签到码'),
       const SizedBox(height: 8),
       ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 320),

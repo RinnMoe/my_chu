@@ -5,7 +5,7 @@ import '../capabilities/dev_visibility.dart';
 import '../services/development_mode_service.dart';
 export '../apps/app_target_router.dart';
 
-/// Shows a shared feature detail surface: 功能简介、分类和开发信息。
+/// Shows a shared feature detail surface: 简介正文、分类和开发信息。
 Future<void> showAppDetailSheet(
   BuildContext context,
   AppDefinition plugin,
@@ -55,14 +55,7 @@ Future<void> showAppDetailSheet(
                 ],
               ),
               if (metadata.description.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  '功能简介',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 Text(metadata.description),
               ],
               if (DevelopmentModeService.isDev) ...[

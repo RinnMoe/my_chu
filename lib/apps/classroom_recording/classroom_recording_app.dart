@@ -8,7 +8,7 @@ final classroomRecordingApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.classroom.recording',
     name: '课堂实录',
-    description: '课堂直播和回放',
+    description: '观看课堂直播与回放。',
     iconCodePoint: Icons.video_library_outlined.codePoint,
     category: AppCategory.learning,
     developmentFlag: DevelopmentFlag.none,

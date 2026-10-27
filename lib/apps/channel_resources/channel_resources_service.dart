@@ -327,19 +327,25 @@ class ChannelResourcesService {
     final body = response.body.trimLeft();
     final contentType = response.contentType?.toLowerCase() ?? '';
     if (contentType.startsWith('text/html') || body.startsWith('<')) {
-      throw const ChannelResourcesServiceException('服务器返回了网页而不是接口数据。');
+      throw const ChannelResourcesServiceException(
+        '资料暂时加载不出来，请稍后重试；多次失败请重新登录。',
+      );
     }
     try {
       return jsonDecode(response.body);
     } on Object {
-      throw const ChannelResourcesServiceException('服务器返回了无法识别的数据。');
+      throw const ChannelResourcesServiceException(
+        '资料站返回的内容异常，请稍后重试；仍不行请重新登录。',
+      );
     }
   }
 
   static Map<String, dynamic> _map(Object? value) {
     final map = ChannelResourcesJson.map(value);
     if (map == null) {
-      throw const ChannelResourcesServiceException('服务器返回了无法识别的数据。');
+      throw const ChannelResourcesServiceException(
+        '资料站返回的内容异常，请稍后重试；仍不行请重新登录。',
+      );
     }
     return map;
   }
@@ -348,7 +354,9 @@ class ChannelResourcesService {
     final map = _map(value);
     final list = ChannelResourcesJson.list(map[key]);
     if (list == null) {
-      throw const ChannelResourcesServiceException('服务器返回了无法识别的数据。');
+      throw const ChannelResourcesServiceException(
+        '资料站返回的内容异常，请稍后重试；仍不行请重新登录。',
+      );
     }
     return list;
   }
@@ -358,14 +366,18 @@ class ChannelResourcesService {
     final ticker =
         raw == null ? const <Object?>[] : ChannelResourcesJson.list(raw);
     if (ticker == null) {
-      throw const ChannelResourcesServiceException('服务器返回了无法识别的数据。');
+      throw const ChannelResourcesServiceException(
+        '资料站返回的内容异常，请稍后重试；仍不行请重新登录。',
+      );
     }
 
     final popup = root['popup_announcement'];
     if (popup == null) return ticker;
     final popupMap = ChannelResourcesJson.map(popup);
     if (popupMap == null) {
-      throw const ChannelResourcesServiceException('服务器返回了无法识别的数据。');
+      throw const ChannelResourcesServiceException(
+        '资料站返回的内容异常，请稍后重试；仍不行请重新登录。',
+      );
     }
 
     final popupId = ChannelResourcesJson.text(popupMap, 'id');
@@ -388,12 +400,12 @@ class ChannelResourcesService {
     ChannelAccountHttpResponse response,
   ) {
     final message = switch (response.statusCode) {
-      400 => '请求参数不正确。',
-      403 => '频道资料站拒绝了这项操作。',
-      404 => '请求的内容不存在。',
-      409 => '这项操作与当前状态冲突。',
+      400 => '请求没有完成，请刷新后重试。',
+      403 => '当前账号没有权限执行这项操作。',
+      404 => '没有找到相关内容。',
+      409 => '操作没有完成，请刷新后重试。',
       >= 500 => '频道账号服务暂时不可用，请稍后重试。',
-      _ => '操作未完成，请稍后重试。',
+      _ => '操作没有完成，请稍后重试。',
     };
     return ChannelResourcesServiceException(
       message,

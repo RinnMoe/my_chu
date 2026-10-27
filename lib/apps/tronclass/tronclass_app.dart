@@ -8,7 +8,7 @@ final tronclassApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.tronclass.portal',
     name: '畅课课件下载',
-    description: '课程课件下载。',
+    description: '浏览并下载畅课课程课件。',
     iconCodePoint: Icons.folder_open_outlined.codePoint,
     category: AppCategory.learning,
     developmentFlag: DevelopmentFlag.none,

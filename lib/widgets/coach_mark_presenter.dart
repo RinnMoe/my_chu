@@ -5,13 +5,16 @@ import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 class CoachMarkStep {
   final GlobalKey targetKey;
   final String title;
-  final String message;
+
+  /// Optional detail. Omit when the title alone explains the highlighted
+  /// control; the coach mark then renders the title only.
+  final String? message;
   final ContentAlign contentAlign;
 
   const CoachMarkStep({
     required this.targetKey,
     required this.title,
-    required this.message,
+    this.message,
     this.contentAlign = ContentAlign.bottom,
   });
 }
@@ -67,9 +70,9 @@ abstract final class CoachMarkPresenter {
 
 class _CoachMarkContent extends StatelessWidget {
   final String title;
-  final String message;
+  final String? message;
 
-  const _CoachMarkContent({required this.title, required this.message});
+  const _CoachMarkContent({required this.title, this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -99,8 +102,10 @@ class _CoachMarkContent extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(title, style: titleStyle),
-          const SizedBox(height: 8),
-          Text(message, style: messageStyle),
+          if (message case final message?) ...[
+            const SizedBox(height: 8),
+            Text(message, style: messageStyle),
+          ],
         ],
       ),
     );

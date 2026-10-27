@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../capabilities/campus_places/campus_registry.dart';
 import '../services/campus_settings_service.dart';
+import '../widgets/compact_badge.dart';
 
 typedef CampusSelectionSaved = void Function(String campusId);
 
@@ -115,7 +116,7 @@ class _CampusSelectionPanelState extends State<CampusSelectionPanel> {
       if (!saved) {
         setState(() {
           _saving = false;
-          _saveError = '校区未能保存，请重试。';
+          _saveError = '校区保存失败，请重试。';
         });
         return;
       }
@@ -124,7 +125,7 @@ class _CampusSelectionPanelState extends State<CampusSelectionPanel> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _saveError = '校区未能保存，请重试。';
+        _saveError = '校区保存失败，请重试。';
       });
     }
   }
@@ -300,13 +301,7 @@ class _CampusOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label =
-        showDefaultLabel
-            ? '当前默认使用渭水校区'
-            : (campus.address?.trim().isNotEmpty == true
-                ? campus.address!.trim()
-                : null);
-
+    final address = campus.address?.trim();
     return Semantics(
       button: true,
       selected: selected,
@@ -317,8 +312,21 @@ class _CampusOption extends StatelessWidget {
         leading: Icon(
           selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
         ),
-        title: Text(campus.displayName),
-        subtitle: label == null ? null : Text(label),
+        title: Row(
+          children: [
+            Flexible(
+              child: Text(
+                campus.displayName,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (showDefaultLabel) ...[
+              const SizedBox(width: 8),
+              const CompactBadge(label: '默认'),
+            ],
+          ],
+        ),
+        subtitle: address == null || address.isEmpty ? null : Text(address),
         contentPadding: EdgeInsets.zero,
       ),
     );

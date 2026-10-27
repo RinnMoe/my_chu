@@ -112,7 +112,6 @@ class _HomeLayoutPanelState extends State<HomeLayoutPanel>
           clipBehavior: Clip.antiAlias,
           child: SwitchListTile(
             title: const Text('常用功能'),
-            subtitle: const Text('首页底部常用功能入口'),
             value: _quickAppsConfig.enabled,
             onChanged: _toggleEnabled,
           ),

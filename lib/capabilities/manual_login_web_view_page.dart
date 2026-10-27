@@ -348,8 +348,7 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
                   feedbackAttempt: _feedbackAttempt,
                 );
                 setState(() {
-                  _error =
-                      detail.didCrash ? '页面渲染进程异常，请点击重试。' : '页面渲染进程已退出，请点击重试。';
+                  _error = '页面意外中断。';
                   _loading = false;
                 });
               },

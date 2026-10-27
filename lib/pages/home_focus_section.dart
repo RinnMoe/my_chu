@@ -118,7 +118,7 @@ class HomeFocusSection extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '焦点',
+                  '今日关注',
                   style: materialTheme.textTheme.titleSmall?.copyWith(
                     color: materialTheme.colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -133,7 +133,7 @@ class HomeFocusSection extends StatelessWidget {
         const SizedBox(height: 4),
         Semantics(
           container: true,
-          label: '首页焦点',
+          label: '首页今日关注',
           child: Column(
             children: [
               if (showCredentialSync) ...[
@@ -231,7 +231,7 @@ class _CredentialSyncPanel extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    state.isSyncing ? '正在同步应用凭证' : '部分凭证尚未同步',
+                    state.isSyncing ? '正在准备校园服务…' : '部分校园服务暂不可用',
                     style: theme.textTheme.titleSmall?.copyWith(
                       color:
                           state.hasError
@@ -255,13 +255,6 @@ class _CredentialSyncPanel extends StatelessWidget {
                     LinearProgressIndicator(
                       value: progress,
                       color: colors.onSecondaryContainer,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${state.completedSteps} / ${state.totalSteps} 项已检查',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.onSecondaryContainer,
-                      ),
                     ),
                   ],
                 ],

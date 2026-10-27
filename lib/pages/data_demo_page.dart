@@ -112,7 +112,7 @@ class _DataDemoPageState extends State<DataDemoPage> {
               ),
               _ConfigSlider(
                 title: '焦点数量',
-                subtitle: '生产约束最多 3 条',
+                subtitle: '最多 3 条',
                 value: _config.focusCount.toDouble(),
                 min: 0,
                 max: 3,
@@ -124,7 +124,7 @@ class _DataDemoPageState extends State<DataDemoPage> {
               ),
               _ConfigSlider(
                 title: '常用应用数量',
-                subtitle: '生产上限 8 项',
+                subtitle: '最多 8 项',
                 value: _config.quickAppCount.toDouble(),
                 min: 1,
                 max: 8,

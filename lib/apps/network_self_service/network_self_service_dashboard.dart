@@ -39,7 +39,6 @@ class NetworkSelfServiceDashboard extends StatelessWidget {
                   const _EmptyCard(
                     icon: Icons.data_usage_outlined,
                     title: '暂无套餐数据',
-                    message: '服务没有返回可展示的套餐信息。',
                   )
                 else
                   ...overview.packages.map(
@@ -53,7 +52,7 @@ class NetworkSelfServiceDashboard extends StatelessWidget {
                   title: '在线设备',
                   subtitle:
                       overview.onlineSessions.isEmpty
-                          ? '当前没有在线会话'
+                          ? null
                           : '${overview.onlineSessions.length} 台设备在线',
                 ),
                 const SizedBox(height: 10),
@@ -61,7 +60,6 @@ class NetworkSelfServiceDashboard extends StatelessWidget {
                   const _EmptyCard(
                     icon: Icons.devices_outlined,
                     title: '没有在线设备',
-                    message: '新会话建立后会显示 IP、MAC 与上线时间。',
                   )
                 else
                   ...overview.onlineSessions.map(
@@ -275,13 +273,8 @@ class _SessionCard extends StatelessWidget {
 class _EmptyCard extends StatelessWidget {
   final IconData icon;
   final String title;
-  final String message;
 
-  const _EmptyCard({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
+  const _EmptyCard({required this.icon, required this.title});
 
   @override
   Widget build(BuildContext context) => Card(
@@ -292,18 +285,9 @@ class _EmptyCard extends StatelessWidget {
           Icon(icon, color: Theme.of(context).colorScheme.onSurfaceVariant),
           const SizedBox(width: 14),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 3),
-                Text(
-                  message,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
         ],

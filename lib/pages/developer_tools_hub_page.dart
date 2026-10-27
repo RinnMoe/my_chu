@@ -31,7 +31,6 @@ class DeveloperToolsHubPage extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.list_alt_outlined),
                   title: const Text('日志'),
-                  subtitle: const Text('查看应用运行日志'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _push(context, const LogPage()),
                 ),
@@ -39,7 +38,6 @@ class DeveloperToolsHubPage extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.build_outlined),
                   title: const Text('调试工具'),
-                  subtitle: const Text('数据演示与开发调试工具'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _push(context, const DevToolsPage()),
                 ),

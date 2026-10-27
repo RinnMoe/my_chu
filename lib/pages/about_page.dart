@@ -85,7 +85,7 @@ class _AboutPageState extends State<AboutPage> {
               ListTile(
                 leading: const Icon(Icons.analytics_outlined),
                 title: const Text('诊断信息'),
-                subtitle: const Text('预览、保存或分享脱敏诊断报告'),
+                subtitle: const Text('预览、保存或分享已隐去个人信息的诊断报告'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _openDiagnostics,
               ),
@@ -97,7 +97,6 @@ class _AboutPageState extends State<AboutPage> {
                     ListTile(
                       leading: const Icon(Icons.build_outlined),
                       title: const Text('开发者工具'),
-                      subtitle: const Text('日志与调试工具'),
                       trailing: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -114,8 +113,7 @@ class _AboutPageState extends State<AboutPage> {
               const Divider(height: 1, indent: 56),
               ListTile(
                 leading: const Icon(Icons.privacy_tip_outlined),
-                title: const Text('用户协议与服务端设置'),
-                subtitle: const Text('管理服务端功能'),
+                title: const Text('用户协议与在线功能'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _pushPage((_) => const PrivacySettingsPage()),
               ),
@@ -123,7 +121,7 @@ class _AboutPageState extends State<AboutPage> {
               ListTile(
                 leading: const Icon(Icons.source_outlined),
                 title: const Text('开源许可与致谢'),
-                subtitle: const Text('本项目基于MPL协议开源'),
+                subtitle: const Text('本项目基于 Mozilla Public License 2.0 开源'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _pushPage((_) => const OpenSourcePage()),
               ),

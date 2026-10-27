@@ -41,7 +41,6 @@ class DevToolsPage extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.data_object),
                   title: const Text('数据 Demo'),
-                  subtitle: const Text('按模块预览与填充演示数据'),
                   trailing: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

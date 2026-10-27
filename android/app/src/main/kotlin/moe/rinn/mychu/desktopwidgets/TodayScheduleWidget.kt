@@ -108,7 +108,7 @@ private fun TodayScheduleContent(data: TodayScheduleWidgetData) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "今天没有课了~",
+                        text = "今天没有课程",
                         style = TextStyle(
                             color = GlanceTheme.colors.onSurfaceVariant,
                             fontSize = if (compact) 13.sp else 16.sp,

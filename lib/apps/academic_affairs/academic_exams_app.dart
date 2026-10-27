@@ -9,7 +9,7 @@ final academicExamsApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.academic.exams',
     name: '考试安排',
-    description: '教务系统考试安排',
+    description: '查询考试时间、考场与座位。',
     iconCodePoint: Icons.event_available_outlined.codePoint,
     category: AppCategory.academic,
     developmentFlag: DevelopmentFlag.none,

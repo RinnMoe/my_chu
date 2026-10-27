@@ -16,7 +16,7 @@ struct TodayScheduleWidgetCard {
   build() {
     Column() {
       if (this.ready() && this.todaysCourses().length === 0) {
-        Text('今天没有课了~')
+        Text('今天没有课程')
           .fontSize(this.formDimension === 2 ? 13 : 16)
           .fontColor($r('app.color.widget_on_surface_variant'))
           .width('100%')

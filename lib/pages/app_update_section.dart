@@ -55,7 +55,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
                 ? (fraction == null
                     ? '更新中…'
                     : '下载中 ${(fraction * 100).floor()}%')
-                : (incremental ? '增量更新' : '下载更新');
+                : '下载更新';
         final background =
             incremental ? colors.tertiaryContainer : colors.primaryContainer;
         final foreground =
@@ -89,8 +89,8 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
                         children: [
                           Text(
                             incremental
-                                ? '增量更新'
-                                : (update.force ? '发现新版本 · 必须更新' : '发现新版本'),
+                                ? '下载更新'
+                                : (update.force ? '发现新版本 · 需要更新' : '发现新版本'),
                             style: theme.textTheme.titleMedium?.copyWith(
                               color: foreground,
                             ),
@@ -98,7 +98,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
                           const SizedBox(height: 4),
                           Text(
                             incremental
-                                ? '下载 ${_size(patch!.size)} 补丁，合成后安装完整新版本。失败时将改用完整包。'
+                                ? '更新包约 ${_size(patch!.size)}，下载后自动安装。'
                                 : '$currentVersion → $targetVersion${update.sizeBytes == null ? '' : ' · ${_size(update.sizeBytes!)}'}',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: foreground,

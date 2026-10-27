@@ -7,7 +7,7 @@ final parcelIdentityCodeApp = AppDefinition.action(
   metadata: AppMetadata(
     id: 'feature.parcel.identity.code',
     name: '淘宝取件码',
-    description: '快速打开淘宝取件码',
+    description: '',
     iconCodePoint: Icons.qr_code_2_outlined.codePoint,
     category: AppCategory.life,
     developmentFlag: DevelopmentFlag.none,

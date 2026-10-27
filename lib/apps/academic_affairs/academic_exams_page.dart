@@ -310,22 +310,23 @@ class _ExamsView extends StatelessWidget {
           text: '本学期暂无考试安排',
         )
       else ...[
-        const SizedBox(height: 2),
-        Text(
-          '${_filtered(exams!).length} 场考试',
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 4),
         if (_filtered(exams!).isEmpty)
           const AcademicEmptyCard(
             icon: Icons.search_off_outlined,
             text: '没有符合筛选条件的考试',
           )
-        else
+        else ...[
+          const SizedBox(height: 2),
+          Text(
+            '${_filtered(exams!).length} 场考试',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
           for (final exam in _filtered(exams!))
             _ExamCard(exam: exam, onMap: onMap),
+        ],
       ],
     ];
 

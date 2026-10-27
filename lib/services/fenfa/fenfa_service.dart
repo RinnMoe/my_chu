@@ -19,7 +19,7 @@ typedef FenfaUpdateDownloader =
     );
 typedef FenfaUpdateInstaller = Future<bool> Function(InAppDownloadedFile file);
 
-const _fenfaDiagnosticHeader = '\n\n--- MyCHU 脱敏诊断日志 ---\n';
+const _fenfaDiagnosticHeader = '\n\n--- MyCHU 诊断信息（已隐去个人信息）---\n';
 
 String composeFenfaFeedbackContent({
   required String content,
@@ -219,7 +219,7 @@ class FenfaService {
       diagnosticLog: diagnosticLog,
     );
     if (submittedContent.runes.length > kFenfaFeedbackMaxContentLength) {
-      throw const FormatException('反馈内容或诊断日志长度不合法');
+      throw const FormatException('反馈内容或诊断信息长度不合法');
     }
 
     final snapshot = await _latestSnapshot();

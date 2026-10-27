@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../capabilities/authenticated_web_view_capability.dart';
+import '../../capabilities/host_login.dart';
 import '../../capabilities/network_self_service_auth_capability.dart';
 import '../../services/network_self_service_auth_service.dart';
 import '../../services/logger_service.dart';
@@ -297,8 +298,12 @@ class _NetworkSelfServicePageState extends State<NetworkSelfServicePage>
           const SizedBox(height: 12),
           Text('需要重新登录', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 6),
-          const Text(
-            '网络自服使用与统一身份相同的账号密码。请退出 MyCHU 后重新登录；登录成功后，账号凭据会自动安全保存在设备上。',
+          const Text('校园网自助服务使用统一身份认证账号。请重新登录后查看套餐与在线设备。'),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () => HostLogin.open(context),
+            icon: const Icon(Icons.login),
+            label: const Text('重新登录'),
           ),
         ],
       ),

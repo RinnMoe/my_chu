@@ -55,7 +55,7 @@ class _LoginHintContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '请在页面中完成统一身份登录，完成后将会自动继续。为了避免异常，建议使用校园网完成登录。',
+          '请在页面中完成统一身份认证，完成后会自动继续。建议连接校园网后再登录，以免登录失败。',
           style: theme.textTheme.bodyMedium,
         ),
         const SizedBox(height: 8),
@@ -339,11 +339,12 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     TextSpan(
       style: style,
       children: const [
-        TextSpan(text: '为了实现自动恢复登录功能，当您在 MyCHU 中完成登录后，'),
+        TextSpan(text: '登录后，'),
         TextSpan(
-          text: '账号及密码将以安全方式保存在您的设备本地。',
+          text: '账号和密码会安全保存在本机，用于下次自动登录。',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        TextSpan(text: '你可以随时在「我的」中退出登录来清除。'),
       ],
     ),
   );
@@ -544,7 +545,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
       if (bestCookies.isEmpty) {
         await _discardCapturedLogin();
         if (!automatic) {
-          _showLoginError('未获取到登录 Cookie，请确认已完成统一身份认证。');
+          _showLoginError('没有读到登录结果，请返回登录页重新登录一次。');
         }
         return;
       }
@@ -998,13 +999,6 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
                                   Text(
                                     '正在完成登录',
                                     style: theme.textTheme.titleLarge,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '请稍候…',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: colors.onSurfaceVariant,
-                                    ),
                                   ),
                                 ],
                               ),

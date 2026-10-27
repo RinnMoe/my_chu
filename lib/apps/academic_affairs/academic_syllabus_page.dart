@@ -329,7 +329,7 @@ class _AcademicSyllabusPageState extends State<AcademicSyllabusPage>
           ),
         Expanded(
           child: CampusProtectedContent(
-            title: '课程大纲',
+            title: '全校排课查询',
             icon: Icons.menu_book_outlined,
             builder: (_) => _buildBody(),
           ),
@@ -468,11 +468,16 @@ class _SyllabusScheduleTile extends StatelessWidget {
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ),
-      subtitle: Text(
-        entry.rawText,
-        maxLines: 3,
-        overflow: TextOverflow.ellipsis,
-      ),
+      // 标题已由同一行原文解析出教师/节次/周次，副标题只补标题里没有的教室；
+      // 标题回退成原文时原文已含教室，不再重复。
+      subtitle:
+          detailParts.isEmpty || entry.location.isEmpty
+              ? null
+              : Text(
+                entry.location,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
       trailing:
           entry.location.isEmpty
               ? null

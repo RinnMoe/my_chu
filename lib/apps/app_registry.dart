@@ -31,7 +31,7 @@ class AppRegistry {
       metadata: AppMetadata(
         id: 'feature.wozaichangda',
         name: '我在长大',
-        description: '学工服务与日常事务。',
+        description: '查看学工服务与常用事务。',
         iconCodePoint: Icons.school_outlined.codePoint,
         category: AppCategory.campus,
         developmentFlag: DevelopmentFlag.none,

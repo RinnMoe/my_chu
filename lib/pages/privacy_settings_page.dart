@@ -155,18 +155,15 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     final enabled = _remoteServicesEnabled ?? true;
     return Scaffold(
       appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('用户协议与服务端设置')),
+        child: AppBar(title: const Text('用户协议与在线功能')),
       ),
       body: ListView(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-            child: Text('服务端功能设置', style: theme.textTheme.titleSmall),
-          ),
+          const SizedBox(height: 8),
           SwitchListTile(
             key: const ValueKey('app-remote-services-switch'),
-            title: const Text('服务端功能'),
-            subtitle: const Text('关闭后匿名统计、更新检测等依赖服务端的功能不可用'),
+            title: const Text('在线功能'),
+            subtitle: const Text('关闭后匿名统计与检查更新将不可用'),
             value: enabled,
             onChanged:
                 _loading || _saving || _remoteServicesEnabled == null

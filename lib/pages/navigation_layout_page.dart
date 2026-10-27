@@ -15,7 +15,7 @@ class NavigationLayoutPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('底栏管理')),
+        child: AppBar(title: const Text('底部导航栏')),
       ),
       body: const NavigationLayoutPanel(),
     );
@@ -170,7 +170,7 @@ class _NavigationLayoutPanelState extends State<NavigationLayoutPanel>
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('底栏最多显示 ${NavigationLayoutService.maxAppTabs} 个功能 Tab'),
+          content: Text('底部导航最多显示 ${NavigationLayoutService.maxAppTabs} 个功能'),
         ),
       );
     }
@@ -274,7 +274,6 @@ class _NavigationLayoutPanelState extends State<NavigationLayoutPanel>
       key: ValueKey(plugin.metadata.id),
       icon: metadata.icon,
       title: metadata.navigationLabel ?? metadata.name,
-      subtitle: metadata.description,
       titleAccessory: metadata.requiresDev ? const DevBadge() : null,
       enabled: _isEnabled(item),
       onEnabledChanged: (value) => _toggleApp(plugin, value),

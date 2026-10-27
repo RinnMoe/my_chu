@@ -48,7 +48,7 @@ class ChannelResourcesSessionException implements Exception {
       case ChannelResourcesSessionErrorType.server:
         return '账号服务暂时不可用，请稍后重试。';
       case ChannelResourcesSessionErrorType.malformed:
-        return '资料站返回了无法识别的数据。';
+        return '资料站返回的内容异常，请稍后重试；仍不行请重新登录。';
       case ChannelResourcesSessionErrorType.retryRequired:
         return '登录状态已恢复，请重新操作。';
       case ChannelResourcesSessionErrorType.stale:
@@ -56,7 +56,7 @@ class ChannelResourcesSessionException implements Exception {
       case ChannelResourcesSessionErrorType.oldPasswordIncorrect:
         return '原密码不正确，请重新输入。';
       case ChannelResourcesSessionErrorType.passwordChangeRejected:
-        return '请检查原密码、新密码（至少 6 位）及新用户名（至少 3 位），或前往资料站管理账号。';
+        return '请检查原密码和新密码（至少 6 位）；如需修改用户名，请前往资料站。';
       case ChannelResourcesSessionErrorType.usernameTaken:
         return '新用户名已被使用，请换一个。';
     }

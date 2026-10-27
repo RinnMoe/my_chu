@@ -274,7 +274,7 @@ class _ThemeSettings extends StatelessWidget {
                 child: ListTile(
                   key: const ValueKey('wallpaper-dynamic-color'),
                   leading: const Icon(Icons.wallpaper_outlined),
-                  title: const Text('壁纸动态取色'),
+                  title: const Text('跟随壁纸配色'),
                   selected: preferences.useDynamicColors,
                   trailing:
                       preferences.useDynamicColors
@@ -331,8 +331,8 @@ class _ThemeSettings extends StatelessWidget {
                   child: SwitchListTile(
                     key: const ValueKey('predictive-back-animation-setting'),
 
-                    title: const Text('预测性返回动画'),
-                    subtitle: const Text('部分国产系统可能不兼容'),
+                    title: const Text('返回手势动画'),
+                    subtitle: const Text('部分系统可能不支持'),
                     value: preferences.predictiveBackEnabled,
                     onChanged:
                         (enabled) => _change(

@@ -5,13 +5,13 @@ String updateProgressLabel(InAppDownloadProgress? progress) {
   if (progress == null) return '正在准备下载…';
   switch (progress.phase) {
     case AppUpdatePhase.preparing:
-      return '正在检查更新方式…';
+      return '正在准备更新…';
     case AppUpdatePhase.merging:
-      return '正在合成安装包…';
+      return '正在准备安装…';
     case AppUpdatePhase.verifying:
-      return '正在校验安装包…';
+      return '正在校验更新…';
     case AppUpdatePhase.installing:
-      return '正在唤起系统安装程序…';
+      return '正在打开安装程序…';
     case AppUpdatePhase.downloadingPatch:
     case AppUpdatePhase.downloadingFull:
       final fraction = progress.fraction;
@@ -21,7 +21,7 @@ String updateProgressLabel(InAppDownloadProgress? progress) {
       if (fraction != null) {
         final label =
             progress.phase == AppUpdatePhase.downloadingPatch
-                ? '正在下载更新补丁'
+                ? '正在下载更新'
                 : '正在下载安装包';
         return '$label ${(fraction * 100).floor()}%';
       }

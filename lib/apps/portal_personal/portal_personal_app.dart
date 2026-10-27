@@ -8,7 +8,7 @@ final portalPersonalApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.portal.personal',
     name: '个人数据',
-    description: '校园卡、邮箱、图书、任务中心与课程待办。',
+    description: '查看校园卡、邮箱、借阅与待办。',
     iconCodePoint: Icons.account_balance_wallet_outlined.codePoint,
     category: AppCategory.campus,
     developmentFlag: DevelopmentFlag.none,

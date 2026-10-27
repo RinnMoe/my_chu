@@ -4,6 +4,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:mychu/widgets/dual_pane_placeholder.dart';
+
 import '../../capabilities/text_utils.dart';
 import '../../services/error_feedback_service.dart';
 import '../../theme/app_palette.dart';
@@ -692,7 +694,7 @@ class _TermSummaryCard extends StatelessWidget {
           if (showCalculationHint) ...[
             const SizedBox(height: 8),
             Text(
-              '加权绩点按主修课程学分计算，已排除三类课程',
+              '加权绩点按主修课程学分计算，已排除科学探索与技术创新、社会科学与公共责任、经典阅读与写作沟通三类课程',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colors.onSurfaceVariant,
               ),
@@ -1116,20 +1118,7 @@ class _GradeInspector extends StatelessWidget {
     final current = grade;
     final background = Theme.of(context).colorScheme.surface;
     if (current == null) {
-      final secondary = Theme.of(context).colorScheme.onSurfaceVariant;
-      return ColoredBox(
-        color: background,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.school_outlined, size: 38, color: secondary),
-              const SizedBox(height: 12),
-              Text('选择一门课程查看成绩详情', style: TextStyle(color: secondary)),
-            ],
-          ),
-        ),
-      );
+      return const DualPanePlaceholder(icon: Icons.school_outlined);
     }
     return ColoredBox(
       color: background,

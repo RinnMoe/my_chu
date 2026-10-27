@@ -10,6 +10,8 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
+import 'package:mychu/widgets/dual_pane_placeholder.dart';
+
 import '../campus_map/campus_map_capability.dart';
 import '../../apps/academic_affairs/academic_affairs_models.dart';
 import '../../apps/academic_affairs/academic_affairs_service.dart';
@@ -274,7 +276,6 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
           CoachMarkStep(
             targetKey: _firstCourseKey,
             title: '查看课程详情',
-            message: '点击展开该课程详情信息',
             contentAlign: ContentAlign.bottom,
           ),
         );
@@ -1218,20 +1219,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
   Widget _buildTabletInspector(BuildContext context) {
     final entry = _selectedInspectorEntry;
     if (entry == null) {
-      final secondary = Theme.of(context).colorScheme.onSurfaceVariant;
-      return ColoredBox(
-        color: Theme.of(context).colorScheme.surface,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.touch_app_outlined, size: 36, color: secondary),
-              const SizedBox(height: 12),
-              Text('选择一门课程查看详情', style: TextStyle(color: secondary)),
-            ],
-          ),
-        ),
-      );
+      return const DualPanePlaceholder(icon: Icons.touch_app_outlined);
     }
     final isClassSchedule = _scope == AcademicScheduleScope.administrativeClass;
     return ColoredBox(
@@ -1493,7 +1481,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
     final schedule = _schedule;
     if (schedule == null || !mounted) return;
     if (schedule.entries.isEmpty) {
-      await _showExportMessage('导出失败：本学期没有课程，请检查后重试');
+      await _showExportMessage('本学期没有课程，无法导出。');
       return;
     }
 
@@ -1504,11 +1492,11 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
       options: [
         if (_supportsWakeUpExport)
           const AdaptiveActionSheetOption<String>(
-            label: 'WakeUp课程表',
+            label: 'WakeUp 课表',
             value: 'wakeup',
           ),
         const AdaptiveActionSheetOption<String>(
-          label: '日历(.ics)',
+          label: '日历文件（.ics）',
           value: 'ics',
         ),
       ],
@@ -1545,7 +1533,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
         );
         if (!mounted) return;
         if (path == null) {
-          await _showExportMessage('ICS 保存失败');
+          await _showExportMessage('日历文件保存失败');
           return;
         }
         final opened = await FileSaveService.openFile(
@@ -1554,10 +1542,10 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
         );
         if (!mounted) return;
         await _showExportMessage(
-          opened ? 'ICS 已保存，正在打开日历应用' : 'ICS 已保存，但未找到可导入日历的应用',
+          opened ? '日历文件已保存，正在打开日历应用' : '日历文件已保存，但未找到可导入日历的应用',
         );
       } catch (_) {
-        if (mounted) await _showExportMessage('ICS 导出失败，请重试');
+        if (mounted) await _showExportMessage('日历文件导出失败，请重试');
       }
     });
   }
@@ -1567,7 +1555,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
     final weekStartDates = _exportWeekStartDates(schedule);
     final firstWeekMonday = weekStartDates[1];
     if (firstWeekMonday == null) {
-      await _showExportMessage('第一周日期尚未加载，暂时无法生成 WakeUp 课表。');
+      await _showExportMessage('课表尚未加载完成，请稍后重试。');
       return;
     }
     if (!mounted) return;
@@ -1911,7 +1899,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
                       courseColorIndices: courseColorIndices,
                       personalConflictSelections: _personalConflictSelections,
                       onCellTap: _showCellDetails,
-                      emptyText: '假期中~',
+                      emptyText: '假期中',
                     );
                   }
                   final week = index;

@@ -300,7 +300,7 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
       CampusMapStatus.idle => "初始化中",
       CampusMapStatus.loading => "加载中",
       CampusMapStatus.ready => "就绪",
-      CampusMapStatus.error => "错误：${state.errorMessage}",
+      CampusMapStatus.error => _mapErrorMessage(state.errorMessage),
     };
     final mapReady =
         state.status == CampusMapStatus.ready &&
@@ -798,7 +798,7 @@ class MapPlaceInfoCard extends StatelessWidget {
                       ),
                     ),
                   if (place?.verified == true)
-                    Text("已核验", style: theme.textTheme.labelSmall),
+                    Text("位置已确认", style: theme.textTheme.labelSmall),
                 ],
               ),
             ),
@@ -844,7 +844,7 @@ class MapPlaceCandidateSheet extends StatelessWidget {
         const Padding(
           padding: EdgeInsets.all(16),
           child: Text(
-            "匹配到多个地点，请选择：",
+            '匹配到多个地点',
             style: TextStyle(fontWeight: FontWeight.w600),
           ),
         ),
@@ -927,4 +927,12 @@ class MapboxMapControls extends StatelessWidget {
       ),
     );
   }
+}
+
+String _mapErrorMessage(String? message) {
+  const safeMessages = {'没有可用的校区', '该校区暂不可用，请稍后重试'};
+  if (message != null && safeMessages.contains(message)) {
+    return message;
+  }
+  return '地图暂时无法加载，请稍后重试。';
 }

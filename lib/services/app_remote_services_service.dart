@@ -41,7 +41,7 @@ class AppRemoteServicesService {
 class AppRemoteServicesDisabledException implements Exception {
   const AppRemoteServicesDisabledException();
 
-  static const String userMessage = '您已关闭应用远程服务';
+  static const String userMessage = '匿名统计与在线功能已关闭，可在「我的 → 关于 → 用户协议与在线功能」中开启。';
 
   @override
   String toString() => 'AppRemoteServicesDisabledException';

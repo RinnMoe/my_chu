@@ -211,9 +211,7 @@ class _AcademicScheduleAppearancePageState
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                             ),
-                            Text(
-                              '${(unit == '%' ? current * 100 : current).round()} $unit',
-                            ),
+                            Text(_formatStyleValue(current, unit)),
                           ],
                         ),
                         Slider(
@@ -308,7 +306,7 @@ class _AcademicScheduleAppearancePageState
     ) => ListTile(
       key: ValueKey(id),
       title: Text(title),
-      trailing: Text('${(unit == '%' ? value * 100 : value).round()} $unit'),
+      trailing: Text(_formatStyleValue(value, unit)),
       onTap: () => _number(title, value, min, max, divisions, unit, update),
       onLongPress: () => _resetStyle(id),
     );
@@ -448,7 +446,7 @@ class _AcademicScheduleAppearancePageState
                 9,
                 18,
                 9,
-                'sp',
+                '',
                 (v) => style.copyWith(headerFontSize: v),
               ),
               toggle(
@@ -499,7 +497,7 @@ class _AcademicScheduleAppearancePageState
                 40,
                 100,
                 60,
-                'dp',
+                '',
                 (v) => style.copyWith(cellHeight: v),
               ),
               number(
@@ -509,7 +507,7 @@ class _AcademicScheduleAppearancePageState
                 0,
                 20,
                 20,
-                'dp',
+                '',
                 (v) => style.copyWith(cornerRadius: v),
               ),
               number(
@@ -524,7 +522,7 @@ class _AcademicScheduleAppearancePageState
               ),
               number(
                 'schedule-noncurrent-opacity',
-                '非本周不透明比',
+                '非本周不透明度',
                 style.nonCurrentOpacity,
                 0,
                 1,
@@ -539,7 +537,7 @@ class _AcademicScheduleAppearancePageState
                 9,
                 18,
                 9,
-                'sp',
+                '',
                 (v) => style.copyWith(courseFontSize: v),
               ),
             ]),
@@ -693,4 +691,9 @@ class _ColorSlot extends StatelessWidget {
       ),
     ),
   );
+}
+
+String _formatStyleValue(double value, String unit) {
+  final display = (unit == '%' ? value * 100 : value).round();
+  return unit.isEmpty ? '$display' : '$display $unit';
 }

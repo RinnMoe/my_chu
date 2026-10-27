@@ -38,7 +38,7 @@ class NetworkSelfServiceService {
       throw const NetworkSelfServiceAuthenticationRequiredException();
     }
     if (response.statusCode != 200) {
-      throw const NetworkSelfServiceParseException('网络自服返回了异常状态。');
+      throw const NetworkSelfServiceParseException('校园网信息暂时读取失败，请稍后重试。');
     }
     return source;
   }

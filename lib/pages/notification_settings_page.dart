@@ -231,7 +231,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
             : '允许按时提醒';
     final message =
         !supported
-            ? '时间提醒目前支持 Android、iPhone 和 iPad。'
+            ? '当前设备暂不支持时间提醒。'
             : notificationsMissing
             ? '开启通知权限，才能收到课程、考试和待办提醒。'
             : '请在系统设置中允许“闹钟和提醒”，以便在设定时间提醒你。';
@@ -293,9 +293,9 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
     final setting = _settings![category]!;
     final colors = Theme.of(context).colorScheme;
     final editable = !_busy && _status.supported;
-    final (icon, description) = switch (category) {
+    final (IconData icon, String? description) = switch (category) {
       TimeReminderCategory.course => (Icons.school_outlined, '提醒上课时间和教室'),
-      TimeReminderCategory.exam => (Icons.edit_calendar_outlined, '提前提醒，安心备考'),
+      TimeReminderCategory.exam => (Icons.edit_calendar_outlined, null),
       TimeReminderCategory.deadline => (
         Icons.task_alt_outlined,
         '提醒有截止时间的未完成待办',
@@ -317,7 +317,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
               ),
               secondary: Icon(icon, color: colors.primary),
               title: Text(category.label),
-              subtitle: Text(description),
+              subtitle: description == null ? null : Text(description),
               value: setting.enabled,
               onChanged:
                   !editable
@@ -379,18 +379,36 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
   /// Reports the observed Android result, not a requested or assumed promotion.
   Widget _liveChannelRow(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final enabled = _liveEnabled != false && _liveSupported && _liveStatus.notifications;
-    final code = !enabled ? 'none' : _liveStatus.promoted ? 'promoted' : 'standardNotification';
-    final label = _liveEnabled == false ? '已关闭' : !enabled ? '不可用'
-        : _liveStatus.promoted ? 'Android 实时动态' : '系统持续通知（未晋升）';
+    final enabled =
+        _liveEnabled != false && _liveSupported && _liveStatus.notifications;
+    final code =
+        !enabled
+            ? 'none'
+            : _liveStatus.promoted
+            ? 'promoted'
+            : 'standardNotification';
+    final label =
+        _liveEnabled == false
+            ? '已关闭'
+            : !enabled
+            ? '不可用'
+            : _liveStatus.promoted
+            ? 'Android 实时动态'
+            : '持续显示在通知栏';
     return Row(
       key: const ValueKey('course-live-activity-channel'),
       children: [
         Icon(Icons.campaign_outlined, size: 18, color: colors.onSurfaceVariant),
         const SizedBox(width: 8),
-        Expanded(child: Text('当前状态：$label',
-          key: ValueKey('course-live-activity-channel-$code'),
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant))),
+        Expanded(
+          child: Text(
+            '提醒方式：$label',
+            key: ValueKey('course-live-activity-channel-$code'),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+          ),
+        ),
       ],
     );
   }
@@ -501,7 +519,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
                       key: const ValueKey('course-live-activity-unsupported'),
                       icon: Icons.phonelink_off_outlined,
                       title: '此设备暂不支持课程实时动态',
-                      message: '课程实时动态目前只在 Android 设备上展示。',
+                      message: '此设备暂不支持课程实时动态。',
                     ),
                   if (_liveSupported && liveOn && !_liveStatus.notifications)
                     _liveNotice(
@@ -617,7 +635,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
                           vertical: 4,
                         ),
                         child: Text(
-                          '定期打开应用，保持提醒更新。',
+                          '提醒时间可能因系统限制略有延迟，打开应用会自动校准。',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),

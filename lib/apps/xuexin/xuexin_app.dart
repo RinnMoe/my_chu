@@ -9,7 +9,7 @@ final xuexinApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.xuexin',
     name: '学信网',
-    description: '学信网网页服务，需使用学信网账号登录。',
+    description: '查询学信网学籍与学历（需学信网账号）。',
     iconCodePoint: Icons.school_outlined.codePoint,
     category: AppCategory.campus,
     developmentFlag: DevelopmentFlag.none,

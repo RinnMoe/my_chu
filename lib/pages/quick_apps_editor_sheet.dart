@@ -136,17 +136,6 @@ class _QuickAppsEditorSheetState extends State<QuickAppsEditorSheet> {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 2, 20, 12),
-                child: Text(
-                  manual ? '最多显示 8 个，可拖动排序' : '最多显示 8 个，按最近使用排序',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 6),
                 child: Row(
                   children: [
@@ -375,15 +364,6 @@ class _AddableAppRow extends StatelessWidget {
                     ],
                   ],
                 ),
-                if (metadata.description.isNotEmpty)
-                  Text(
-                    metadata.description,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
               ],
             ),
           ),
@@ -426,7 +406,6 @@ Future<void> showQuickAppsSortModeSheet(BuildContext context) async {
             ),
             _SortModeTile(
               title: '手动排序',
-              subtitle: '按你设置的顺序显示',
               selected: config.sortMode == QuickAppsSortMode.manual,
               onTap: () async {
                 await HomeLayoutService.setQuickAppsSortMode(
@@ -437,7 +416,6 @@ Future<void> showQuickAppsSortModeSheet(BuildContext context) async {
             ),
             _SortModeTile(
               title: '最近使用',
-              subtitle: '最近使用的功能优先显示',
               selected: config.sortMode == QuickAppsSortMode.recent,
               onTap: () async {
                 await HomeLayoutService.setQuickAppsSortMode(
@@ -456,13 +434,11 @@ Future<void> showQuickAppsSortModeSheet(BuildContext context) async {
 
 class _SortModeTile extends StatelessWidget {
   final String title;
-  final String subtitle;
   final bool selected;
   final VoidCallback onTap;
 
   const _SortModeTile({
     required this.title,
-    required this.subtitle,
     required this.selected,
     required this.onTap,
   });
@@ -478,7 +454,6 @@ class _SortModeTile extends StatelessWidget {
         color: selected ? colors.primary : colors.onSurfaceVariant,
       ),
       title: Text(title),
-      subtitle: Text(subtitle),
     );
   }
 }

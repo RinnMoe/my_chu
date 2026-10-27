@@ -186,7 +186,6 @@ class _ClassroomUsagePageState extends State<ClassroomUsagePage>
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.calendar_today_outlined),
                       title: Text(_formatShortDate(date)),
-                      subtitle: const Text('点击选择日期'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () async {
                         final picked = await showDatePicker(
@@ -301,7 +300,7 @@ class _ClassroomUsagePageState extends State<ClassroomUsagePage>
         const Divider(height: 1),
         Expanded(
           child: CampusProtectedContent(
-            title: '教室使用情况',
+            title: '空教室查询',
             icon: Icons.meeting_room_outlined,
             builder: (_) => _buildList(context),
           ),
@@ -443,7 +442,7 @@ class _ClassroomUsagePageState extends State<ClassroomUsagePage>
     if (!_queried) {
       return const _EmptyState(
         icon: Icons.search,
-        message: '设置筛选条件后，点击“查询”查看空教室',
+        message: '尚未查询',
       );
     }
     if (_itemsLoading && _items.isEmpty) {
@@ -543,7 +542,7 @@ class _RoomUsageCard extends StatelessWidget {
                 Text(
                   [
                     if (item.buildingName != null) item.buildingName!,
-                    if (item.capacity != null) '容量 ${item.capacity}',
+                    if (item.capacity != null) '可容纳 ${item.capacity} 人',
                     if (_hasTime(item)) _timeLabel(),
                   ].join(' · '),
                   maxLines: 1,
@@ -644,7 +643,7 @@ class _EmptyState extends StatelessWidget {
 
 String _errorMessage(Object error) {
   if (error is RoomUsageAuthenticationException) {
-    return '教室服务登录状态已失效，请重新登录后重试。';
+    return '空教室查询登录状态已失效，请重新登录后重试。';
   }
   return '教室信息暂时无法加载，请稍后重试。';
 }

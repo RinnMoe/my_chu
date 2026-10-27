@@ -11,7 +11,7 @@ final trustedDocsApp = AppDefinition(
   metadata: AppMetadata(
     id: 'feature.trusted.docs',
     name: '可信电子文档',
-    description: '成绩证明等',
+    description: '在线查看和开具成绩证明等电子文件。',
     iconCodePoint: Icons.verified_outlined.codePoint,
     category: AppCategory.academic,
     developmentFlag: DevelopmentFlag.none,

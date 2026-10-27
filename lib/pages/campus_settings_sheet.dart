@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../capabilities/campus_places/campus_registry.dart';
 import '../services/campus_settings_service.dart';
+import '../widgets/compact_badge.dart';
 
 Future<bool?> showCampusSettingsSheet(BuildContext context) {
   const sheet = CampusSettingsSheet();
@@ -111,7 +112,7 @@ class _CampusSettingsSheetState extends State<CampusSettingsSheet> {
       if (!saved) {
         setState(() {
           _saving = false;
-          _saveError = '校区未能保存，请重试。';
+          _saveError = '校区保存失败，请重试。';
         });
         return;
       }
@@ -120,19 +121,20 @@ class _CampusSettingsSheetState extends State<CampusSettingsSheet> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _saveError = '校区未能保存，请重试。';
+        _saveError = '校区保存失败，请重试。';
       });
     }
   }
 
-  String? _subtitleFor(CampusEntry campus) {
-    if (_defaultFallback &&
-        campus.campusId == CampusSettingsService.defaultCampusId) {
-      return '当前默认使用渭水校区';
-    }
+  Widget? _addressSubtitle(CampusEntry campus) {
     final address = campus.address?.trim();
-    return address == null || address.isEmpty ? null : address;
+    if (address == null || address.isEmpty) return null;
+    return Text(address);
   }
+
+  bool _isDefaultFallback(CampusEntry campus) =>
+      _defaultFallback &&
+      campus.campusId == CampusSettingsService.defaultCampusId;
 
   @override
   Widget build(BuildContext context) {
@@ -180,11 +182,21 @@ class _CampusSettingsSheetState extends State<CampusSettingsSheet> {
                         for (final campus in _campuses)
                           RadioListTile<String>(
                             value: campus.campusId,
-                            title: Text(campus.displayName),
-                            subtitle:
-                                _subtitleFor(campus) == null
-                                    ? null
-                                    : Text(_subtitleFor(campus)!),
+                            title: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    campus.displayName,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (_isDefaultFallback(campus)) ...[
+                                  const SizedBox(width: 8),
+                                  const CompactBadge(label: '默认'),
+                                ],
+                              ],
+                            ),
+                            subtitle: _addressSubtitle(campus),
                             enabled: !_saving,
                             secondary:
                                 _saving && campus.campusId == _selectedCampusId

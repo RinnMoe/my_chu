@@ -194,7 +194,7 @@ class _ProfilePageState extends State<ProfilePage>
   }
 
   Future<void> _confirmSignOut() async {
-    const signOutMessage = '退出登录会清除已保存的登录信息。';
+    const signOutMessage = '退出登录会清除本机保存的登录信息、课程提醒和桌面课表小组件。';
     final confirmation = showAdaptiveConfirmationDialog(
       context,
       title: '退出登录',
@@ -251,7 +251,6 @@ class _ProfilePageState extends State<ProfilePage>
                   ProfileSettingTile(
                     icon: Icons.forum_outlined,
                     title: '频道账号',
-                    subtitle: '管理校园频道账号',
                     onTap: () => _push(const ChannelAccountPage()),
                   ),
                 ],
@@ -275,7 +274,7 @@ class _ProfilePageState extends State<ProfilePage>
                   ),
                   ProfileSettingTile(
                     icon: Icons.tune_outlined,
-                    title: '页面显示',
+                    title: '首页与导航',
                     onTap: () => _push(const PageManagementPage()),
                   ),
                   ProfileSettingTile(

@@ -156,7 +156,7 @@ class _ChannelAccountPageState extends State<ChannelAccountPage> {
       builder:
           (dialogContext) => AlertDialog(
             title: const Text('退出校园频道账号？'),
-            content: const Text('这只会退出校园频道账号，不会影响校园统一身份登录。'),
+            content: const Text('这只会退出校园频道账号，不会影响统一身份认证登录。'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext, false),
@@ -235,7 +235,7 @@ class _ChannelAccountPageState extends State<ChannelAccountPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            '校园频道账号是独立的第三方账号，由校园频道运营。它不是您的校园统一身份或QQ账号。',
+            '校园频道账号是独立的第三方账号，由校园频道运营。它不是你的统一身份认证账号或 QQ 账号。',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
@@ -285,7 +285,7 @@ class _ChannelAccountPageState extends State<ChannelAccountPage> {
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
             title: const Text('记住密码'),
-            subtitle: const Text('账号及密码将以安全方式保存在您的设备上。'),
+            subtitle: const Text('账号及密码将以安全方式保存在你的设备上。'),
           ),
           if (_error != null) ...[
             const SizedBox(height: 8),

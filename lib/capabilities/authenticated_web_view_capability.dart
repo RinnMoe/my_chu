@@ -526,7 +526,7 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
       if (!mounted) return;
       setState(() {
         _preparedLoad = null;
-        _error = '无法获取应用登录态，请返回后重试。';
+        _error = '无法确认登录状态，请返回后重试。';
         _loading = false;
       });
     }
@@ -871,7 +871,7 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
     setState(() {
       _controller = null;
       _loading = false;
-      _error ??= detail.didCrash ? '页面渲染进程异常，请点击重试。' : '页面渲染进程已退出，请点击重试。';
+      _error ??= '页面意外中断。';
     });
   }
 
@@ -1128,7 +1128,7 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
           child: const Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: [indicator, SizedBox(height: 12), Text('正在打开统一身份授权…')],
+              children: [indicator, SizedBox(height: 12), Text('正在打开统一身份认证…')],
             ),
           ),
         ),

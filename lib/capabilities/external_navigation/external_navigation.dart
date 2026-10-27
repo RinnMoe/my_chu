@@ -159,7 +159,7 @@ class ExternalNavigationCapability {
     final launched = await launchWithFallback(app, target);
     if (launched || !context.mounted) return launched;
 
-    const message = '无法打开地图。请重新打开导航面板并选择“复制坐标”获取 WGS84 坐标。';
+    const message = '没有找到可用的地图应用，请确认已安装高德或百度地图后重试。';
     {
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
@@ -229,7 +229,7 @@ class ExternalNavigationCapability {
                     ScaffoldMessenger.of(context)
                       ..clearSnackBars()
                       ..showSnackBar(
-                        const SnackBar(content: Text("坐标已复制（WGS84）")),
+                        const SnackBar(content: Text("坐标已复制，可粘贴到地图应用搜索。")),
                       );
                   },
                 ),
@@ -248,7 +248,7 @@ class ExternalNavigationCapability {
   );
 
   static String _formatCoordinate(NavCoordinate c) =>
-      "${c.latitude.toStringAsFixed(6)}, ${c.longitude.toStringAsFixed(6)} (WGS84)";
+      "${c.latitude.toStringAsFixed(6)}, ${c.longitude.toStringAsFixed(6)}";
 }
 
 /// 便捷入口：复制坐标文本到剪贴板。
@@ -264,5 +264,5 @@ Future<void> copyCoordinate(
 
   ScaffoldMessenger.of(context)
     ..clearSnackBars()
-    ..showSnackBar(const SnackBar(content: Text("坐标已复制（WGS84）")));
+    ..showSnackBar(const SnackBar(content: Text("坐标已复制，可粘贴到地图应用搜索。")));
 }
