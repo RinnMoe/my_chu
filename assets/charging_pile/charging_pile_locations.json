@@ -1,0 +1,1021 @@
+{
+  "schemaVersion": 1,
+  "campusId": "weishui",
+  "source": {
+    "site": "https://chd-charge.pages.dev/",
+    "mapDataVersion": "v164",
+    "mapAmapVersion": "v141",
+    "coordinateSystem": "GCJ-02",
+    "outputCoordinateSystem": "WGS84",
+    "note": "坐标先按站点算法算出 GCJ-02（北门 bmGeo、朝晖 arcPx+chGeo、20号楼 E_GEO、物业服务中心 W_GEO），再做 gcj02→wgs84 逆变换（3 次迭代，残差 < 1e-9°）并 round 到 1e-6。precision: measured=实测点位（本数据未使用）；derived=由实测基准经明确标定或几何换算（北门、朝晖）；schematic=沿实测红线等分推算（20号楼、物业服务中心）。"
+  },
+  "areas": [
+    {
+      "areaId": "渭水-北门",
+      "name": "北门",
+      "precision": "derived",
+      "sourceNote": "北门 37 个车位来自手绘车位布局（index.html BM_SPOTS，像素与车位格子一一对应），经 BM_GEO 标定（0.207 m/px、绕地块中心旋转 16.7°、地块中心为实测点）换算为 GCJ-02。落点依赖标定比例与地块中心，因此是 derived 而不是 measured。"
+    },
+    {
+      "areaId": "渭水-朝晖体育场南",
+      "name": "朝晖体育场南",
+      "precision": "derived",
+      "sourceNote": "朝晖 36 个桩位由手绘弧线像素（arcPx：左弧 12 位 180°→128°、右弧 24 位 52°→0°）经体育场外接框配准（chGeo：手绘图 439×936px ↔ 实测体育场 WGS84 外接框）换算。弧参数是产品方指定的分布，非逐桩实测，因此是 derived。"
+    },
+    {
+      "areaId": "渭水-20号楼",
+      "name": "20号楼",
+      "precision": "schematic",
+      "sourceNote": "20号楼 24 个桩位由产品方红线两端配准后按 E-01→E-24 自西向东等分推算（约 5.25m 一档），只保证点在线上的相对次序，因此是 schematic。"
+    },
+    {
+      "areaId": "渭水-物业服务中心",
+      "name": "物业服务中心",
+      "precision": "schematic",
+      "sourceNote": "物业服务中心 12 个桩位由产品方红线两端配准后按 W-01→W-12 自下而上等分推算（约 3.8m 一档），只保证点在线上的相对次序，因此是 schematic。"
+    }
+  ],
+  "sites": [
+    {
+      "deviceId": "XLA23789",
+      "code": "TY-05",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375816,
+      "longitude": 108.905563,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=5) 像素 (306.85, 926.66) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA23805",
+      "code": "TY-04",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375885,
+      "longitude": 108.905541,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=4) 像素 (301.69, 889.66) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA23807",
+      "code": "TY-06",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375748,
+      "longitude": 108.905591,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=6) 像素 (313.41, 962.64) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA28792",
+      "code": "TY-13",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375408,
+      "longitude": 108.907024,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=13) 像素 (649.64, 1143.79) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA28826",
+      "code": "TY-11",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375455,
+      "longitude": 108.905812,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=11) 像素 (365.57, 1118.79) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA28827",
+      "code": "TY-19",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375554,
+      "longitude": 108.907181,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=19) 像素 (686.44, 1065.92) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA28838",
+      "code": "TY-22",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375639,
+      "longitude": 108.907245,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=22) 像素 (701.35, 1020.59) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA28839",
+      "code": "W-03",
+      "areaId": "渭水-物业服务中心",
+      "latitude": 34.371427,
+      "longitude": 108.891394,
+      "precision": "schematic",
+      "sourceNote": "W_GEO[2]（等分第 3/12 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA28866",
+      "code": "TY-33",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375997,
+      "longitude": 108.907377,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=33) 像素 (732.46, 830.27) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA28875",
+      "code": "TY-31",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375929,
+      "longitude": 108.907366,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=31) 像素 (729.74, 866.74) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA28996",
+      "code": "W-08",
+      "areaId": "渭水-物业服务中心",
+      "latitude": 34.371595,
+      "longitude": 108.891358,
+      "precision": "schematic",
+      "sourceNote": "W_GEO[7]（等分第 8/12 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29002",
+      "code": "TY-28",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375828,
+      "longitude": 108.907338,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=28) 像素 (723.15, 920.30) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29004",
+      "code": "TY-26",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375763,
+      "longitude": 108.907312,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=26) 像素 (717.13, 954.92) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29035",
+      "code": "TY-34",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.376032,
+      "longitude": 108.907381,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=34) 像素 (733.32, 811.90) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29108",
+      "code": "TY-15",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375452,
+      "longitude": 108.907080,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=15) 像素 (662.85, 1119.93) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29125",
+      "code": "TY-27",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375795,
+      "longitude": 108.907326,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=27) 像素 (720.30, 937.73) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29137",
+      "code": "TY-18",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375527,
+      "longitude": 108.907157,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=18) 像素 (680.92, 1080.16) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29207",
+      "code": "TY-12",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375408,
+      "longitude": 108.905871,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=12) 像素 (379.36, 1143.79) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29208",
+      "code": "TY-30",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375895,
+      "longitude": 108.907358,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=30) 像素 (727.88, 884.77) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29233",
+      "code": "TY-16",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375476,
+      "longitude": 108.907107,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=16) 像素 (669.12, 1107.18) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29263",
+      "code": "W-06",
+      "areaId": "渭水-物业服务中心",
+      "latitude": 34.371528,
+      "longitude": 108.891372,
+      "precision": "schematic",
+      "sourceNote": "W_GEO[5]（等分第 6/12 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29269",
+      "code": "TY-17",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375501,
+      "longitude": 108.907133,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=17) 像素 (675.15, 1093.92) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29277",
+      "code": "TY-35",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.376065,
+      "longitude": 108.907383,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=35) 像素 (733.83, 793.46) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29282",
+      "code": "TY-01",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.376101,
+      "longitude": 108.905512,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=1) 像素 (295.00, 775.00) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29284",
+      "code": "W-02",
+      "areaId": "渭水-物业服务中心",
+      "latitude": 34.371393,
+      "longitude": 108.891401,
+      "precision": "schematic",
+      "sourceNote": "W_GEO[1]（等分第 2/12 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29287",
+      "code": "TY-29",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375861,
+      "longitude": 108.907348,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=29) 像素 (725.68, 902.63) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29316",
+      "code": "TY-20",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375582,
+      "longitude": 108.907203,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=20) 像素 (691.69, 1051.23) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29388",
+      "code": "TY-23",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375669,
+      "longitude": 108.907263,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=23) 像素 (705.75, 1004.68) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29401",
+      "code": "TY-07",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375683,
+      "longitude": 108.905624,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=7) 像素 (321.35, 997.33) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29402",
+      "code": "TY-32",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375963,
+      "longitude": 108.907372,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=32) 像素 (731.27, 848.56) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29408",
+      "code": "W-07",
+      "areaId": "渭水-物业服务中心",
+      "latitude": 34.371561,
+      "longitude": 108.891365,
+      "precision": "schematic",
+      "sourceNote": "W_GEO[6]（等分第 7/12 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29410",
+      "code": "TY-10",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375506,
+      "longitude": 108.905758,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=10) 像素 (352.79, 1091.45) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29417",
+      "code": "TY-24",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375700,
+      "longitude": 108.907281,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=24) 像素 (709.85, 988.42) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29438",
+      "code": "TY-21",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375610,
+      "longitude": 108.907225,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=21) 像素 (696.66, 1036.11) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29439",
+      "code": "TY-25",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375731,
+      "longitude": 108.907297,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=25) 像素 (713.65, 971.82) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29452",
+      "code": "TY-08",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375621,
+      "longitude": 108.905663,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=8) 像素 (330.60, 1030.51) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29457",
+      "code": "W-09",
+      "areaId": "渭水-物业服务中心",
+      "latitude": 34.371628,
+      "longitude": 108.891351,
+      "precision": "schematic",
+      "sourceNote": "W_GEO[8]（等分第 9/12 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29461",
+      "code": "W-04",
+      "areaId": "渭水-物业服务中心",
+      "latitude": 34.371461,
+      "longitude": 108.891386,
+      "precision": "schematic",
+      "sourceNote": "W_GEO[3]（等分第 4/12 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29463",
+      "code": "TY-14",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375429,
+      "longitude": 108.907053,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=14) 像素 (656.36, 1132.14) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29464",
+      "code": "TY-36",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.376100,
+      "longitude": 108.907384,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=36) 像素 (734.00, 775.00) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA29720",
+      "code": "TY-03",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375956,
+      "longitude": 108.905525,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=3) 像素 (297.98, 851.88) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA30300",
+      "code": "TY-02",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.376028,
+      "longitude": 108.905515,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=2) 像素 (295.75, 813.57) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA30468",
+      "code": "TY-09",
+      "areaId": "渭水-朝晖体育场南",
+      "latitude": 34.375561,
+      "longitude": 108.905708,
+      "precision": "derived",
+      "sourceNote": "arcPx(seq=9) 像素 (341.10, 1061.96) → chGeo（体育场外接框配准）→ WGS84"
+    },
+    {
+      "deviceId": "XLA31449",
+      "code": "E-03",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.368939,
+      "longitude": 108.888364,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[2]（等分第 3/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA31743",
+      "code": "E-06",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.368975,
+      "longitude": 108.888532,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[5]（等分第 6/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA31746",
+      "code": "E-07",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.368987,
+      "longitude": 108.888588,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[6]（等分第 7/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA31748",
+      "code": "E-16",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369097,
+      "longitude": 108.889092,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[15]（等分第 16/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA31757",
+      "code": "E-09",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369011,
+      "longitude": 108.888700,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[8]（等分第 9/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA31759",
+      "code": "E-19",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369133,
+      "longitude": 108.889260,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[18]（等分第 19/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA31844",
+      "code": "E-05",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.368963,
+      "longitude": 108.888476,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[4]（等分第 5/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA31931",
+      "code": "E-04",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.368951,
+      "longitude": 108.888420,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[3]（等分第 4/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA31980",
+      "code": "E-23",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369182,
+      "longitude": 108.889483,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[22]（等分第 23/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA32017",
+      "code": "E-13",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369060,
+      "longitude": 108.888924,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[12]（等分第 13/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA32266",
+      "code": "E-18",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369121,
+      "longitude": 108.889204,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[17]（等分第 18/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA33369",
+      "code": "E-10",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369023,
+      "longitude": 108.888756,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[9]（等分第 10/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA35361",
+      "code": "E-08",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.368999,
+      "longitude": 108.888644,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[7]（等分第 8/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA35363",
+      "code": "E-22",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369170,
+      "longitude": 108.889427,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[21]（等分第 22/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA35364",
+      "code": "E-20",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369145,
+      "longitude": 108.889316,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[19]（等分第 20/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA35369",
+      "code": "E-14",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369073,
+      "longitude": 108.888980,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[13]（等分第 14/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA35412",
+      "code": "W-10",
+      "areaId": "渭水-物业服务中心",
+      "latitude": 34.371662,
+      "longitude": 108.891343,
+      "precision": "schematic",
+      "sourceNote": "W_GEO[9]（等分第 10/12 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA35413",
+      "code": "E-17",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369109,
+      "longitude": 108.889148,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[16]（等分第 17/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA35420",
+      "code": "E-02",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.368927,
+      "longitude": 108.888309,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[1]（等分第 2/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA35421",
+      "code": "E-24",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369194,
+      "longitude": 108.889539,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[23]（等分第 24/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA35428",
+      "code": "E-11",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369035,
+      "longitude": 108.888812,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[10]（等分第 11/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA35511",
+      "code": "E-21",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369157,
+      "longitude": 108.889371,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[20]（等分第 21/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA36092",
+      "code": "E-12",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369048,
+      "longitude": 108.888868,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[11]（等分第 12/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA36111",
+      "code": "W-11",
+      "areaId": "渭水-物业服务中心",
+      "latitude": 34.371695,
+      "longitude": 108.891336,
+      "precision": "schematic",
+      "sourceNote": "W_GEO[10]（等分第 11/12 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA36125",
+      "code": "E-01",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.368914,
+      "longitude": 108.888253,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[0]（等分第 1/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA36186",
+      "code": "E-15",
+      "areaId": "渭水-20号楼",
+      "latitude": 34.369085,
+      "longitude": 108.889036,
+      "precision": "schematic",
+      "sourceNote": "E_GEO[14]（等分第 15/24 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLA55127",
+      "code": "W-01",
+      "areaId": "渭水-物业服务中心",
+      "latitude": 34.371360,
+      "longitude": 108.891408,
+      "precision": "schematic",
+      "sourceNote": "W_GEO[0]（等分第 1/12 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLB01228",
+      "code": "D07",
+      "areaId": "渭水-北门",
+      "latitude": 34.376674,
+      "longitude": 108.903896,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 D07 像素 (843.50, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB01288",
+      "code": "D05",
+      "areaId": "渭水-北门",
+      "latitude": 34.376650,
+      "longitude": 108.903801,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 D05 像素 (799.70, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB01363",
+      "code": "D04",
+      "areaId": "渭水-北门",
+      "latitude": 34.376639,
+      "longitude": 108.903754,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 D04 像素 (777.80, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB01367",
+      "code": "D06",
+      "areaId": "渭水-北门",
+      "latitude": 34.376662,
+      "longitude": 108.903848,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 D06 像素 (821.60, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB02946",
+      "code": "C07",
+      "areaId": "渭水-北门",
+      "latitude": 34.376819,
+      "longitude": 108.903927,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 C07 像素 (879.10, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB02992",
+      "code": "A03",
+      "areaId": "渭水-北门",
+      "latitude": 34.376664,
+      "longitude": 108.903306,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 A03 像素 (591.30, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03062",
+      "code": "D13",
+      "areaId": "渭水-北门",
+      "latitude": 34.376745,
+      "longitude": 108.904180,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 D13 像素 (975.10, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03131",
+      "code": "C11",
+      "areaId": "渭水-北门",
+      "latitude": 34.376880,
+      "longitude": 108.904174,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 C11 像素 (993.70, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03169",
+      "code": "C06",
+      "areaId": "渭水-北门",
+      "latitude": 34.376803,
+      "longitude": 108.903865,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 C06 像素 (850.50, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03170",
+      "code": "C05",
+      "areaId": "渭水-北门",
+      "latitude": 34.376788,
+      "longitude": 108.903804,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 C05 像素 (821.90, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03199",
+      "code": "C10",
+      "areaId": "渭水-北门",
+      "latitude": 34.376865,
+      "longitude": 108.904112,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 C10 像素 (965.00, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03249",
+      "code": "A01",
+      "areaId": "渭水-北门",
+      "latitude": 34.376695,
+      "longitude": 108.903430,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 A01 像素 (648.70, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03270",
+      "code": "C03",
+      "areaId": "渭水-北门",
+      "latitude": 34.376757,
+      "longitude": 108.903680,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 C03 像素 (764.60, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03277",
+      "code": "A02",
+      "areaId": "渭水-北门",
+      "latitude": 34.376679,
+      "longitude": 108.903368,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 A02 像素 (620.00, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03298",
+      "code": "D03",
+      "areaId": "渭水-北门",
+      "latitude": 34.376627,
+      "longitude": 108.903706,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 D03 像素 (755.80, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03319",
+      "code": "B05",
+      "areaId": "渭水-北门",
+      "latitude": 34.376508,
+      "longitude": 108.903228,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 B05 像素 (534.00, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03335",
+      "code": "C09",
+      "areaId": "渭水-北门",
+      "latitude": 34.376850,
+      "longitude": 108.904051,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 C09 像素 (936.40, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03357",
+      "code": "D14",
+      "areaId": "渭水-北门",
+      "latitude": 34.376757,
+      "longitude": 108.904227,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 D14 像素 (997.00, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03369",
+      "code": "D09",
+      "areaId": "渭水-北门",
+      "latitude": 34.376698,
+      "longitude": 108.903990,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 D09 像素 (887.40, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03403",
+      "code": "D10",
+      "areaId": "渭水-北门",
+      "latitude": 34.376709,
+      "longitude": 108.904038,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 D10 像素 (909.30, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03412",
+      "code": "C08",
+      "areaId": "渭水-北门",
+      "latitude": 34.376834,
+      "longitude": 108.903989,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 C08 像素 (907.80, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03467",
+      "code": "C04",
+      "areaId": "渭水-北门",
+      "latitude": 34.376773,
+      "longitude": 108.903742,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 C04 像素 (793.20, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03505",
+      "code": "D12",
+      "areaId": "渭水-北门",
+      "latitude": 34.376733,
+      "longitude": 108.904132,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 D12 像素 (953.20, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03595",
+      "code": "A06",
+      "areaId": "渭水-北门",
+      "latitude": 34.376618,
+      "longitude": 108.903120,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 A06 像素 (505.30, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03596",
+      "code": "B03",
+      "areaId": "渭水-北门",
+      "latitude": 34.376538,
+      "longitude": 108.903351,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 B03 像素 (591.30, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03690",
+      "code": "B01",
+      "areaId": "渭水-北门",
+      "latitude": 34.376569,
+      "longitude": 108.903475,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 B01 像素 (648.70, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03721",
+      "code": "A05",
+      "areaId": "渭水-北门",
+      "latitude": 34.376633,
+      "longitude": 108.903182,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 A05 像素 (534.00, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03739",
+      "code": "C02",
+      "areaId": "渭水-北门",
+      "latitude": 34.376742,
+      "longitude": 108.903618,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 C02 像素 (736.00, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03769",
+      "code": "A04",
+      "areaId": "渭水-北门",
+      "latitude": 34.376649,
+      "longitude": 108.903244,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 A04 像素 (562.70, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03770",
+      "code": "C01",
+      "areaId": "渭水-北门",
+      "latitude": 34.376726,
+      "longitude": 108.903556,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 C01 像素 (707.30, 112.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03899",
+      "code": "D01",
+      "areaId": "渭水-北门",
+      "latitude": 34.376603,
+      "longitude": 108.903612,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 D01 像素 (712.00, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB03991",
+      "code": "D02",
+      "areaId": "渭水-北门",
+      "latitude": 34.376615,
+      "longitude": 108.903659,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 D02 像素 (733.90, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB04070",
+      "code": "W-12",
+      "areaId": "渭水-物业服务中心",
+      "latitude": 34.371729,
+      "longitude": 108.891329,
+      "precision": "schematic",
+      "sourceNote": "W_GEO[11]（等分第 12/12 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLB04073",
+      "code": "W-05",
+      "areaId": "渭水-物业服务中心",
+      "latitude": 34.371494,
+      "longitude": 108.891379,
+      "precision": "schematic",
+      "sourceNote": "W_GEO[4]（等分第 5/12 档）→ WGS84"
+    },
+    {
+      "deviceId": "XLB04138",
+      "code": "D08",
+      "areaId": "渭水-北门",
+      "latitude": 34.376686,
+      "longitude": 108.903943,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 D08 像素 (865.50, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB04169",
+      "code": "B04",
+      "areaId": "渭水-北门",
+      "latitude": 34.376523,
+      "longitude": 108.903290,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 B04 像素 (562.70, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB04215",
+      "code": "D11",
+      "areaId": "渭水-北门",
+      "latitude": 34.376721,
+      "longitude": 108.904085,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 D11 像素 (931.30, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB04421",
+      "code": "B02",
+      "areaId": "渭水-北门",
+      "latitude": 34.376554,
+      "longitude": 108.903413,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 B02 像素 (620.00, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    },
+    {
+      "deviceId": "XLB04471",
+      "code": "B06",
+      "areaId": "渭水-北门",
+      "latitude": 34.376492,
+      "longitude": 108.903166,
+      "precision": "derived",
+      "sourceNote": "BM_SPOTS 车位 B06 像素 (505.30, 182.00) → bmGeo（0.207 m/px、16.7°）→ WGS84"
+    }
+  ]
+}

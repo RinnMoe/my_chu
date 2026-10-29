@@ -1,5 +1,9 @@
 import "../campus_places/campus_places.dart";
 import "indoor_map.dart";
+import "layers/layers.dart";
+
+export "layers/layers.dart"
+    show MapLayerHit, MapLayerHitQuery, MapLayerRenderState;
 
 /// 地图引擎能力抽象（SDK 无关）。
 ///
@@ -11,6 +15,13 @@ abstract class CampusMapEngine {
   /// 设置当前校区地点语义数据，供业务 hit-test 与地点聚焦等运行时能力使用。
   /// 不要求将地点几何渲染为底图 overlay。
   Future<void> setPlaces(CampusPlacesData places);
+
+  /// 应用业务图层展示状态。实现必须幂等：只更新变化的 Source/Layer，
+  /// 不得重建地图、重载底图或重置相机。
+  Future<void> applyMapLayers(List<MapLayerRenderState> layers);
+
+  /// 命中当前可见业务图层，返回优先级最高者命中的要素。
+  Future<MapLayerHit?> hitTestMapLayers(MapLayerHitQuery query);
 
   /// 根据稳定地点身份聚焦并显示选中标记；信息卡和选中数据由页面/controller 状态管理。
   Future<void> selectPlace(CampusPlaceId placeId);

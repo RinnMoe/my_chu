@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../capabilities/campus_map/campus_map_capability.dart';
+import 'charging_pile_map_link.dart';
 import 'charging_pile_models.dart';
 import 'charging_pile_service.dart';
 import 'charging_pile_widgets.dart';
@@ -18,8 +21,17 @@ enum _PileSort {
 }
 
 class ChargingPilePage extends StatefulWidget {
-  const ChargingPilePage({super.key, this.repositoryForTesting});
+  const ChargingPilePage({
+    super.key,
+    this.repositoryForTesting,
+    this.initialDeviceId,
+  });
   final ChargingPileRepository? repositoryForTesting;
+
+  /// Opens directly on one device: the page switches to its area, reveals the
+  /// card and shows the detail sheet. Used when the campus map focuses a pile.
+  /// Leaving it null keeps the previous page behaviour unchanged.
+  final String? initialDeviceId;
 
   @override
   State<ChargingPilePage> createState() => _ChargingPilePageState();
@@ -30,6 +42,8 @@ class _ChargingPilePageState extends State<ChargingPilePage>
   static const _favoritesKey = 'charging_pile.favorites.v1';
   late final ChargingPileRepository _repository;
   final _search = TextEditingController();
+  final _scroll = ScrollController();
+  final _deviceKeys = <String, GlobalKey>{};
   final _viewRevision = ValueNotifier<int>(0);
   final _requests = <ChargingPileCancellation>{};
   final _favorites = <String>{};
@@ -42,6 +56,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
   bool _visible = true;
   bool _foreground = true;
   bool _resumeScheduled = false;
+  String? _highlighted;
   int _favoriteRevision = 0;
   Future<void> _favoriteWrites = Future.value();
 
@@ -55,7 +70,9 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     _release = _repository.acquire();
     unawaited(_loadFavorites());
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _visible && _foreground) unawaited(_refresh());
+      if (!mounted) return;
+      if (_visible && _foreground) unawaited(_refresh());
+      unawaited(_openInitialDevice());
     });
   }
 
@@ -129,16 +146,70 @@ class _ChargingPilePageState extends State<ChargingPilePage>
 
   /// Resumes an interrupted page transaction when the page becomes active
   /// again. Without this, backgrounding during a refresh would leave an empty
-  /// grid until the user pulled to refresh manually.
+  /// grid until the user pulled to refresh manually. With a usable snapshot the
+  /// page only re-queries devices that are no longer live.
   void _scheduleResumeRefresh() {
     if (_resumeScheduled) return;
     _resumeScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _resumeScheduled = false;
       if (!mounted || !_visible || !_foreground) return;
-      if (!_repository.needsRefresh) return;
-      unawaited(_refresh());
+      if (_repository.needsRefresh) {
+        unawaited(_refresh());
+        return;
+      }
+      unawaited(_repository.refreshIfStale());
     });
+  }
+
+  /// Focuses the device the campus map asked for: switch to its area, reveal
+  /// its card, then open the existing detail sheet.
+  Future<void> _openInitialDevice() async {
+    final deviceId = widget.initialDeviceId;
+    if (deviceId == null) return;
+    final device = _repository.deviceFor(deviceId);
+    if (device == null) return;
+    final area = device.area;
+    setState(() {
+      // An unmapped location keeps "all areas" so its card is not filtered away.
+      _area = area == ChargingPileArea.unknown ? null : area;
+      _highlighted = deviceId;
+    });
+    await _revealDevice(device);
+    if (!mounted) return;
+    await _showDevice(device);
+    if (!mounted) return;
+    setState(() => _highlighted = null);
+  }
+
+  GlobalKey _deviceKey(String deviceId) =>
+      _deviceKeys.putIfAbsent(deviceId, () => GlobalKey());
+
+  /// Scrolls the virtualized grid until the target card has been built, then
+  /// centers it. Bounded so a missing target can never spin forever.
+  Future<void> _revealDevice(ChargingPileDevice device) async {
+    for (var attempt = 0; attempt < 20; attempt++) {
+      if (!mounted) return;
+      await WidgetsBinding.instance.endOfFrame;
+      final target = _deviceKeys[device.id]?.currentContext;
+      if (target != null && target.mounted) {
+        await Scrollable.ensureVisible(
+          target,
+          alignment: 0.2,
+          duration: const Duration(milliseconds: 220),
+        );
+        return;
+      }
+      if (!_scroll.hasClients) return;
+      final position = _scroll.position;
+      if (position.pixels >= position.maxScrollExtent) return;
+      _scroll.jumpTo(
+        math.min(
+          position.maxScrollExtent,
+          position.pixels + position.viewportDimension * 0.8,
+        ),
+      );
+    }
   }
 
   void _changed() {
@@ -158,6 +229,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     }
     _release?.call();
     _search.dispose();
+    _scroll.dispose();
     _viewRevision.dispose();
     super.dispose();
   }
@@ -190,13 +262,20 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     setState(() => _area = area);
   }
 
+  /// 排序与「只看空闲」共用的排序键：未知 -1、已满 0、空闲为插座数。
+  ///
+  /// 过期缓存属于未知，不能因为还留着旧数字就排到前面或进入筛选。
   int _freeRank(ChargingPileDevice device) {
-    final entry = _repository.stateFor(device.id);
-    return entry.status == null ? -1 : entry.status!.freeSlots;
+    return switch (_repository.availabilityFor(device.id)) {
+      ChargingPileAvailability.unknown => -1,
+      ChargingPileAvailability.occupied => 0,
+      ChargingPileAvailability.free =>
+        _repository.stateFor(device.id).status?.freeSlots ?? 1,
+    };
   }
 
-  void _showDevice(ChargingPileDevice device) {
-    showModalBottomSheet<void>(
+  Future<void> _showDevice(ChargingPileDevice device) {
+    return showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -206,6 +285,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
             builder: (context, _) {
               final entry = _repository.stateFor(device.id);
               final status = entry.status;
+              final freshness = _repository.freshnessFor(device.id);
               final theme = Theme.of(context);
               return SafeArea(
                 child: SingleChildScrollView(
@@ -247,6 +327,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                         ChargingPilePorts(slots: status.slots),
                         const SizedBox(height: 16),
                         Text(
+                          '${freshness == ChargingPileStatusFreshness.live ? '' : '状态已过期 · '}'
                           '更新时间 ${chargingPileTime(status.fetchedAt, _repository.now)}',
                           style: theme.textTheme.bodySmall,
                         ),
@@ -263,6 +344,22 @@ class _ChargingPilePageState extends State<ChargingPilePage>
             },
           ),
     );
+  }
+
+  /// 打开校园地图并聚焦该设备；不使用任何绕过地图 Capability 的跳转方式。
+  Future<void> _openOnMap(ChargingPileDevice device) async {
+    final result = await openChargingPileOnMap(context, deviceId: device.id);
+    if (!mounted) return;
+    final message = switch (result) {
+      MapLayerOpenResult.opened => null,
+      MapLayerOpenResult.unknownLayer => '地图图层暂不可用，请稍后重试。',
+      MapLayerOpenResult.unsupportedCampus => '该校区暂不支持充电桩地图。',
+      MapLayerOpenResult.openFailed => '暂时无法打开地图，请稍后重试。',
+    };
+    if (message == null) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -297,10 +394,14 @@ class _ChargingPilePageState extends State<ChargingPilePage>
       }
       return a.code.compareTo(b.code);
     });
-    final current =
+    // 汇总只统计实时确认过的设备：过期快照不参与空闲计数。
+    final live =
         devices
-            .map((d) => _repository.stateFor(d.id))
-            .where((e) => e.status != null)
+            .where(
+              (device) =>
+                  _repository.freshnessFor(device.id) ==
+                  ChargingPileStatusFreshness.live,
+            )
             .toList();
     final error = _repository.failure;
     return Scaffold(
@@ -320,7 +421,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
           child: LayoutBuilder(
             builder: (context, constraints) {
               final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
-              final cardWidth = 156 * textScale.clamp(1.0, 2.0);
+              final cardWidth = 180 * textScale.clamp(1.0, 2.0);
               final columns =
                   ((constraints.maxWidth - 32 + 8) / (cardWidth + 8))
                       .floor()
@@ -329,6 +430,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
               return RefreshIndicator(
                 onRefresh: () => _refresh(force: true),
                 child: CustomScrollView(
+                  controller: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverPadding(
@@ -455,15 +557,24 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                             ],
                             const SizedBox(height: 8),
                             ChargingPileSummary(
-                              freeSlots: current.fold(
+                              freeSlots: live.fold(
                                 0,
-                                (sum, e) => sum + e.status!.freeSlots,
+                                (sum, device) =>
+                                    sum +
+                                    _repository.confirmedFreeSlots(device.id),
                               ),
-                              knownSlots: current.fold(
+                              knownSlots: live.fold(
                                 0,
-                                (sum, e) => sum + e.status!.slots.length,
+                                (sum, device) =>
+                                    sum +
+                                    (_repository
+                                            .stateFor(device.id)
+                                            .status
+                                            ?.slots
+                                            .length ??
+                                        0),
                               ),
-                              updatedDevices: current.length,
+                              updatedDevices: live.length,
                               totalDevices: devices.length,
                               latest: _repository.updatedAt,
                               now: now,
@@ -574,25 +685,9 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                                         child:
                                             index >= filtered.length
                                                 ? const SizedBox()
-                                                : ChargingPileDeviceCard(
-                                                  device: filtered[index],
-                                                  entry: _repository.stateFor(
-                                                    filtered[index].id,
-                                                  ),
-                                                  loading:
-                                                      _repository.isRefreshing,
-                                                  favorite: _favorites.contains(
-                                                    filtered[index].id,
-                                                  ),
-                                                  onFavorite:
-                                                      () => _toggleFavorite(
-                                                        filtered[index].id,
-                                                      ),
-                                                  onOpen:
-                                                      () => _showDevice(
-                                                        filtered[index],
-                                                      ),
-                                                  showArea: _area == null,
+                                                : _buildCard(
+                                                  filtered[index],
+                                                  theme,
                                                 ),
                                       ),
                                     );
@@ -621,6 +716,33 @@ class _ChargingPilePageState extends State<ChargingPilePage>
             },
           ),
         ),
+      ),
+    );
+  }
+
+  /// One grid card, wrapped with a reveal key and outline while the map-opened
+  /// device is being focused.
+  Widget _buildCard(ChargingPileDevice device, ThemeData theme) {
+    final card = ChargingPileDeviceCard(
+      device: device,
+      entry: _repository.stateFor(device.id),
+      freshness: _repository.freshnessFor(device.id),
+      loading: _repository.isRefreshing,
+      favorite: _favorites.contains(device.id),
+      onFavorite: () => _toggleFavorite(device.id),
+      onMap: () => _openOnMap(device),
+      onOpen: () => _showDevice(device),
+      showArea: _area == null,
+    );
+    if (device.id != _highlighted) return card;
+    return KeyedSubtree(
+      key: _deviceKey(device.id),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: theme.colorScheme.primary, width: 2),
+        ),
+        child: card,
       ),
     );
   }

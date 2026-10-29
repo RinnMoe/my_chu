@@ -92,6 +92,7 @@ flutter:
     - assets/data/public_holidays/2026.json
     - assets/data/public_holidays/2027.json
     - assets/models/ddddocr/
+    - assets/charging_pile/charging_pile_locations.json
 
 flutter_launcher_icons:
   android: true

@@ -27,6 +27,7 @@ import 'capabilities/academic_schedule/academic_schedule_alerts.dart';
 import 'capabilities/desktop_widgets/desktop_widget_bridge.dart';
 import 'capabilities/desktop_widgets/desktop_widget_models.dart';
 import 'apps/app_registry.dart';
+import 'apps/map_layer_catalog.dart';
 import 'apps/app_service.dart';
 import 'services/login_required_notifier.dart';
 import 'services/logger_service.dart';
@@ -75,6 +76,9 @@ void _bootstrap() {
   // credential-free WebView lifecycle logs instead.
   PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+  // 内置地图图层在启动阶段注册一次：与业务页面生命周期解耦，地图面板因此
+  // 能发现用户从未打开过的 App 提供的图层。
+  registerBuiltInMapLayers();
   registerTimeReminders();
   unawaited(
     TimeReminderService.initialize().catchError((Object error) {

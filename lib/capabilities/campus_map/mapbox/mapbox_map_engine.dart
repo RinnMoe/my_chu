@@ -7,7 +7,9 @@ import "package:mapbox_maps_flutter/mapbox_maps_flutter.dart";
 import "../../campus_places/campus_places.dart";
 import "../campus_semantic_hit_tester.dart";
 import "../indoor_map.dart";
+import "../layers/map_layer_models.dart";
 import "../map_engine.dart";
+import "mapbox_layer_renderer.dart";
 import "mapbox_map_config.dart";
 
 const String _selectionSource = "mychu-selection";
@@ -56,6 +58,7 @@ class MapboxMapEngine implements CampusMapEngine {
   CampusPlacesData? _places;
   bool _prepared = false;
   bool _styleReady = false;
+  bool _cameraReady = false;
   bool _overlayReady = false;
   bool _indoorLayersReady = false;
   bool _styleFallbackAttempted = false;
@@ -66,6 +69,7 @@ class MapboxMapEngine implements CampusMapEngine {
   CampusCoordinate? _selectionCoordinate;
   CampusCoordinate? _userLocationCoordinate;
   CampusCoordinate? _pendingFocus;
+  MapLayerCameraRequest? _pendingLayerCamera;
   IndoorBuildingData? _indoorBuilding;
   int? _indoorFloor;
   String? _selectedIndoorSpaceId;
@@ -75,8 +79,14 @@ class MapboxMapEngine implements CampusMapEngine {
   bool _indoorCameraBoundsConfigured = false;
   int _indoorVisibilityGeneration = 0;
   final CampusSemanticHitTester _hitTester = const CampusSemanticHitTester();
+  late final MapboxLayerRenderer _layerRenderer = MapboxLayerRenderer(
+    controller: _controllerForLayers,
+    isStyleReady: _styleReadyForLayers,
+  );
+  List<MapLayerRenderState> _mapLayerStates = const <MapLayerRenderState>[];
 
   void Function(CampusPlaceId placeId, CampusCoordinate coordinate)? onPlaceTap;
+  void Function(MapLayerHit hit)? onMapLayerTap;
   void Function(String indoorSpaceId)? onIndoorSpaceTap;
   void Function(
     CampusCoordinate center,
@@ -86,6 +96,9 @@ class MapboxMapEngine implements CampusMapEngine {
   onCameraIdle;
 
   MapboxMapEngine({this.config = const MapboxMapConfig()});
+
+  MapboxMap? _controllerForLayers() => _controller;
+  bool _styleReadyForLayers() => _styleReady && _isCurrentInstance(null);
 
   bool get isPrepared => _prepared;
   String get styleUri => config.resolvedStyleUri;
@@ -109,12 +122,14 @@ class MapboxMapEngine implements CampusMapEngine {
     _places = null;
     _prepared = true;
     _styleReady = false;
+    _cameraReady = false;
     _overlayReady = false;
     _indoorLayersReady = false;
     _styleFallbackAttempted = false;
     _selectionCoordinate = null;
     _userLocationCoordinate = null;
     _pendingFocus = null;
+    _pendingLayerCamera = null;
     _indoorBuilding = null;
     _indoorFloor = null;
     _selectedIndoorSpaceId = null;
@@ -122,6 +137,8 @@ class MapboxMapEngine implements CampusMapEngine {
     _restoreDefaultOutdoorCamera = false;
     _indoorCameraBoundsConfigured = false;
     _fitCameraToIndoor = false;
+    _layerRenderer.reset();
+    _mapLayerStates = const <MapLayerRenderState>[];
   }
 
   /// Called by [MapWidget.onMapCreated].
@@ -211,12 +228,22 @@ class MapboxMapEngine implements CampusMapEngine {
       if (focus != null) {
         await _focusCoordinate(focus, animate: false);
       }
+      if (!_isCurrentInstance(instanceToken)) return;
+      _cameraReady = true;
+      final layerCamera = _pendingLayerCamera;
+      _pendingLayerCamera = null;
+      if (layerCamera != null) {
+        await moveCameraForLayer(layerCamera);
+      }
+      if (!_isCurrentInstance(instanceToken)) return;
+      await _layerRenderer.sync(_mapLayerStates);
     } catch (_) {
       // A style reload can invalidate runtime source/layer handles. The next
       // style-loaded callback retries the idempotent setup instead of leaving
       // the page with an unhandled callback future.
       if (!_isCurrentInstance(instanceToken)) return;
       _styleReady = false;
+      _cameraReady = false;
       _overlayReady = false;
     }
   }
@@ -237,8 +264,10 @@ class MapboxMapEngine implements CampusMapEngine {
     }
     _styleFallbackAttempted = true;
     _styleReady = false;
+    _cameraReady = false;
     _overlayReady = false;
     _indoorLayersReady = false;
+    _layerRenderer.reset();
     if (!_isCurrentInstance(instanceToken)) return;
     await controller.loadStyleURI(MapboxStyles.STANDARD);
   }
@@ -249,6 +278,19 @@ class MapboxMapEngine implements CampusMapEngine {
   @override
   Future<void> setPlaces(CampusPlacesData places) async {
     _places = places;
+  }
+
+  @override
+  Future<void> applyMapLayers(List<MapLayerRenderState> layers) async {
+    _mapLayerStates = layers;
+    if (!_styleReady) return;
+    await _layerRenderer.sync(layers);
+  }
+
+  @override
+  Future<MapLayerHit?> hitTestMapLayers(MapLayerHitQuery query) async {
+    if (!_styleReady || !_isCurrentInstance(null)) return null;
+    return _layerRenderer.hitTest(query);
   }
 
   @override
@@ -322,6 +364,20 @@ class MapboxMapEngine implements CampusMapEngine {
       );
       await _setCamera(camera, animate: animate);
     }
+  }
+
+  /// Layer navigation can arrive before the native map and its initial camera.
+  Future<void> moveCameraForLayer(MapLayerCameraRequest request) async {
+    if (!_cameraReady || _controller == null) {
+      _pendingLayerCamera = request;
+      return;
+    }
+    await moveCamera(
+      center: request.center,
+      zoom: request.zoom,
+      bounds: request.bounds,
+      animate: request.animate,
+    );
   }
 
   @override
@@ -403,6 +459,8 @@ class MapboxMapEngine implements CampusMapEngine {
     _selectionCoordinate = null;
     _pendingFocus = null;
     final instanceToken = _mapInstanceToken;
+    await _layerRenderer.setSuspended(true);
+    if (!_isCurrentInstance(instanceToken)) return;
     if (!_styleReady || !_isCurrentInstance(instanceToken)) return;
     await _applySelection();
     if (!_isCurrentInstance(instanceToken)) return;
@@ -473,6 +531,9 @@ class MapboxMapEngine implements CampusMapEngine {
     _indoorFloor = null;
     _selectedIndoorSpaceId = null;
     _fitCameraToIndoor = false;
+    // A newer indoor entry may have won the race while this exit was awaiting;
+    // only resume business layers when no indoor context remains.
+    await _layerRenderer.setSuspended(_indoorBuilding != null);
     if (!wasFittingCamera) {
       if (_indoorCameraBoundsConfigured) {
         await _configureOutdoorCameraBounds(instanceToken: instanceToken);
@@ -627,6 +688,20 @@ class MapboxMapEngine implements CampusMapEngine {
       longitude: position.lng.toDouble(),
       latitude: position.lat.toDouble(),
     );
+
+    // Priority follows the documented tap order: indoor interaction first,
+    // then the visible business layers (highest priority layer wins), and only
+    // afterwards the semantic campus place hit test.
+    final touch = context.touchPosition;
+    final layerHit = await _layerRenderer.hitTest(
+      MapLayerHitQuery(x: touch.x.toDouble(), y: touch.y.toDouble()),
+    );
+    if (!_isCurrentInstance(instanceToken)) return;
+    if (layerHit != null) {
+      onMapLayerTap?.call(layerHit);
+      return;
+    }
+
     final placeId = _hitTester.hitTestPlaceId(
       campusId: campusId,
       data: places,
@@ -661,17 +736,21 @@ class MapboxMapEngine implements CampusMapEngine {
     _places = null;
     _prepared = false;
     _styleReady = false;
+    _cameraReady = false;
     _overlayReady = false;
     _indoorLayersReady = false;
     _styleFallbackAttempted = false;
     _selectionCoordinate = null;
     _userLocationCoordinate = null;
     _pendingFocus = null;
+    _pendingLayerCamera = null;
     _indoorBuilding = null;
     _indoorFloor = null;
     _selectedIndoorSpaceId = null;
     _outdoorCameraBeforeIndoor = null;
     _restoreDefaultOutdoorCamera = false;
+    _layerRenderer.reset();
+    _mapLayerStates = const <MapLayerRenderState>[];
   }
 
   Future<void> _configureCameraBounds(

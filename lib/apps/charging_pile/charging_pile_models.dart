@@ -97,6 +97,51 @@ class ChargingPileDeviceState {
   final ChargingPileFailure? failure;
 }
 
+/// How much a known status can be trusted when it is shown to a user.
+///
+/// [unavailable] always means "no confirmed status": never queried, or the last
+/// query failed. It is not an availability answer, so it must not be rendered
+/// as "已占满".
+enum ChargingPileStatusFreshness {
+  /// Confirmed within the live window: safe to show as a current answer.
+  live,
+
+  /// Confirmed earlier than the live window: still informative, no longer live.
+  stale,
+
+  /// Older than the stale window: keep as context, re-query before trusting.
+  expired,
+
+  /// No confirmed status at all.
+  unavailable;
+
+  bool get isKnown => this != unavailable;
+}
+
+/// 面向用户的可用性结论。
+///
+/// 只有实时确认过的状态才能给出 [free] / [occupied]；未查询、查询失败、
+/// 陈旧与过期一律 [unknown]，不能因为缓存里还留着旧数字就当作当前答案。
+enum ChargingPileAvailability { unknown, free, occupied }
+
+/// 把状态与新鲜度折算成唯一结论。
+///
+/// 地图图层与应用页共用本函数，避免同一份缓存在不同界面给出不同答案。
+ChargingPileAvailability chargingPileAvailabilityOf(
+  ChargingPileDeviceState state,
+  ChargingPileStatusFreshness freshness,
+) {
+  final status = state.status;
+  if (status == null || freshness != ChargingPileStatusFreshness.live) {
+    return ChargingPileAvailability.unknown;
+  }
+  if (status.freeSlots > 0) return ChargingPileAvailability.free;
+  if (status.occupiedSlots > 0 && status.otherSlots == 0) {
+    return ChargingPileAvailability.occupied;
+  }
+  return ChargingPileAvailability.unknown;
+}
+
 /// Cooperative cancellation shared by queues, retry delays and response fences.
 class ChargingPileCancellation {
   final _done = Completer<void>();
