@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 
 import '../../services/privacy_agreement_service.dart';
-import 'charging_credential_service.dart';
 import 'charging_pile_api_client.dart';
 import 'charging_pile_catalog.dart';
 import 'charging_pile_models.dart';
@@ -35,7 +34,6 @@ class ChargingPileRepository extends ChangeNotifier {
 
   ChargingPileRepository({
     ChargingPileApi? api,
-    ChargingCredentialService? credentials,
     List<ChargingPileDevice>? catalog,
     ChargingPileStatusCache? cache,
     DateTime Function()? now,
@@ -43,18 +41,15 @@ class ChargingPileRepository extends ChangeNotifier {
     this.retryDelay = const Duration(milliseconds: 800),
     this.deviceCooldown = const Duration(seconds: 5),
     this.liveWindow = const Duration(minutes: 2),
-  }) : _credentials =
-           credentials ?? (api == null ? ChargingCredentialService() : null),
-       _catalog = List.unmodifiable(catalog ?? kChargingPileDevices),
+  }) : _catalog = List.unmodifiable(catalog ?? kChargingPileDevices),
        _now = now ?? DateTime.now,
        _consent = consent ?? PrivacyAgreementService.isAccepted {
-    _api = api ?? ChargingPileApiClient(_credentials!);
+    _api = api ?? ChargingPileApiClient();
     _cache = cache ?? ChargingPileStatusCache(catalog: _catalog);
     _devicesById = {for (final device in _catalog) device.id: device};
     PrivacyAgreementService.revision.addListener(_privacyChanged);
   }
 
-  final ChargingCredentialService? _credentials;
   late final ChargingPileApi _api;
   late final ChargingPileStatusCache _cache;
   late final Map<String, ChargingPileDevice> _devicesById;
@@ -88,6 +83,7 @@ class ChargingPileRepository extends ChangeNotifier {
   bool _interrupted = false;
   int _networkFailures = 0;
   ChargingPileFailure? _failure;
+  ChargingPileFailure? _lastDegradation;
   DateTime? _pausedUntil;
   ChargingPileFailure? _pauseReason;
   Future<void>? _restoring;
@@ -100,6 +96,11 @@ class ChargingPileRepository extends ChangeNotifier {
   static const _pageDedupWindow = Duration(seconds: 60);
   static const _networkFailureLimit = 5;
   static const _pauseDuration = Duration(minutes: 10);
+
+  /// A 429 stops the current scan, but the source only asks for "try again in
+  /// a moment"; holding the whole feature for ten minutes would outlast the
+  /// budget window it is waiting for.
+  static const _rateLimitPause = Duration(seconds: 60);
 
   List<ChargingPileDevice> loadCatalog() => _catalog;
   List<ChargingPileArea> loadAreas() =>
@@ -117,11 +118,29 @@ class ChargingPileRepository extends ChangeNotifier {
   DateTime get now => _now();
   bool get isRefreshing => _batches.isNotEmpty;
   DateTime? get updatedAt => _updatedAt;
+
+  /// Time left before another whole-catalog refresh is allowed, or null when
+  /// one may start now. Mirrors the source's 60-second manual refresh gate.
+  Duration? get refreshCooldown {
+    final last = _lastPageAttempt;
+    if (last == null || _states.isEmpty) return null;
+    final elapsed = _now().difference(last);
+    if (elapsed >= _pageDedupWindow) return null;
+    return _pageDedupWindow - elapsed;
+  }
   int get completed => _batches.fold(0, (sum, batch) => sum + batch.completed);
   int get total => _batches.fold(0, (sum, batch) => sum + batch.total);
   ChargingPileFailure? get failure => _failure;
   DateTime? get pausedUntil => _pausedUntil;
   bool get isPaused => _pausedUntil?.isAfter(_now()) == true;
+
+  /// Consumes the one-shot "this scan was degraded" notice, if any. The source
+  /// shows a transient toast for the same situation instead of a banner.
+  bool consumeDegradation() {
+    final degraded = _lastDegradation != null;
+    _lastDegradation = null;
+    return degraded;
+  }
 
   /// True when no usable snapshot is on screen: either nothing has been loaded
   /// yet, or the last transaction was cancelled before it completed.
@@ -181,7 +200,6 @@ class ChargingPileRepository extends ChangeNotifier {
     _batches.clear();
     _inFlight.clear();
     _lastDeviceAttempt.clear();
-    _credentials?.cancelPending();
     _emit();
   }
 
@@ -197,20 +215,21 @@ class ChargingPileRepository extends ChangeNotifier {
     _emit();
   }
 
+  /// Starts an explicit retry from a clean slate.
+  ///
+  /// The source stopped handing out a shared credential on 2026-10-27, so there
+  /// is nothing left to sync here. The method keeps its name and signature
+  /// because the page's retry action still means "clear the last failure and
+  /// let every device be attempted again", and consent is still re-checked
+  /// before any request leaves the device.
   Future<void> syncCredential({bool force = false}) async {
     final runtime = _runtime;
-    try {
-      await _credentials?.syncCredential(force: force);
-      if (runtime.isCancelled || _disposed) return;
-      _failure = null;
-      _lastPageAttempt = null;
-      // A refreshed credential is an explicit new attempt: let the retry it
-      // belongs to reach every device again instead of hitting the cooldown.
-      _lastDeviceAttempt.clear();
-    } on ChargingPileException catch (e) {
-      if (runtime.isCancelled || _disposed) return;
-      _failure = e.failure;
-    }
+    if (runtime.isCancelled || _disposed) return;
+    if (!await _consentAllows()) return;
+    if (runtime.isCancelled || _disposed) return;
+    _failure = null;
+    _lastPageAttempt = null;
+    _lastDeviceAttempt.clear();
     _emit();
   }
 
@@ -330,16 +349,19 @@ class ChargingPileRepository extends ChangeNotifier {
     if (runtime.isCancelled || _disposed) return;
     await ensureCacheRestored();
     if (runtime.isCancelled || _disposed) return;
-    if (isPaused) {
+    // A pause holds automatic work only; an explicit gesture is the user's
+    // intent and still goes through, matching the source banner's promise.
+    final paused = isPaused;
+    if (paused && !force) {
       _failure = _pauseReason;
       _emit();
       return;
     }
-    // Deduplicate a whole-catalog scan, not individual devices: an explicit
-    // gesture bypasses this window. Area and single-device scopes rely on the
-    // per-device cooldown and the in-flight table instead.
+    // Mirrors the source's manual refresh gate: the proxy budgets upstream
+    // calls per minute, so even an explicit gesture must respect this window.
+    // Area and single-device scopes rely on the per-device cooldown and the
+    // in-flight table instead.
     if (fullCatalog &&
-        !force &&
         _lastPageAttempt != null &&
         _states.isNotEmpty &&
         _now().difference(_lastPageAttempt!) < _pageDedupWindow) {
@@ -357,13 +379,15 @@ class ChargingPileRepository extends ChangeNotifier {
     final before = <String, ChargingPileDeviceState?>{};
     final written = <String, ChargingPileDeviceState>{};
     ChargingPileFailure? stopReason;
-    ChargingPileFailure? lastDeviceFailure;
-    var failures = 0;
     var index = 0;
     // A pause is repository-wide: every running scope stops, not only the one
-    // that hit the rate limit.
+    // that hit the rate limit. An explicit `force` already passed the gate
+    // above and must not be stopped by the pause it is retrying.
     bool stopped() =>
-        runtime.isCancelled || _disposed || stopReason != null || isPaused;
+        runtime.isCancelled ||
+        _disposed ||
+        stopReason != null ||
+        (paused && !force);
 
     void publish(ChargingPileDevice device, ChargingPileDeviceState state) {
       before.putIfAbsent(device.id, () => _states[device.id]);
@@ -379,7 +403,11 @@ class ChargingPileRepository extends ChangeNotifier {
         final outcome = await _queryDevice(device.id, runtime, stopped);
         if (runtime.isCancelled || _disposed) return;
         switch (outcome) {
-          case _QuerySkipped():
+          case _QuerySkipped(:final degraded):
+            // The proxy degraded this batch to "keep what you already have".
+            // Nothing is published, so the previous snapshot stays on screen;
+            // the page only surfaces a one-shot notice after the scan.
+            if (degraded) _lastDegradation = ChargingPileFailure.throttled;
             break;
           case _QuerySuccess(:final slots):
             _networkFailures = 0;
@@ -395,8 +423,6 @@ class ChargingPileRepository extends ChangeNotifier {
             );
           case _QueryFailure(:final failure):
             if (failure == ChargingPileFailure.cancelled) return;
-            failures++;
-            lastDeviceFailure = failure;
             _networkFailures =
                 failure == ChargingPileFailure.network
                     ? _networkFailures + 1
@@ -409,13 +435,16 @@ class ChargingPileRepository extends ChangeNotifier {
                 failure: failure,
               ),
             );
-            if (failure == ChargingPileFailure.rateLimited ||
-                _networkFailures >= _networkFailureLimit) {
+            if (failure == ChargingPileFailure.rateLimited) {
+              stopReason ??= failure;
+              _pauseReason = failure;
+              _pausedUntil = _now().add(_rateLimitPause);
+              _lastDegradation = failure;
+            } else if (_networkFailures >= _networkFailureLimit) {
               stopReason ??= failure;
               _pauseReason = failure;
               _pausedUntil = _now().add(_pauseDuration);
             } else if (failure == ChargingPileFailure.credentialUnavailable ||
-                failure == ChargingPileFailure.credentialSync ||
                 failure == ChargingPileFailure.storage ||
                 failure == ChargingPileFailure.consentRequired) {
               stopReason ??= failure;
@@ -442,16 +471,18 @@ class ChargingPileRepository extends ChangeNotifier {
         _emit();
         return;
       }
-      // A single failing pile is reported on its own card; only a systemic
-      // failure (stop reason or >=30% of a multi-device scope) becomes a
-      // banner. A one-device scope never raises a page-wide banner.
-      _failure =
-          stopReason ??
-          (isPaused
-              ? _pauseReason
-              : (eligible.length >= 3 && failures * 10 >= eligible.length * 3
-                  ? lastDeviceFailure
-                  : null));
+      // Only failures a person must act on become a banner: a rejected shared
+      // credential, a local storage/consent problem, or a network-wide pause.
+      // Device-level errors stay on their own card, matching the source, which
+      // reserves its banner for the credential failure and the "5 piles in a
+      // row did not answer" case.
+      _failure = switch (stopReason) {
+        ChargingPileFailure.credentialUnavailable ||
+        ChargingPileFailure.storage ||
+        ChargingPileFailure.consentRequired => stopReason,
+        ChargingPileFailure.network when isPaused => stopReason,
+        _ => null,
+      };
       _refreshUpdatedAt();
       _interrupted = false;
       // One write per committed transaction, never one per device.
@@ -510,6 +541,12 @@ class ChargingPileRepository extends ChangeNotifier {
     try {
       return _QuerySuccess(await flight);
     } on ChargingPileException catch (error) {
+      // `throttled` is the source's documented degradation: this batch was not
+      // refreshed, so keep the previous snapshot and carry on. Only a real 429
+      // pauses the whole scan.
+      if (error.failure == ChargingPileFailure.throttled) {
+        return const _QuerySkipped(degraded: true);
+      }
       return _QueryFailure(error.failure);
     } catch (_) {
       return const _QueryFailure(ChargingPileFailure.platform);
@@ -598,7 +635,7 @@ class ChargingPileRepository extends ChangeNotifier {
     _disposed = true;
     PrivacyAgreementService.revision.removeListener(_privacyChanged);
     _cancelWork();
-    _credentials?.close();
+    _api.close();
     if (identical(_shared, this)) _shared = null;
     super.dispose();
   }
@@ -615,9 +652,11 @@ sealed class _QueryOutcome {
   const _QueryOutcome();
 }
 
-/// The device was skipped because it was queried within [deviceCooldown].
+/// The device was skipped: either it was queried within [deviceCooldown], or
+/// the proxy degraded the batch and asked us to keep the previous snapshot.
 class _QuerySkipped extends _QueryOutcome {
-  const _QuerySkipped();
+  const _QuerySkipped({this.degraded = false});
+  final bool degraded;
 }
 
 class _QuerySuccess extends _QueryOutcome {

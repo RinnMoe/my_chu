@@ -49,7 +49,9 @@ class _ChargingPilePageState extends State<ChargingPilePage>
   final _favorites = <String>{};
   VoidCallback? _release;
   ChargingPileCancellation? _batch;
-  ChargingPileArea? _area = ChargingPileArea.chaohui;
+  /// `null` is the "全部分区" selection, which is the default on open. A map
+  /// jump may narrow it to the device's area once the page receives a target.
+  ChargingPileArea? _area;
   _PileSort _sort = _PileSort.number;
   bool _onlyFree = false;
   bool _searching = false;
@@ -236,6 +238,21 @@ class _ChargingPilePageState extends State<ChargingPilePage>
 
   Future<void> _refresh({bool sync = false, bool force = false}) async {
     if (!_visible || !_foreground) return;
+    // The source gates manual whole-catalog refreshes to one per minute; a
+    // pull-to-refresh inside that window would only burn the proxy budget and
+    // come back throttled. Retry (`sync`) resets the window itself, so it is
+    // not blocked here.
+    if (force && !sync) {
+      final wait = _repository.refreshCooldown;
+      if (wait != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('刚更新过，${wait.inSeconds + 1} 秒后才能再刷')),
+          );
+        }
+        return;
+      }
+    }
     _batch?.cancel();
     final request = ChargingPileCancellation();
     _batch = request;
@@ -250,6 +267,15 @@ class _ChargingPilePageState extends State<ChargingPilePage>
       await _repository.refreshAll(force: force);
     } finally {
       _requests.remove(request);
+      // The source reports a degraded scan as a transient toast and keeps the
+      // previous numbers on screen, never as a page-wide banner.
+      if (mounted && _repository.consumeDegradation()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('这一分钟查得太多，先用最近一次的结果，过十几秒再点'),
+          ),
+        );
+      }
     }
   }
 
@@ -333,7 +359,11 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                         const Text('尚无插座状态'),
                       if (entry.failure != null) ...[
                         const SizedBox(height: 12),
-                        Text(entry.failure!.message),
+                        Text(
+                          entry.failure == ChargingPileFailure.consentRequired
+                              ? '请先同意用户协议'
+                              : '设备状态未知，请重新查询。',
+                        ),
                       ],
                     ],
                   ),
@@ -594,37 +624,40 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                             ],
                             if (error != null) ...[
                               const SizedBox(height: 12),
-                              Card.filled(
-                                margin: EdgeInsets.zero,
-                                child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    12,
-                                    8,
-                                    8,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(error.message),
-                                      if (_repository.pausedUntil
-                                          case final until?)
-                                        Text(
-                                          '暂停至 ${chargingPileTime(until, now)}',
+                              SizedBox(
+                                width: double.infinity,
+                                child: Card.filled(
+                                  margin: EdgeInsets.zero,
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      12,
+                                      8,
+                                      8,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(error.message),
+                                        if (_repository.pausedUntil
+                                            case final until?)
+                                          Text(
+                                            '已暂停自动刷新，手动「重试」不受影响 · 恢复于 ${chargingPileTime(until, now)}',
+                                          ),
+                                        TextButton.icon(
+                                          onPressed:
+                                              _repository.isRefreshing
+                                                  ? null
+                                                  : () => _refresh(
+                                                    sync: true,
+                                                    force: true,
+                                                  ),
+                                          icon: const Icon(Icons.refresh),
+                                          label: const Text('重试'),
                                         ),
-                                      TextButton.icon(
-                                        onPressed:
-                                            _repository.isRefreshing
-                                                ? null
-                                                : () => _refresh(
-                                                  sync: true,
-                                                  force: true,
-                                                ),
-                                        icon: const Icon(Icons.refresh),
-                                        label: const Text('重试'),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),

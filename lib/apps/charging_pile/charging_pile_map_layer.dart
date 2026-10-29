@@ -52,7 +52,9 @@ String chargingPileStatusSummary({
   if (status == null) {
     final failure = state.failure;
     if (failure == ChargingPileFailure.consentRequired) return "请先同意用户协议";
-    return failure == null ? "尚未查询" : "状态未知（${failure.message}）";
+    // Device-level errors stay generic here too: the source reserves detailed
+    // wording for the credential banner and keeps cards at "state unknown".
+    return failure == null ? "尚未查询" : "状态未知";
   }
   final observed = "更新于 ${chargingPileTime(status.fetchedAt, now)}";
   if (status.freeSlots > 0) return "空闲 ${status.freeSlots} · $observed";

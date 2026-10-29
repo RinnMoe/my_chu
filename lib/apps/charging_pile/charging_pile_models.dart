@@ -62,9 +62,9 @@ class ChargingPileDeviceStatus {
 
 enum ChargingPileFailure {
   credentialUnavailable,
-  credentialSync,
   network,
   rateLimited,
+  throttled,
   malformed,
   platform,
   storage,
@@ -73,12 +73,12 @@ enum ChargingPileFailure {
 
   String get message => switch (this) {
     credentialUnavailable => '共享凭证暂不可用，待源站更新后重试。',
-    credentialSync => '共享凭证同步失败，请稍后重试。',
     network => '网络暂时无法连接，请稍后重试。',
-    rateLimited => '平台请求受限，已暂停查询，请稍后重试。',
+    rateLimited => '这一分钟查得太多，先用最近一次的结果，过十几秒再点。',
+    throttled => '这一分钟查得太多，先用最近一次的结果，过十几秒再点。',
     malformed => '平台返回的数据无法识别，请稍后重试。',
     platform => '设备暂不可用，请稍后重试。',
-    storage => '本机凭证存储不可用，请重试。',
+    storage => '本机存储不可用，请重试。',
     cancelled => '查询已停止。',
     consentRequired => '请先同意用户协议。',
   };

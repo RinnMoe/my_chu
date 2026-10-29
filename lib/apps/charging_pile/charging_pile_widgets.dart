@@ -335,7 +335,13 @@ class ChargingPileDeviceCard extends StatelessWidget {
               const SizedBox(height: 6),
               if (status == null)
                 Text(
-                  loading ? '查询中…' : entry.failure?.message ?? '尚未查询',
+                  loading
+                      ? '查询中…'
+                      : entry.failure == ChargingPileFailure.consentRequired
+                      ? '请先同意用户协议'
+                      : entry.failure != null
+                      ? '状态未知'
+                      : '尚未查询',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),
