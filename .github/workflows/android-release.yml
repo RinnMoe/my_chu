@@ -161,6 +161,9 @@ jobs:
         env:
           MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
           MAPBOX_PUBLIC_ACCESS_TOKEN: ${{ vars.MAPBOX_PUBLIC_ACCESS_TOKEN }}
+          MYCHU_SUPABASE_URL: ${{ vars.MYCHU_SUPABASE_URL }}
+          MYCHU_SUPABASE_PUBLISHABLE_KEY: ${{ vars.MYCHU_SUPABASE_PUBLISHABLE_KEY }}
+          MYCHU_PRIVACY_BASE_URL: ${{ vars.MYCHU_PRIVACY_BASE_URL }}
           RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
           GIT_SHA: ${{ github.sha }}
           RUN_ID: ${{ github.run_id }}

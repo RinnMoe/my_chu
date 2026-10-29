@@ -118,7 +118,7 @@ class HomeFocusSection extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '今日关注',
+                  '焦点',
                   style: materialTheme.textTheme.titleSmall?.copyWith(
                     color: materialTheme.colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -133,7 +133,7 @@ class HomeFocusSection extends StatelessWidget {
         const SizedBox(height: 4),
         Semantics(
           container: true,
-          label: '首页今日关注',
+          label: '首页焦点',
           child: Column(
             children: [
               if (showCredentialSync) ...[

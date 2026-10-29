@@ -163,7 +163,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
           SwitchListTile(
             key: const ValueKey('app-remote-services-switch'),
             title: const Text('在线功能'),
-            subtitle: const Text('关闭后匿名统计与检查更新将不可用'),
+            subtitle: const Text('关闭后公告、反馈、匿名统计与检查更新不可用；必要的协议获取和安全策略同步仍可联网'),
             value: enabled,
             onChanged:
                 _loading || _saving || _remoteServicesEnabled == null

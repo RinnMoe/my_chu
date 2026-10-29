@@ -25,6 +25,8 @@ import '../services/campus_settings_service.dart';
 import '../services/demo_data_service.dart';
 import '../services/temporal_change_service.dart';
 import '../services/platform_environment.dart';
+import '../services/remote_feature_policy/feature_access_guard.dart';
+import '../services/remote_feature_policy/remote_feature_policy_service.dart';
 import '../capabilities/east8_time.dart';
 import '../capabilities/dev_visibility.dart';
 import '../capabilities/academic_schedule/academic_schedule_capability.dart';
@@ -111,6 +113,9 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
       source.revision.addListener(_onPublicHolidayRevision);
     }
     appCatalogNotifier.addListener(_onQuickAppsSourceChanged);
+    RemoteFeaturePolicyService.instance.revision.addListener(
+      _onQuickAppsSourceChanged,
+    );
     HomeLayoutService.revision.addListener(_onQuickAppsSourceChanged);
     CredentialSyncService.statusNotifier.addListener(_onCredentialSyncChanged);
     MobileCampusNoticeService.noticesRevision.addListener(_onHomeFocusRevision);
@@ -137,6 +142,9 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
       _onPublicHolidayRevision,
     );
     appCatalogNotifier.removeListener(_onQuickAppsSourceChanged);
+    RemoteFeaturePolicyService.instance.revision.removeListener(
+      _onQuickAppsSourceChanged,
+    );
     HomeLayoutService.revision.removeListener(_onQuickAppsSourceChanged);
     CredentialSyncService.statusNotifier.removeListener(
       _onCredentialSyncChanged,
@@ -648,10 +656,12 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
   }
 
   List<AppDefinition> _orderedQuickApps() {
-    return AppService.orderQuickApps(
-      _quickAppCandidates,
-      _recentIds,
-      _quickAppsConfig,
+    return FeatureEntryVisibility.filter(
+      AppService.orderQuickApps(
+        _quickAppCandidates,
+        _recentIds,
+        _quickAppsConfig,
+      ),
     );
   }
 

@@ -6,6 +6,8 @@ import '../apps/app.dart';
 import '../apps/app_service.dart';
 import '../capabilities/skeleton_block.dart';
 import '../services/platform_environment.dart';
+import '../services/remote_feature_policy/feature_access_guard.dart';
+import '../services/remote_feature_policy/remote_feature_policy_service.dart';
 import '../widgets/feature_icon_tile.dart';
 import 'app_sheet.dart';
 import 'package:mychu/widgets/apple_window_controls.dart';
@@ -27,26 +29,28 @@ class _AppsPageState extends State<AppsPage> {
   void initState() {
     super.initState();
     appCatalogNotifier.addListener(_load);
+    RemoteFeaturePolicyService.instance.revision.addListener(_load);
     _load();
   }
 
   @override
   void dispose() {
     appCatalogNotifier.removeListener(_load);
+    RemoteFeaturePolicyService.instance.revision.removeListener(_load);
     super.dispose();
   }
 
   Future<void> _load() async {
     final generation = ++_loadGeneration;
     final snapshot = await AppService.loadCatalog();
-    final apps = snapshot.plugins
-        .where(
-          (plugin) =>
-              !plugin.metadata.core &&
-              AppService.isVisibleInCurrentMode(plugin) &&
-              (snapshot.states[plugin.metadata.id]?.installed ?? false),
-        )
-        .toList(growable: false);
+    final apps = FeatureEntryVisibility.filter(
+      snapshot.plugins.where(
+        (plugin) =>
+            !plugin.metadata.core &&
+            AppService.isVisibleInCurrentMode(plugin) &&
+            (snapshot.states[plugin.metadata.id]?.installed ?? false),
+      ),
+    );
     if (!mounted || generation != _loadGeneration) return;
     setState(() {
       _apps = apps;

@@ -21,8 +21,8 @@ import 'app_update_prompts.dart';
 import 'appearance_theme_page.dart';
 import 'campus_settings_sheet.dart';
 import 'channel_account_page.dart';
+import 'feedback_community_page.dart';
 import 'fenfa_dialogs.dart' show showAppRemoteServicesDisabledMessage;
-import 'fenfa_feedback_page.dart';
 import 'notification_settings_page.dart';
 import 'page_management_page.dart';
 import 'profile/profile_widgets.dart';
@@ -190,7 +190,7 @@ class _ProfilePageState extends State<ProfilePage>
       if (mounted) showAppRemoteServicesDisabledMessage(context);
       return;
     }
-    if (mounted) _push(const FenfaFeedbackPage());
+    if (mounted) _push(const FeedbackCommunityPage());
   }
 
   Future<void> _confirmSignOut() async {

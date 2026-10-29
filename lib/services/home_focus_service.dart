@@ -14,9 +14,9 @@ import '../capabilities/account_scoped_cache.dart';
 import '../capabilities/east8_time.dart';
 import '../capabilities/public_holidays/public_holidays.dart';
 import '../capabilities/text_utils.dart';
+import 'app_content/app_announcement.dart';
+import 'app_content/app_content_service.dart';
 import 'demo_data_service.dart';
-import 'fenfa/fenfa_models.dart';
-import 'fenfa/fenfa_service.dart';
 import 'logger_service.dart';
 import 'auth_service.dart';
 
@@ -172,7 +172,7 @@ class HomeFocusService {
     )?
     alertEvaluator,
     Future<List<PortalNotice>> Function()? noticesLoader,
-    Future<List<FenfaAnnouncement>> Function(bool force)? announcementsLoader,
+    Future<List<AppAnnouncement>> Function(bool force)? announcementsLoader,
     PublicHolidayProvider? publicHolidayProvider,
     DateTime Function()? clock,
   }) : _examsLoader =
@@ -191,7 +191,7 @@ class HomeFocusService {
        _announcementsLoader =
            announcementsLoader ??
            ((force) =>
-               FenfaService.shared.loadFocusAnnouncements(force: force)),
+               AppContentService.shared.loadAnnouncements(force: force)),
        _publicHolidayProvider = publicHolidayProvider,
        _clock = clock ?? east8Now;
 
@@ -207,8 +207,7 @@ class HomeFocusService {
   final _ScheduleLoader _scheduleLoader;
   final _SourceAlertEvaluator _alertEvaluator;
   final Future<List<PortalNotice>> Function() _noticesLoader;
-  final Future<List<FenfaAnnouncement>> Function(bool force)
-  _announcementsLoader;
+  final Future<List<AppAnnouncement>> Function(bool force) _announcementsLoader;
   final PublicHolidayProvider? _publicHolidayProvider;
   final DateTime Function() _clock;
 
@@ -254,8 +253,7 @@ class HomeFocusService {
     final focus = results[0] as _FocusLoadResult<_FocusSourceSnapshot>;
     final notices = results[1] as _FocusLoadResult<List<PortalNotice>>;
     final publicHolidays = results[2] as _FocusLoadResult<List<HomeFocusItem>>;
-    final announcements =
-        results[3] as _FocusLoadResult<List<FenfaAnnouncement>>;
+    final announcements = results[3] as _FocusLoadResult<List<AppAnnouncement>>;
     final items = <HomeFocusItem>[
       if (focus.value != null) ...focus.value!.candidates,
       if (notices.value != null) ..._fromNotices(notices.value!, now),
@@ -723,7 +721,7 @@ class HomeFocusService {
   }
 
   List<HomeFocusItem> _fromAppAnnouncements(
-    List<FenfaAnnouncement> announcements,
+    List<AppAnnouncement> announcements,
     DateTime now,
   ) => [
     for (final announcement in announcements)

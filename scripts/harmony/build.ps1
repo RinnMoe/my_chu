@@ -2,7 +2,10 @@
 param(
   [switch]$RunTests,
   [switch]$SyncOnly,
-  [switch]$Offline
+  [switch]$Offline,
+  [string]$PrivacyBaseUrl = $env:MYCHU_PRIVACY_BASE_URL,
+  [string]$SupabaseUrl = $env:MYCHU_SUPABASE_URL,
+  [string]$SupabasePublishableKey = $env:MYCHU_SUPABASE_PUBLISHABLE_KEY
 )
 
 $ErrorActionPreference = 'Stop'
@@ -96,10 +99,22 @@ try {
     if ($RunTests) {
       $commands += [pscustomobject]@{ Tool = 'flutter'; Arguments = @('test') }
     }
-    $commands += [pscustomobject]@{
-      Tool = 'flutter'
-      Arguments = @('build', 'hap', '--debug', '--no-codesign', '--target-platform', 'ohos-x64')
+    $hapArguments = @('build', 'hap', '--debug', '--no-codesign', '--target-platform', 'ohos-x64')
+    if ($SupabaseUrl) { $hapArguments += "--dart-define=MYCHU_SUPABASE_URL=$SupabaseUrl" }
+    if ($SupabasePublishableKey) {
+      $hapArguments += "--dart-define=MYCHU_SUPABASE_PUBLISHABLE_KEY=$SupabasePublishableKey"
     }
+    if (-not [string]::IsNullOrWhiteSpace($PrivacyBaseUrl)) {
+      $policyUri = $null
+      if (-not [Uri]::TryCreate($PrivacyBaseUrl, [UriKind]::Absolute, [ref]$policyUri) -or
+          $policyUri.Scheme -ne 'https' -or -not $policyUri.Host -or
+          $policyUri.UserInfo -or $policyUri.Query -or $policyUri.Fragment -or
+          -not $policyUri.AbsolutePath.EndsWith('/')) {
+        throw 'MYCHU_PRIVACY_BASE_URL must be an HTTPS resource root ending in /.'
+      }
+      $hapArguments += "--dart-define=MYCHU_PRIVACY_BASE_URL=$PrivacyBaseUrl"
+    }
+    $commands += [pscustomobject]@{ Tool = 'flutter'; Arguments = $hapArguments }
   }
   foreach ($command in $commands) {
     $arguments = $command.Arguments

@@ -45,6 +45,8 @@ import 'services/temporal_change_service.dart';
 import 'services/root_navigation_service.dart';
 import 'services/platform_environment.dart';
 import 'services/campus_settings_service.dart';
+import 'services/remote_feature_policy/feature_access_guard.dart';
+import 'services/remote_feature_policy/remote_feature_policy_service.dart';
 import 'services/guide_preferences.dart';
 import 'services/onboarding_flow_service.dart';
 import 'theme/app_palette.dart';
@@ -55,6 +57,7 @@ import 'pages/app_sheet.dart';
 import 'pages/host_permission_purpose_overlay.dart';
 import 'widgets/adaptive_navigation_item.dart';
 import 'widgets/adaptive_root_navigation.dart';
+import 'widgets/feature_access_notice.dart';
 import 'widgets/adaptive_startup_splash.dart';
 import 'widgets/apple_window_controls.dart';
 import 'widgets/viewport_preview_host.dart';
@@ -347,14 +350,20 @@ class _AppShellState extends State<AppShell> {
   Future<bool> _requirePrivacyAgreement(int generation) async {
     if (!mounted || generation != _restoreGeneration) return false;
     try {
-      if (!await PrivacyAgreementService.isAccepted()) {
+      final document = await PrivacyAgreementService.prepareStartup();
+      if (document != null) {
+        final acceptedVersion = await PrivacyAgreementService.acceptedVersion();
         if (!mounted || generation != _restoreGeneration) return false;
-        final decision = await presentPrivacyAgreement(context);
+        final decision = await presentPrivacyAgreement(
+          context,
+          document,
+          isUpdate: acceptedVersion > 0,
+        );
         if (decision != PrivacyAgreementDecision.accepted) {
           await SystemNavigator.pop();
           return false;
         }
-        await PrivacyAgreementService.accept();
+        await PrivacyAgreementService.accept(document);
       }
       if (!mounted || generation != _restoreGeneration) return false;
       unawaited(UsageAnalyticsService.initializeIfEnabled());
@@ -386,7 +395,7 @@ class _AppShellState extends State<AppShell> {
             builder:
                 (dialogContext) => AlertDialog(
                   title: const Text('暂时无法继续'),
-                  content: const Text('无法读取隐私协议设置，请稍后重试。'),
+                  content: const Text('无法加载用户协议，请检查网络后重试。'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(dialogContext).pop(),
@@ -408,7 +417,7 @@ class _AppShellState extends State<AppShell> {
           ..hideCurrentSnackBar()
           ..showSnackBar(
             SnackBar(
-              content: const Text('无法读取隐私协议设置，请稍后重试。'),
+              content: const Text('无法加载用户协议，请检查网络后重试。'),
               action: SnackBarAction(label: '重试', onPressed: retry),
             ),
           );
@@ -450,6 +459,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   bool _onboardingFlowAttempted = false;
   Future<void>? _resumeSessionCheck;
   bool _wasBackgrounded = false;
+  Timer? _featurePolicyTimer;
   bool _rollcallRefreshPending = false;
   final GuidePreferences _guidePreferences = GuidePreferences();
 
@@ -460,6 +470,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     NavigationLayoutService.revision.addListener(_reloadTabs);
     HostAuthState.snapshot.addListener(_onAuthSnapshotChanged);
     appCatalogNotifier.addListener(_reloadTabs);
+    RemoteFeaturePolicyService.instance.revision.addListener(_reloadTabs);
     AppLaunchService.revision.addListener(_handleAppLaunch);
     RootNavigationService.revision.addListener(_handleRootNavigationRequest);
     TemporalChangeService.revision.addListener(_handleTemporalChange);
@@ -471,6 +482,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _reloadTabs();
     _handleAppLaunch();
     _syncDesktopWidgetSnapshot();
+    // Published safety policies are loaded after the agreement gate (MainScreen
+    // only exists then) and refreshed in the background.
+    unawaited(RemoteFeaturePolicyService.instance.start());
+    final policyInterval =
+        RemoteFeaturePolicyService.instance.config.refreshInterval;
+    if (RemoteFeaturePolicyService.instance.isConfigured &&
+        policyInterval > Duration.zero) {
+      _featurePolicyTimer = Timer.periodic(
+        policyInterval,
+        (_) => unawaited(RemoteFeaturePolicyService.instance.refresh()),
+      );
+    }
     // 普通更新进入“我的”栏目，只有强制升级弹窗；公告仍由首页 Focus 加载。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) TronclassRollcallStore.instance.start();
@@ -552,6 +575,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       _wasBackgrounded = false;
       _syncDesktopWidgetSnapshot();
       _restoreCampusSessionAfterResume();
+      // Re-evaluate published safety policies; the service applies its own
+      // foreground throttle and merges concurrent requests.
+      unawaited(RemoteFeaturePolicyService.instance.refreshOnForeground());
       // Refresh local reminder candidates on a foreground opportunity.
       unawaited(TimeReminderService.refreshAll());
       // Course live activity shares the same local data contract; it only
@@ -595,6 +621,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     NavigationLayoutService.revision.removeListener(_reloadTabs);
     HostAuthState.snapshot.removeListener(_onAuthSnapshotChanged);
     appCatalogNotifier.removeListener(_reloadTabs);
+    _featurePolicyTimer?.cancel();
+    RemoteFeaturePolicyService.instance.revision.removeListener(_reloadTabs);
     AppLaunchService.revision.removeListener(_handleAppLaunch);
     RootNavigationService.revision.removeListener(_handleRootNavigationRequest);
     TemporalChangeService.revision.removeListener(_handleTemporalChange);
@@ -619,7 +647,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (!await PrivacyAgreementService.isAccepted()) return;
     final key = (await AuthService.getCurrentAccount())?.accountKey;
     if (key == null || !mounted) return;
-    if (!PlatformCompatibilityService.isAndroid) await refreshRecentCourseAlerts(key);
+    if (!PlatformCompatibilityService.isAndroid) {
+      await refreshRecentCourseAlerts(key);
+    }
     // The same repository revision drives the course live activity, so no
     // second fetch flow is introduced. A course-data revision must bypass the
     // refresh coalescing window, otherwise a mid-window room change or a
@@ -747,7 +777,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       unawaited(RecentScheduleRepository.instance.refresh());
       unawaited(_requestTimeReminderPermissions());
       unawaited(TimeReminderService.refreshAll());
-      unawaited(CourseLiveActivityService.refreshForCurrentAccount(force: true));
+      unawaited(
+        CourseLiveActivityService.refreshForCurrentAccount(force: true),
+      );
     }
   }
 
@@ -835,7 +867,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         plugin.metadata.showInNavigation &&
         !plugin.metadata.core &&
         plugin.pageBuilder != null &&
-        AppService.isVisibleInCurrentMode(plugin)) {
+        AppService.isVisibleInCurrentMode(plugin) &&
+        // Remote hiding only removes the runtime tab; the persisted navigation
+        // layout keeps the user's choice so it returns when the policy does.
+        FeatureEntryVisibility.isVisible(plugin)) {
       return _NavTab(
         key: key,
         role: AdaptiveNavigationRole.custom,
@@ -843,14 +878,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         icon: plugin.metadata.icon,
         selectedIcon: plugin.metadata.icon,
         builder:
-            (context) =>
-                plugin.requiresCampusAccount
-                    ? CampusAuthBoundary(
-                      title: plugin.metadata.name,
-                      retainGuestShell: plugin.retainsGuestShell,
-                      builder: plugin.pageBuilder!,
-                    )
-                    : plugin.pageBuilder!(context),
+            (context) => FeatureAccessHost(
+              featureId: plugin.metadata.id,
+              child:
+                  plugin.requiresCampusAccount
+                      ? CampusAuthBoundary(
+                        title: plugin.metadata.name,
+                        retainGuestShell: plugin.retainsGuestShell,
+                        builder: plugin.pageBuilder!,
+                      )
+                      : plugin.pageBuilder!(context),
+            ),
       );
     }
     return null;

@@ -2,7 +2,17 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "MyCHU Debug (UL release stream)",
+      "name": "MyCHU Debug (UL + Supabase)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "toolArgs": [
+        "--dart-define-from-file=${workspaceFolder}/.local/upgradelink.json",
+        "--dart-define-from-file=${workspaceFolder}/.local/supabase.json"
+      ]
+    },
+    {
+      "name": "MyCHU Debug (UL only, Fenfa content)",
       "request": "launch",
       "type": "dart",
       "flutterMode": "debug",

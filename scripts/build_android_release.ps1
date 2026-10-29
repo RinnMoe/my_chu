@@ -11,6 +11,9 @@ param(
     [string]$BuildTimeUtc,
     [string]$MapboxPublicAccessToken = $env:MAPBOX_PUBLIC_ACCESS_TOKEN,
     [string]$UpgradeLinkConfigFile,
+    [string]$SupabaseUrl = $env:MYCHU_SUPABASE_URL,
+    [string]$SupabasePublishableKey = $env:MYCHU_SUPABASE_PUBLISHABLE_KEY,
+    [string]$PrivacyBaseUrl = $env:MYCHU_PRIVACY_BASE_URL,
     [switch]$SkipBuild,
     [switch]$Overwrite
 )
@@ -102,6 +105,18 @@ try {
     if (-not $SkipBuild) {
         $nativeConfig = Get-UpgradeLinkBuildConfig -Path $UpgradeLinkConfigFile -Required:($Channel -eq 'official')
         if ($nativeConfig) { $buildArguments += "--dart-define-from-file=$nativeConfig" }
+        $SupabaseUrl = if ($null -eq $SupabaseUrl) { '' } else { $SupabaseUrl.Trim() }
+        $SupabasePublishableKey =
+            if ($null -eq $SupabasePublishableKey) { '' } else { $SupabasePublishableKey.Trim() }
+        if ($SupabasePublishableKey -match '^(sb_secret_|service_role)') {
+            throw 'Refusing to embed a private Supabase key in a client build.'
+        }
+        # Both values have compiled defaults; passing them only overrides the project.
+        if ($SupabaseUrl) { $buildArguments += "--dart-define=MYCHU_SUPABASE_URL=$SupabaseUrl" }
+        if ($SupabasePublishableKey) {
+            $buildArguments += "--dart-define=MYCHU_SUPABASE_PUBLISHABLE_KEY=$SupabasePublishableKey"
+        }
+        if ($PrivacyBaseUrl) { $buildArguments += "--dart-define=MYCHU_PRIVACY_BASE_URL=$PrivacyBaseUrl" }
         $MapboxPublicAccessToken = if ($null -eq $MapboxPublicAccessToken) {
             ''
         } else {

@@ -1,3 +1,4 @@
+import java.net.URI
 import java.io.FileInputStream
 import java.nio.charset.StandardCharsets
 import java.util.Base64
@@ -85,6 +86,38 @@ val requestedFlutterAbis = project.findProperty("target-platform")?.toString()
             else -> null
         }
     }.orEmpty()
+// Gradle also exposes task option values (e.g. releaseRuntimeClasspath) here.
+// Dependency inspection must remain possible without production configuration.
+val releaseArtifactRequested = gradle.startParameter.taskNames.any { taskName ->
+    val name = taskName.substringAfterLast(":")
+    name in listOf("build", "assemble", "bundle") ||
+        Regex("(?i)(assemble|bundle|package|install|compileFlutterBuild).*release.*").matches(name)
+}
+if (releaseArtifactRequested && buildChannel == "official") {
+    // The project URL and public key are compiled in; a build only overrides them.
+    // Validate whatever a build actually supplies so a bad override cannot ship silently.
+    val legacyPolicyRoot = readDartDefine("MYCHU_PRIVACY_BASE_URL")?.takeIf { it.isNotBlank() }
+    val projectRoot = readDartDefine("MYCHU_SUPABASE_URL")?.takeIf { it.isNotBlank() }
+    if (projectRoot != null) {
+        val projectUri = runCatching { URI(projectRoot) }.getOrNull()
+        require(projectUri != null && projectUri.scheme == "https" &&
+            !projectUri.host.isNullOrBlank() && projectUri.userInfo == null &&
+            projectUri.query == null && projectUri.fragment == null &&
+            (projectUri.path.isEmpty() || projectUri.path == "/")) {
+            "MYCHU_SUPABASE_URL must be an HTTPS project root when provided"
+        }
+    }
+    if (legacyPolicyRoot != null) {
+        val policyUri = runCatching { URI(legacyPolicyRoot) }.getOrNull()
+        require(policyUri != null && policyUri.scheme == "https" &&
+            !policyUri.host.isNullOrBlank() && policyUri.userInfo == null &&
+            policyUri.query == null && policyUri.fragment == null &&
+            policyUri.path.endsWith("/")) {
+            "MYCHU_PRIVACY_BASE_URL must be an HTTPS resource root ending in /"
+        }
+    }
+}
+
 val signingPropertiesFile = rootProject.file(
     if (buildChannel == "preview") "preview-key.properties" else "key.properties",
 )

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../apps/app.dart';
 import '../apps/app_service.dart';
 import '../services/home_layout_service.dart';
+import '../services/remote_feature_policy/feature_access_guard.dart';
+import '../services/remote_feature_policy/remote_feature_policy_service.dart';
 import 'quick_apps_editor_sheet.dart';
 import 'package:mychu/widgets/apple_window_controls.dart';
 
@@ -48,6 +50,7 @@ class _HomeLayoutPanelState extends State<HomeLayoutPanel>
     super.initState();
     appCatalogNotifier.addListener(_load);
     HomeLayoutService.revision.addListener(_load);
+    RemoteFeaturePolicyService.instance.revision.addListener(_load);
     _load();
   }
 
@@ -55,6 +58,7 @@ class _HomeLayoutPanelState extends State<HomeLayoutPanel>
   void dispose() {
     appCatalogNotifier.removeListener(_load);
     HomeLayoutService.revision.removeListener(_load);
+    RemoteFeaturePolicyService.instance.revision.removeListener(_load);
     super.dispose();
   }
 
@@ -64,7 +68,9 @@ class _HomeLayoutPanelState extends State<HomeLayoutPanel>
     final projection = await AppService.loadQuickAppsProjection();
     if (!mounted || generation != _loadGeneration) return;
     setState(() {
-      _quickAppCandidates = projection.candidates;
+      _quickAppCandidates = FeatureEntryVisibility.filter(
+        projection.candidates,
+      );
       _quickAppsConfig = projection.config;
       _loading = false;
     });
