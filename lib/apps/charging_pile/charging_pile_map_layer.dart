@@ -28,11 +28,11 @@ const String _weishuiCampusId = chargingPileMapCampusId;
 /// 把 Repository 状态映射为地图要素。
 ///
 /// 状态语义（任务书 7.4）：
-/// - 绿色：已确认有空闲插座（live 且 freeSlots > 0）；
-/// - 红色：已确认没有空闲插座（live 且全部已占用）；
-/// - 灰色：未查询、查询失败、状态过期或无法确认。
+/// - 绿色：已确认有空闲插座（freeSlots > 0）；
+/// - 红色：已确认没有空闲插座（没有空闲插座）；
+/// - 灰色：没有成功数据。
 ///
-/// 查询失败与“状态未知”一律为灰色，绝不显示成“已占满”。
+/// 没有成功数据时为灰色，绝不显示成“已占满”。
 MapLayerFeatureStatus chargingPileFeatureStatus({
   required ChargingPileDeviceState state,
   required ChargingPileStatusFreshness freshness,
@@ -55,19 +55,8 @@ String chargingPileStatusSummary({
     return failure == null ? "尚未查询" : "状态未知（${failure.message}）";
   }
   final observed = "更新于 ${chargingPileTime(status.fetchedAt, now)}";
-  switch (freshness) {
-    case ChargingPileStatusFreshness.live:
-      if (status.freeSlots > 0) return "空闲 ${status.freeSlots} · $observed";
-      if (status.occupiedSlots > 0 && status.otherSlots == 0) {
-        return "无空闲插座 · $observed";
-      }
-      return "状态未知 · $observed";
-    case ChargingPileStatusFreshness.stale:
-    case ChargingPileStatusFreshness.expired:
-      return "状态已过期 · $observed";
-    case ChargingPileStatusFreshness.unavailable:
-      return "状态未知 · $observed";
-  }
+  if (status.freeSlots > 0) return "空闲 ${status.freeSlots} · $observed";
+  return "无空闲插座 · $observed";
 }
 
 /// 充电桩图层的 Provider。
@@ -96,7 +85,6 @@ class ChargingPileLayerProvider implements MapLayerProvider {
   bool _disposed = false;
   String? _campusId;
   int _activationGeneration = 0;
-  Timer? _expiryTimer;
 
   @override
   Future<List<MapLayerFeature>> loadFeatures(
@@ -109,7 +97,6 @@ class ChargingPileLayerProvider implements MapLayerProvider {
     if (catalog.campusId != request.campusId) return const <MapLayerFeature>[];
     await _repository.ensureCacheRestored();
     request.cancellation.throwIfCancelled();
-    _scheduleExpiry();
     return _buildFeatures(catalog);
   }
 
@@ -130,8 +117,6 @@ class ChargingPileLayerProvider implements MapLayerProvider {
   Future<void> deactivate() async {
     _active = false;
     _activationGeneration++;
-    _expiryTimer?.cancel();
-    _expiryTimer = null;
     _repository.removeListener(_onRepositoryChanged);
     _release?.call();
     _release = null;
@@ -167,15 +152,13 @@ class ChargingPileLayerProvider implements MapLayerProvider {
     if (_disposed) return;
     _disposed = true;
     _activationGeneration++;
-    _expiryTimer?.cancel();
-    _expiryTimer = null;
     _repository.removeListener(_onRepositoryChanged);
     _release?.call();
     _release = null;
     if (!_updates.isClosed) unawaited(_updates.close());
   }
 
-  /// 每次激活时恢复快照并刷新过期状态，包括被关闭图层中断的查询。
+  /// 每次激活时恢复快照并按时间间隔刷新状态，包括被关闭图层中断的查询。
   Future<void> _warmUp(int generation) async {
     try {
       await _repository.ensureCacheRestored();
@@ -214,29 +197,6 @@ class ChargingPileLayerProvider implements MapLayerProvider {
     final catalog = _catalog;
     if (catalog == null || _updates.isClosed) return;
     _updates.add(MapLayerFeatureUpdate.snapshot(_buildFeatures(catalog)));
-    _scheduleExpiry();
-  }
-
-  /// 在最早的实时结果过期时重绘，避免长期显示过时的可用状态。
-  void _scheduleExpiry() {
-    _expiryTimer?.cancel();
-    _expiryTimer = null;
-    final catalog = _catalog;
-    if (!_active || _disposed || catalog == null) return;
-    final now = _repository.now;
-    DateTime? next;
-    for (final location in catalog.sites) {
-      final status = _repository.stateFor(location.deviceId).status;
-      if (status == null) continue;
-      final expiry = status.fetchedAt.add(_repository.liveWindow);
-      if (!expiry.isAfter(now)) continue;
-      if (next == null || expiry.isBefore(next)) next = expiry;
-    }
-    if (next == null) return;
-    _expiryTimer = Timer(next.difference(now), () {
-      _expiryTimer = null;
-      if (_active && !_disposed) _emitSnapshot();
-    });
   }
 
   List<MapLayerFeature> _buildFeatures(ChargingPileLocationCatalog catalog) {
@@ -260,6 +220,11 @@ class ChargingPileLayerProvider implements MapLayerProvider {
             ),
           ),
           label: device.name,
+          availableCount:
+              chargingPileAvailabilityOf(state, freshness) ==
+                      ChargingPileAvailability.unknown
+                  ? null
+                  : state.status?.freeSlots,
           subtitle: chargingPileStatusSummary(
             state: state,
             freshness: freshness,
@@ -268,7 +233,7 @@ class ChargingPileLayerProvider implements MapLayerProvider {
           status: chargingPileFeatureStatus(state: state, freshness: freshness),
           group: MapLayerFeatureGroup(
             groupId: area.location.isEmpty ? "unknown" : area.location,
-            label: area.label,
+            label: "充电桩-${area.label}",
           ),
           payload: device,
         ),
@@ -397,7 +362,13 @@ MapLayerDefinition chargingPileMapLayerDefinition({
       negativeColor: 0xFFE24B4A,
       unknownColor: 0xFF9AA0A6,
       neutralColor: 0xFF1A73E8,
+      circleRadius: 5,
+      emphasizedCircleRadius: 7,
+      aggregateCircleRadius: 13,
+      emphasizedAggregateCircleRadius: 16,
+      strokeWidth: 2,
       showLabels: false,
+      showAggregateCount: true,
       labelMinZoom: 17,
     ),
     interaction: MapLayerInteraction(

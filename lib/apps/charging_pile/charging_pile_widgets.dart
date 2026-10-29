@@ -288,11 +288,7 @@ class ChargingPileDeviceCard extends StatelessWidget {
                                   ChargingPileAvailability.free =>
                                     '${status.freeSlots}/${status.slots.length} 空闲',
                                   ChargingPileAvailability.occupied => '无空闲插座',
-                                  ChargingPileAvailability.unknown =>
-                                    freshness ==
-                                            ChargingPileStatusFreshness.live
-                                        ? '状态未知'
-                                        : '状态已过期',
+                                  ChargingPileAvailability.unknown => '状态未知',
                                 },
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color:
@@ -316,7 +312,7 @@ class ChargingPileDeviceCard extends StatelessWidget {
                   ),
                   IconButton(
                     tooltip: '在地图中查看',
-                    icon: const Icon(Icons.map_outlined),
+                    icon: const Icon(Icons.location_on_outlined),
                     onPressed: onMap,
                     color:
                         confirmedFree
@@ -337,8 +333,6 @@ class ChargingPileDeviceCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 6),
-              // 过期快照的逐口状态仍会画成绿色，等同于把旧结果当作当前答案，
-              // 因此只在实时状态下渲染插座格子。
               if (status == null)
                 Text(
                   loading ? '查询中…' : entry.failure?.message ?? '尚未查询',
@@ -346,7 +340,7 @@ class ChargingPileDeviceCard extends StatelessWidget {
                     color: colors.onSurfaceVariant,
                   ),
                 )
-              else if (freshness == ChargingPileStatusFreshness.live)
+              else
                 ChargingPilePorts(slots: status.slots, compact: true),
             ],
           ),

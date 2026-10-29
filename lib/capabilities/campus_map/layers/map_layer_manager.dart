@@ -483,7 +483,16 @@ class MapLayerManager extends ChangeNotifier {
       final members = entry.value;
       final coordinate = _centroid(members);
       if (coordinate == null) continue;
-      final status = _aggregateStatus(members);
+      final knownMembers =
+          style.showAggregateCount
+              ? members
+                  .where((member) => member.availableCount != null)
+                  .toList()
+              : members;
+      final status =
+          knownMembers.isEmpty
+              ? MapLayerFeatureStatus.unknown
+              : _aggregateStatus(knownMembers);
       // 分组名比成员数量更能说明“这是哪里”；没有名称时才退回数量。
       final label = members.first.group?.label;
       display.add(
@@ -491,6 +500,13 @@ class MapLayerManager extends ChangeNotifier {
           featureId: "$_aggregatePrefix${entry.key}",
           geometry: MapLayerGeometry.point(coordinate),
           badgeText: label ?? members.length.toString(),
+          availableCount:
+              members.any((member) => member.availableCount != null)
+                  ? members.fold<int>(
+                    0,
+                    (sum, member) => sum + (member.availableCount ?? 0),
+                  )
+                  : null,
           color: style.colorFor(status),
           emphasized:
               _selectedLayerId == definition.layerId &&

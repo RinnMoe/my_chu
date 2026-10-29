@@ -377,8 +377,19 @@ class MapboxLayerRenderer {
                 <Object>["get", "emphasized"],
                 true,
               ],
-              layerStyle.emphasizedCircleRadius,
-              layerStyle.circleRadius,
+              <Object>[
+                "case",
+                ["get", "aggregate"],
+                layerStyle.emphasizedAggregateCircleRadius ??
+                    layerStyle.emphasizedCircleRadius,
+                layerStyle.emphasizedCircleRadius,
+              ],
+              <Object>[
+                "case",
+                ["get", "aggregate"],
+                layerStyle.aggregateCircleRadius ?? layerStyle.circleRadius,
+                layerStyle.circleRadius,
+              ],
             ],
             circleStrokeWidth: layerStyle.strokeWidth,
             circleStrokeColor: layerStyle.strokeColor,
@@ -387,7 +398,8 @@ class MapboxLayerRenderer {
         );
       }
       final labelId = labelLayerIdFor(state.layerId);
-      if (layerStyle.showLabels && !await style.styleLayerExists(labelId)) {
+      if ((layerStyle.showLabels || layerStyle.showAggregateCount) &&
+          !await style.styleLayerExists(labelId)) {
         if (!_isStyleReady()) return false;
         await style.addLayer(
           SymbolLayer(
@@ -397,15 +409,33 @@ class MapboxLayerRenderer {
             filter: <Object>[
               "==",
               <Object>["get", "aggregate"],
-              false,
+              !layerStyle.showLabels,
             ],
-            minZoom: layerStyle.labelMinZoom,
+            minZoom:
+                layerStyle.showLabels
+                    ? layerStyle.labelMinZoom
+                    : layerStyle.minZoom,
             maxZoom: layerStyle.maxZoom,
             textFieldExpression: <Object>["get", "badge"],
-            textSize: 10,
-            textColor: 0xFFFFFFFF,
-            textHaloColor: 0xFF1B1B1B,
-            textHaloWidth: 0.6,
+            textSize: layerStyle.showAggregateCount ? 13 : 10,
+            textColor: layerStyle.showAggregateCount ? 0xFF000000 : 0xFFFFFFFF,
+            textHaloColor:
+                layerStyle.showAggregateCount ? 0xFFFFFFFF : 0xFF1B1B1B,
+            textHaloWidth: layerStyle.showAggregateCount ? 2 : 0.6,
+            textAnchor:
+                layerStyle.showAggregateCount
+                    ? TextAnchor.TOP
+                    : TextAnchor.CENTER,
+            textOffset:
+                layerStyle.showAggregateCount
+                    ? [
+                      0,
+                      ((layerStyle.emphasizedAggregateCircleRadius ??
+                                  layerStyle.emphasizedCircleRadius) +
+                              5) /
+                          13,
+                    ]
+                    : [0, 0],
             textAllowOverlap: false,
           ),
         );
@@ -425,11 +455,26 @@ class MapboxLayerRenderer {
             ],
             minZoom: layerStyle.minZoom,
             maxZoom: layerStyle.maxZoom,
-            textFieldExpression: <Object>["get", "badge"],
-            textSize: 10,
+            textFieldExpression:
+                layerStyle.showAggregateCount
+                    ? <Object>[
+                      "case",
+                      ["has", "available_count"],
+                      [
+                        "to-string",
+                        ["get", "available_count"],
+                      ],
+                      "",
+                    ]
+                    : <Object>["get", "badge"],
+            textSize: layerStyle.showAggregateCount ? 14 : 10,
+            textFont:
+                layerStyle.showAggregateCount
+                    ? ["DIN Pro Bold", "Arial Unicode MS Bold"]
+                    : ["Open Sans Regular", "Arial Unicode MS Regular"],
             textColor: 0xFFFFFFFF,
             textHaloColor: 0xFF1B1B1B,
-            textHaloWidth: 0.6,
+            textHaloWidth: layerStyle.showAggregateCount ? 0 : 0.6,
             textAllowOverlap: true,
             textIgnorePlacement: true,
           ),
@@ -491,6 +536,8 @@ class MapboxLayerRenderer {
           "feature_id": feature.featureId,
           "layer_id": state.layerId,
           "badge": feature.badgeText ?? "",
+          if (feature.availableCount != null)
+            "available_count": feature.availableCount,
           "color": _hex(feature.color),
           "emphasized": feature.emphasized,
           "aggregate": feature.isAggregate,

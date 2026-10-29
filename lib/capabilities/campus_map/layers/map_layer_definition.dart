@@ -16,11 +16,16 @@ class MapLayerStyle {
 
   final double circleRadius;
   final double emphasizedCircleRadius;
+  final double? aggregateCircleRadius;
+  final double? emphasizedAggregateCircleRadius;
   final double strokeWidth;
   final int strokeColor;
 
   /// 是否在地图上显示标记文本。
   final bool showLabels;
+
+  /// 聚合标记中心显示可用数量，名称显示在下方。
+  final bool showAggregateCount;
 
   /// 低于该缩放只显示标记、不显示文本，避免文字互相压盖。
   final double labelMinZoom;
@@ -36,9 +41,12 @@ class MapLayerStyle {
     this.neutralColor = 0xFF1A73E8,
     this.circleRadius = 7,
     this.emphasizedCircleRadius = 10,
+    this.aggregateCircleRadius,
+    this.emphasizedAggregateCircleRadius,
     this.strokeWidth = 2,
     this.strokeColor = 0xFFFFFFFF,
     this.showLabels = true,
+    this.showAggregateCount = false,
     this.labelMinZoom = 15.5,
     this.minZoom = 0,
     this.maxZoom = 24,

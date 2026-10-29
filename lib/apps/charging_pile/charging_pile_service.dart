@@ -43,7 +43,6 @@ class ChargingPileRepository extends ChangeNotifier {
     this.retryDelay = const Duration(milliseconds: 800),
     this.deviceCooldown = const Duration(seconds: 5),
     this.liveWindow = const Duration(minutes: 2),
-    this.staleWindow = const Duration(minutes: 15),
   }) : _credentials =
            credentials ?? (api == null ? ChargingCredentialService() : null),
        _catalog = List.unmodifiable(catalog ?? kChargingPileDevices),
@@ -71,12 +70,8 @@ class ChargingPileRepository extends ChangeNotifier {
   /// but never this cooldown.
   final Duration deviceCooldown;
 
-  /// Age under which a status is considered [ChargingPileStatusFreshness.live].
+  /// 默认自动刷新间隔，不影响已有数据的可用性。
   final Duration liveWindow;
-
-  /// Age under which a status is considered [ChargingPileStatusFreshness.stale];
-  /// older values are [ChargingPileStatusFreshness.expired].
-  final Duration staleWindow;
 
   final _states = <String, ChargingPileDeviceState>{};
   final _inFlight = <String, Future<List<ChargingPileSlot>>>{};
@@ -132,29 +127,25 @@ class ChargingPileRepository extends ChangeNotifier {
   /// yet, or the last transaction was cancelled before it completed.
   bool get needsRefresh => _interrupted || _states.isEmpty;
 
-  /// How much the current snapshot for [deviceId] can be trusted. A failed or
-  /// never-run query is [ChargingPileStatusFreshness.unavailable] — never an
-  /// answer with zero free slots.
-  ChargingPileStatusFreshness freshnessFor(String deviceId) {
+  /// 有成功数据就可展示，不因时间推移失效。
+  ChargingPileStatusFreshness freshnessFor(String deviceId) =>
+      _states[deviceId]?.status == null
+          ? ChargingPileStatusFreshness.unavailable
+          : ChargingPileStatusFreshness.live;
+
+  /// 仅决定是否需要刷新，不改变已有数据的展示。
+  bool isStale(String deviceId) {
     final status = _states[deviceId]?.status;
-    if (status == null) return ChargingPileStatusFreshness.unavailable;
-    final age = _now().difference(status.fetchedAt);
-    if (age < liveWindow) return ChargingPileStatusFreshness.live;
-    if (age < staleWindow) return ChargingPileStatusFreshness.stale;
-    return ChargingPileStatusFreshness.expired;
+    return status == null || _now().difference(status.fetchedAt) >= liveWindow;
   }
 
-  /// True unless [deviceId] has a live snapshot.
-  bool isStale(String deviceId) =>
-      freshnessFor(deviceId) != ChargingPileStatusFreshness.live;
-
-  /// 面向用户的可用性：只有实时确认过的状态才给出结论。
+  /// 面向用户的可用性：使用最近一次成功数据。
   ///
   /// 筛选、汇总与卡片高亮都必须用它，而不是直接读缓存里的 `freeSlots`。
   ChargingPileAvailability availabilityFor(String deviceId) =>
       chargingPileAvailabilityOf(stateFor(deviceId), freshnessFor(deviceId));
 
-  /// 实时确认的空闲插座数；未知或过期返回 0，旧快照不算空闲。
+  /// 最近一次成功数据中的空闲插座数；无数据返回 0。
   int confirmedFreeSlots(String deviceId) {
     if (availabilityFor(deviceId) != ChargingPileAvailability.free) return 0;
     return stateFor(deviceId).status?.freeSlots ?? 0;
@@ -261,7 +252,7 @@ class ChargingPileRepository extends ChangeNotifier {
     await _refreshScope([device], force: force, fullCatalog: false);
   }
 
-  /// Refresh only the devices that are not [ChargingPileStatusFreshness.live]:
+  /// Refresh only devices without data or needing an update:
   /// unknown, failed or older than [maxAge] (defaults to [liveWindow]). Used on
   /// foreground resume so a quick app switch does not stampede the platform.
   Future<void> refreshIfStale({Duration? maxAge}) async {
@@ -410,9 +401,14 @@ class ChargingPileRepository extends ChangeNotifier {
                 failure == ChargingPileFailure.network
                     ? _networkFailures + 1
                     : 0;
-            // A failed query has no availability answer: status stays null so
-            // no consumer can read it as "0 free / full".
-            publish(device, ChargingPileDeviceState(failure: failure));
+            // 请求失败保留最后一次成功数据；从未成功时仍为无数据。
+            publish(
+              device,
+              ChargingPileDeviceState(
+                status: _states[device.id]?.status,
+                failure: failure,
+              ),
+            );
             if (failure == ChargingPileFailure.rateLimited ||
                 _networkFailures >= _networkFailureLimit) {
               stopReason ??= failure;

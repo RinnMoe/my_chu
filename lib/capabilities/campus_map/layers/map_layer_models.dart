@@ -126,6 +126,9 @@ class MapLayerFeature {
   /// 地图标记上的短文本；为空时使用 [label]。
   final String? badgeText;
 
+  /// 已确认可用的数量；未知时为空，聚合时求和。
+  final int? availableCount;
+
   final MapLayerFeatureStatus status;
 
   /// 显式 ARGB 颜色；为空时按 [status] 使用图层样式默认色。
@@ -142,6 +145,7 @@ class MapLayerFeature {
     this.label,
     this.subtitle,
     this.badgeText,
+    this.availableCount,
     this.status = MapLayerFeatureStatus.unknown,
     this.color,
     this.group,
@@ -243,6 +247,9 @@ class MapLayerDisplayFeature {
   final MapLayerGeometry geometry;
   final String? badgeText;
 
+  /// 已确认可用的数量；未知时为空，聚合时求和。
+  final int? availableCount;
+
   /// ARGB 颜色，已按状态或图层样式解析完成。
   final int color;
 
@@ -257,6 +264,7 @@ class MapLayerDisplayFeature {
     required this.geometry,
     required this.color,
     this.badgeText,
+    this.availableCount,
     this.emphasized = false,
     this.isAggregate = false,
   });

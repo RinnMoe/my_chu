@@ -264,7 +264,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
 
   /// 排序与「只看空闲」共用的排序键：未知 -1、已满 0、空闲为插座数。
   ///
-  /// 过期缓存属于未知，不能因为还留着旧数字就排到前面或进入筛选。
+  /// 按最近一次成功数据排序与筛选。
   int _freeRank(ChargingPileDevice device) {
     return switch (_repository.availabilityFor(device.id)) {
       ChargingPileAvailability.unknown => -1,
@@ -285,7 +285,6 @@ class _ChargingPilePageState extends State<ChargingPilePage>
             builder: (context, _) {
               final entry = _repository.stateFor(device.id);
               final status = entry.status;
-              final freshness = _repository.freshnessFor(device.id);
               final theme = Theme.of(context);
               return SafeArea(
                 child: SingleChildScrollView(
@@ -327,7 +326,6 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                         ChargingPilePorts(slots: status.slots),
                         const SizedBox(height: 16),
                         Text(
-                          '${freshness == ChargingPileStatusFreshness.live ? '' : '状态已过期 · '}'
                           '更新时间 ${chargingPileTime(status.fetchedAt, _repository.now)}',
                           style: theme.textTheme.bodySmall,
                         ),
@@ -394,7 +392,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
       }
       return a.code.compareTo(b.code);
     });
-    // 汇总只统计实时确认过的设备：过期快照不参与空闲计数。
+    // 汇总统计所有有成功数据的设备。
     final live =
         devices
             .where(
