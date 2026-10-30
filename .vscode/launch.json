@@ -8,7 +8,8 @@
       "flutterMode": "debug",
       "toolArgs": [
         "--dart-define-from-file=${workspaceFolder}/.local/upgradelink.json",
-        "--dart-define-from-file=${workspaceFolder}/.local/supabase.json"
+        "--dart-define-from-file=${workspaceFolder}/.local/supabase.json",
+        "--dart-define=MYCHU_PRIVACY_BASE_URL=https://mychu-policy.rinn.moe/"
       ]
     },
     {
@@ -17,7 +18,8 @@
       "type": "dart",
       "flutterMode": "debug",
       "toolArgs": [
-        "--dart-define-from-file=${workspaceFolder}/.local/upgradelink.json"
+        "--dart-define-from-file=${workspaceFolder}/.local/upgradelink.json",
+        "--dart-define=MYCHU_PRIVACY_BASE_URL=https://mychu-policy.rinn.moe/"
       ]
     }
   ]

@@ -19,6 +19,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if ([string]::IsNullOrWhiteSpace($PrivacyBaseUrl)) {
+    $PrivacyBaseUrl = 'https://mychu-policy.rinn.moe/'
+}
 . (Join-Path $PSScriptRoot 'upgradelink_build_config.ps1')
 
 $repoRoot = Split-Path -Parent $PSScriptRoot

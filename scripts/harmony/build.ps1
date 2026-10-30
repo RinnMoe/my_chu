@@ -9,6 +9,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if ([string]::IsNullOrWhiteSpace($PrivacyBaseUrl)) {
+    $PrivacyBaseUrl = 'https://mychu-policy.rinn.moe/'
+}
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $flutterOverrideSource = Join-Path $PSScriptRoot 'pubspec_overrides.ohos.yaml'
