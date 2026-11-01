@@ -8,6 +8,7 @@ import '../../capabilities/campus_map/campus_map_capability.dart';
 import 'charging_pile_map_link.dart';
 import 'charging_pile_models.dart';
 import 'charging_pile_service.dart';
+import 'charging_pile_stats.dart';
 import 'charging_pile_widgets.dart';
 import 'charging_pile_credits.dart';
 
@@ -71,11 +72,26 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     _repository.addListener(_changed);
     _release = _repository.acquire();
     unawaited(_loadFavorites());
+    unawaited(_ensureCatalog());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (_visible && _foreground) unawaited(_refresh());
       unawaited(_openInitialDevice());
     });
+  }
+
+  Future<void> _ensureCatalog() async {
+    try {
+      await _repository.ensureCatalog();
+    } catch (_) {
+      // 目录失败时页面保留空列表 + 重试入口，不阻断其他功能。
+    }
+    if (!mounted) return;
+    setState(() {});
+    // 首屏用全校快照铺满：1 个请求换全部设备的状态，比逐台查便宜一个量级。
+    if (_visible && _foreground && _repository.needsRefresh) {
+      unawaited(_repository.refreshSnapshot());
+    }
   }
 
   Future<void> _loadFavorites() async {
@@ -157,7 +173,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
       _resumeScheduled = false;
       if (!mounted || !_visible || !_foreground) return;
       if (_repository.needsRefresh) {
-        unawaited(_refresh());
+        unawaited(_repository.refreshSnapshot());
         return;
       }
       unawaited(_repository.refreshIfStale());
@@ -283,7 +299,9 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     final area =
         value == 'all'
             ? null
-            : _repository.loadAreas().singleWhere((area) => area.name == value);
+            : _repository.loadAreas().singleWhere(
+              (area) => area.areaId == value,
+            );
     if (area == _area) return;
     setState(() => _area = area);
   }
@@ -437,6 +455,14 @@ class _ChargingPilePageState extends State<ChargingPilePage>
         title: const Text('空闲充电桩'),
         actions: [
           IconButton(
+            tooltip: '一周回顾',
+            icon: const Icon(Icons.insights_outlined),
+            onPressed: () => showChargingPileStats(
+              context,
+              areas: _repository.loadAreas(),
+            ),
+          ),
+          IconButton(
             tooltip: '致谢&贡献名单',
             icon: const Icon(Icons.help_outline),
             onPressed: () => showChargingPileCredits(context),
@@ -472,7 +498,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                                 Expanded(
                                   child: PopupMenuButton<String>(
                                     tooltip: '选择分区',
-                                    initialValue: _area?.name ?? 'all',
+                                    initialValue: _area?.areaId ?? 'all',
                                     onSelected: _selectArea,
                                     itemBuilder:
                                         (context) => [
@@ -483,7 +509,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                                           ),
                                           ..._repository.loadAreas().map(
                                             (area) => CheckedPopupMenuItem(
-                                              value: area.name,
+                                              value: area.areaId,
                                               checked: _area == area,
                                               child: Text(area.label),
                                             ),
@@ -666,7 +692,14 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                         ),
                       ),
                     ),
-                    if (filtered.isEmpty &&
+                    if (!_repository.hasCatalog)
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.all(48),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                      )
+                    else if (filtered.isEmpty &&
                         _repository.loadCatalog().isNotEmpty)
                       SliverToBoxAdapter(
                         child: Padding(

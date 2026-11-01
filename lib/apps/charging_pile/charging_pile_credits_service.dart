@@ -36,14 +36,25 @@ class ChargingPileCreditsService {
   /// The source page is third-party content, so only links to known project
   /// hosts stay tappable; anything else degrades to plain text.
   static const _allowedLinkHosts = {'github.com', 'www.github.com'};
+
+  /// 致谢内容在站点里的位置换过一次：v2.59 起从首页副标题的 `#thanks-dialog`
+  /// 搬进了「设置 › 关于」（`#dlg-about`）。按新旧顺序找第一个有内容的块，
+  /// 站点再挪一次也不会整块失效。
+  static const _creditsSelectors = <String>[
+    '#dlg-about .about-para',
+    '#dlg-about .dlg-body',
+    '#thanks-dialog > .dlg-body',
+  ];
+
   final ChargingPileHttpClient _http;
   final Future<bool> Function() _consent;
   final _cancellation = ChargingPileCancellation();
 
   Future<List<ChargingPileCreditParagraph>> load() async {
     _cancellation.check();
-    if (!await _consent())
+    if (!await _consent()) {
       throw const ChargingPileException(ChargingPileFailure.consentRequired);
+    }
     _cancellation.check();
     final response = await _http.get(
       _source,
@@ -51,13 +62,19 @@ class ChargingPileCreditsService {
       abortTrigger: _cancellation.whenCancelled,
     );
     _cancellation.check();
-    if (!await _consent())
+    if (!await _consent()) {
       throw const ChargingPileException(ChargingPileFailure.consentRequired);
-    if (response.statusCode != 200 || response.bodyBytes.length > 2000000)
+    }
+    if (response.statusCode != 200 || response.bodyBytes.length > 2000000) {
       throw const FormatException();
-    final body = html
-        .parse(utf8.decode(response.bodyBytes))
-        .querySelector('#thanks-dialog > .dlg-body');
+    }
+    return parse(utf8.decode(response.bodyBytes));
+  }
+
+  /// 从站点首页 HTML 里抽出致谢段落。解析失败抛 [FormatException]。
+  static List<ChargingPileCreditParagraph> parse(String htmlText) {
+    final document = html.parse(htmlText);
+    final body = _selectCreditsBlock(document);
     if (body == null) throw const FormatException();
     final paragraphs = <ChargingPileCreditParagraph>[];
     var textLength = 0;
@@ -77,8 +94,9 @@ class ChargingPileCreditsService {
                 'iframe',
                 'img',
               ].contains(node.localName) ||
-              node.attributes.containsKey('hidden'))
+              node.attributes.containsKey('hidden')) {
             return;
+          }
           if (node.localName == 'br') {
             spans.add(const ChargingPileCreditText('\n'));
             return;
@@ -90,12 +108,10 @@ class ChargingPileCreditsService {
             final resolved = parsed == null ? null : _source.resolveUri(parsed);
             target =
                 resolved != null &&
-                        resolved.scheme == 'https' &&
-                        _allowedLinkHosts.contains(
-                          resolved.host.toLowerCase(),
-                        )
-                    ? resolved
-                    : null;
+                    resolved.scheme == 'https' &&
+                    _allowedLinkHosts.contains(resolved.host.toLowerCase())
+                ? resolved
+                : null;
           }
           for (final child in node.nodes) {
             visit(
@@ -121,6 +137,16 @@ class ChargingPileCreditsService {
     }
     if (paragraphs.isEmpty) throw const FormatException();
     return List.unmodifiable(paragraphs);
+  }
+
+  static dom.Element? _selectCreditsBlock(dom.Document document) {
+    for (final selector in _creditsSelectors) {
+      final element = document.querySelector(selector);
+      if (element != null && element.querySelectorAll('p, li').isNotEmpty) {
+        return element;
+      }
+    }
+    return null;
   }
 
   void close() {

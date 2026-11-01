@@ -16,7 +16,7 @@ import "../../capabilities/campus_map/layers/layers.dart";
 import "../../capabilities/campus_places/campus_places.dart";
 import "../../services/user_error_message.dart";
 import "../app_target_router.dart";
-import "charging_pile_geo.dart";
+import "charging_pile_catalog_document.dart";
 import "charging_pile_map_link.dart";
 import "charging_pile_models.dart";
 import "charging_pile_page.dart";
@@ -68,20 +68,20 @@ String chargingPileStatusSummary({
 class ChargingPileLayerProvider implements MapLayerProvider {
   ChargingPileLayerProvider({
     ChargingPileRepository? repository,
-    Future<ChargingPileLocationCatalog> Function()? locations,
+    Future<ChargingPileCatalogDocument> Function()? locations,
     DateTime Function()? now,
   }) : _repository = repository ?? ChargingPileRepository.shared(),
-       _locations = locations ?? ChargingPileLocationCatalog.shared,
+       _locations = locations,
        _now = now ?? DateTime.now;
 
   final ChargingPileRepository _repository;
-  final Future<ChargingPileLocationCatalog> Function() _locations;
+  final Future<ChargingPileCatalogDocument> Function()? _locations;
   final DateTime Function() _now;
 
   final StreamController<MapLayerFeatureUpdate> _updates =
       StreamController<MapLayerFeatureUpdate>.broadcast();
 
-  ChargingPileLocationCatalog? _catalog;
+  ChargingPileCatalogDocument? _catalog;
   VoidCallback? _release;
   bool _active = false;
   bool _disposed = false;
@@ -93,7 +93,7 @@ class ChargingPileLayerProvider implements MapLayerProvider {
     MapLayerLoadRequest request,
   ) async {
     if (request.campusId != _weishuiCampusId) return const <MapLayerFeature>[];
-    final catalog = _catalog ?? await _locations();
+    final catalog = _catalog ?? await (_locations?.call() ?? _repository.ensureCatalog());
     request.cancellation.throwIfCancelled();
     _catalog = catalog;
     if (catalog.campusId != request.campusId) return const <MapLayerFeature>[];
@@ -144,7 +144,7 @@ class ChargingPileLayerProvider implements MapLayerProvider {
   void onFeatureSelected(String? featureId) {
     if (featureId == null || !_active || _disposed) return;
     final catalog = _catalog;
-    if (catalog == null || catalog.siteFor(featureId) == null) return;
+    if (catalog == null || catalog.deviceFor(featureId)?.point == null) return;
     if (!_repository.isStale(featureId)) return;
     unawaited(_refreshOne(featureId));
   }
@@ -201,27 +201,30 @@ class ChargingPileLayerProvider implements MapLayerProvider {
     _updates.add(MapLayerFeatureUpdate.snapshot(_buildFeatures(catalog)));
   }
 
-  List<MapLayerFeature> _buildFeatures(ChargingPileLocationCatalog catalog) {
+  List<MapLayerFeature> _buildFeatures(ChargingPileCatalogDocument catalog) {
     if (catalog.campusId != _weishuiCampusId) return const <MapLayerFeature>[];
     final now = _now();
     final features = <MapLayerFeature>[];
-    for (final location in catalog.sites) {
-      final device = _repository.deviceFor(location.deviceId);
+    for (final device in catalog.mappableDevices) {
+      final point = device.point;
       // 没有可靠位置的设备不编造坐标：直接不进入地图数据。
-      if (device == null) continue;
-      final state = _repository.stateFor(location.deviceId);
-      final freshness = _repository.freshnessFor(location.deviceId);
+      if (point == null) continue;
+      final state = _repository.stateFor(device.id);
+      final freshness = _repository.freshnessFor(device.id);
       final area = device.area;
       features.add(
         MapLayerFeature(
-          featureId: location.deviceId,
+          featureId: device.id,
           geometry: MapLayerGeometry.point(
             CampusCoordinate(
-              latitude: location.latitude,
-              longitude: location.longitude,
+              latitude: point.latitude,
+              longitude: point.longitude,
             ),
           ),
           label: device.name,
+          // 点位上的短文本：站点桩号（TY-01 / A01 / E-24 / Z-01），
+          // 比设备全名短得多，才可能在一屏 117 个点里放得下。
+          badgeText: device.code,
           availableCount:
               chargingPileAvailabilityOf(state, freshness) ==
                       ChargingPileAvailability.unknown
@@ -345,7 +348,7 @@ Widget _buildChargingPileDetail(
 /// 即可发现该图层。
 MapLayerDefinition chargingPileMapLayerDefinition({
   ChargingPileRepository? repository,
-  Future<ChargingPileLocationCatalog> Function()? locations,
+  Future<ChargingPileCatalogDocument> Function()? locations,
   DateTime Function()? now,
 }) {
   final resolvedRepository = repository ?? ChargingPileRepository.shared();
@@ -364,14 +367,16 @@ MapLayerDefinition chargingPileMapLayerDefinition({
       negativeColor: 0xFFE24B4A,
       unknownColor: 0xFF9AA0A6,
       neutralColor: 0xFF1A73E8,
-      circleRadius: 5,
-      emphasizedCircleRadius: 7,
+      // 半径是「放大后」的满尺寸；实际绘制值随缩放插值，缩小时收成小点避免糊成一片。
+      circleRadius: 16,
+      emphasizedCircleRadius: 18,
       aggregateCircleRadius: 13,
       emphasizedAggregateCircleRadius: 16,
       strokeWidth: 2,
-      showLabels: false,
+      showLabels: true,
       showAggregateCount: true,
-      labelMinZoom: 17,
+      // 桩号要等圆点长大到装得下才显示；缩小时只有小点，不叠字。
+      labelMinZoom: 18,
     ),
     interaction: MapLayerInteraction(
       tapSelectable: true,

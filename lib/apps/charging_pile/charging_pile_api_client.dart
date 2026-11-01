@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:http/http.dart' as http;
 
@@ -9,9 +10,10 @@ import 'charging_pile_models.dart';
 
 abstract interface class ChargingPileApi {
   Future<List<ChargingPileSlot>> queryDevice(
-    String id,
-    ChargingPileCancellation cancellation,
-  );
+    ChargingPileDevice device,
+    ChargingPileCancellation cancellation, {
+    bool fresh = false,
+  });
 
   /// Releases the transport held by this implementation.
   void close();
@@ -25,6 +27,16 @@ abstract interface class ChargingPileApi {
 /// `Authorization` itself when it calls the platform. This client therefore
 /// never holds, stores or decrypts a token; it only posts device ids to
 /// `/api/pile` and reads the port states back.
+///
+/// The request shape mirrors the source's own client (`PILE_PROXY_CHUNK` /
+/// `PILE_LANES` / `PILE_PROXY_TIMEOUT_MS`):
+/// - one batch carries **one** `src`; mixing sources makes the Worker call the
+///   wrong platform and the other half 404s;
+/// - `fresh` is only sent for an explicit user refresh, and even then the
+///   Worker reuses its edge cache while that cache is younger than its own
+///   freshness threshold, so `fresh` never guarantees an origin fetch;
+/// - port states are normalised the way the source normalises them:
+///   `0` free, `1` occupied, anything else (`-1` abnormal, offline, …) → `2`.
 class ChargingPileApiClient implements ChargingPileApi {
   ChargingPileApiClient({ChargingPileHttpClient? httpClient})
     : _http = httpClient ?? ChargingPileHttpClient();
@@ -44,34 +56,41 @@ class ChargingPileApiClient implements ChargingPileApi {
   /// within a single catalog scan and trips its limiter, so callers are
   /// coalesced into batches here rather than at the repository layer.
   static const _batchSize = 12;
+  static const _lanes = 2;
   static const _batchWindow = Duration(milliseconds: 25);
 
+  /// 与站点 `PILE_PROXY_TIMEOUT_MS` 一致：一批最长 25 秒。
+  static const _requestTimeout = Duration(seconds: 25);
+
   final ChargingPileHttpClient _http;
-  final _pending = <String, Completer<List<ChargingPileSlot>>>{};
+  final _pending = <String, _PendingQuery>{};
+  final _laneQueues = <List<_Batch>>[<_Batch>[], <_Batch>[]];
+  final _laneBusy = <bool>[false, false];
   final _lifecycle = ChargingPileCancellation();
   Timer? _window;
-  Future<void> _queue = Future<void>.value();
   bool _closed = false;
 
   @override
   Future<List<ChargingPileSlot>> queryDevice(
-    String id,
-    ChargingPileCancellation cancellation,
-  ) async {
+    ChargingPileDevice device,
+    ChargingPileCancellation cancellation, {
+    bool fresh = false,
+  }) async {
     cancellation.check();
     if (_closed) {
       throw const ChargingPileException(ChargingPileFailure.cancelled);
     }
-    final existing = _pending[id];
+    final existing = _pending[device.id];
     if (existing != null) {
-      final slots = await existing.future;
+      existing.fresh |= fresh;
+      final slots = await existing.completer.future;
       cancellation.check();
       return slots;
     }
-    final completer = Completer<List<ChargingPileSlot>>();
-    _pending[id] = completer;
+    final pending = _PendingQuery(device: device, fresh: fresh);
+    _pending[device.id] = pending;
     _window ??= Timer(_batchWindow, _dispatch);
-    final slots = await completer.future;
+    final slots = await pending.completer.future;
     cancellation.check();
     return slots;
   }
@@ -79,45 +98,83 @@ class ChargingPileApiClient implements ChargingPileApi {
   void _dispatch() {
     _window = null;
     if (_closed || _pending.isEmpty) return;
-    final ids = _pending.keys.take(_batchSize).toList(growable: false);
-    final batch = <String, Completer<List<ChargingPileSlot>>>{
-      for (final id in ids) id: _pending.remove(id)!,
-    };
-    if (_pending.isNotEmpty) _window = Timer(_batchWindow, _dispatch);
-    _queue = _queue
-        .then((_) => _send(ids, batch))
-        .catchError((Object _) {});
+    final bySource = <ChargingPileSource, List<String>>{};
+    for (final entry in _pending.entries) {
+      bySource.putIfAbsent(entry.value.device.source, () => <String>[]).add(
+        entry.key,
+      );
+    }
+    final batches = <_Batch>[];
+    for (final entry in bySource.entries) {
+      final ids = entry.value;
+      for (var i = 0; i < ids.length; i += _batchSize) {
+        final slice = ids.sublist(i, math.min(i + _batchSize, ids.length));
+        final entries = <String, _PendingQuery>{};
+        var fresh = false;
+        for (final id in slice) {
+          final pending = _pending.remove(id);
+          if (pending == null) continue;
+          entries[id] = pending;
+          fresh |= pending.fresh;
+        }
+        if (entries.isEmpty) continue;
+        batches.add(
+          _Batch(source: entry.key, fresh: fresh, entries: entries),
+        );
+      }
+    }
+    if (batches.isEmpty) return;
+    for (var i = 0; i < batches.length; i++) {
+      _laneQueues[i % _lanes].add(batches[i]);
+    }
+    _pump();
   }
 
-  Future<void> _send(
-    List<String> ids,
-    Map<String, Completer<List<ChargingPileSlot>>> batch,
-  ) async {
+  void _pump() {
+    for (var lane = 0; lane < _lanes; lane++) {
+      if (_laneBusy[lane]) continue;
+      final queue = _laneQueues[lane];
+      if (queue.isEmpty) continue;
+      final batch = queue.removeAt(0);
+      _laneBusy[lane] = true;
+      _send(batch).whenComplete(() {
+        _laneBusy[lane] = false;
+        if (_closed) return;
+        _pump();
+      });
+    }
+  }
+
+  Future<void> _send(_Batch batch) async {
+    final ids = batch.entries.keys.toList(growable: false);
     if (_closed) {
-      _fail(
-        batch,
-        const ChargingPileException(ChargingPileFailure.cancelled),
-      );
+      _fail(batch, const ChargingPileException(ChargingPileFailure.cancelled));
       return;
+    }
+    final body = <String, Object>{'ids': ids};
+    if (batch.fresh) body['fresh'] = true;
+    // 住芒是缺省源，不写 `src`；只有驴充充的批次显式带。
+    if (batch.source != ChargingPileSource.zhumang) {
+      body['src'] = batch.source.wireValue;
     }
     try {
       final response = await _http.postJson(
         _proxy,
         followRedirects: false,
         abortTrigger: _lifecycle.whenCancelled,
-        body: {'ids': ids},
+        body: body,
         headers: {'Origin': _origin, 'Referer': '$_origin/'},
-        timeout: const Duration(seconds: 12),
+        timeout: _requestTimeout,
       );
       final parsed = _parse(ids, response);
       for (final id in ids) {
-        final completer = batch[id]!;
-        if (completer.isCompleted) continue;
+        final pending = batch.entries[id]!;
+        if (pending.completer.isCompleted) continue;
         final result = parsed[id];
         if (result is List<ChargingPileSlot>) {
-          completer.complete(result);
+          pending.completer.complete(result);
         } else {
-          completer.completeError(result as ChargingPileException);
+          pending.completer.completeError(result as ChargingPileException);
         }
       }
     } catch (error) {
@@ -125,12 +182,11 @@ class ChargingPileApiClient implements ChargingPileApi {
     }
   }
 
-  void _fail(
-    Map<String, Completer<List<ChargingPileSlot>>> batch,
-    ChargingPileException failure,
-  ) {
-    for (final completer in batch.values) {
-      if (!completer.isCompleted) completer.completeError(failure);
+  void _fail(_Batch batch, ChargingPileException failure) {
+    for (final pending in batch.entries.values) {
+      if (!pending.completer.isCompleted) {
+        pending.completer.completeError(failure);
+      }
     }
   }
 
@@ -217,6 +273,11 @@ class ChargingPileApiClient implements ChargingPileApi {
         ChargingPileFailure.credentialUnavailable,
       );
     }
+    // `locked` is the Worker's global origin-fetch lock: this round was
+    // degraded to "use what you already have", exactly like `throttled`.
+    if (record['locked'] == true) {
+      throw const ChargingPileException(ChargingPileFailure.throttled);
+    }
     final error = record['error'];
     if (error is String && error.isNotEmpty) {
       if (RegExp(
@@ -229,7 +290,7 @@ class ChargingPileApiClient implements ChargingPileApi {
     }
     final ports = record['ports'];
     // An empty port list means "state unknown" upstream. Failing here keeps the
-    // previous snapshot instead of rendering an unknown pile as fully free.
+    // device unknown instead of rendering it as fully free.
     if (ports is! List || ports.isEmpty || ports.length > 20) {
       throw ChargingPileException(
         throttled || record['throttled'] == true
@@ -242,16 +303,13 @@ class ChargingPileApiClient implements ChargingPileApi {
     for (final item in ports) {
       if (item is! Map) throw const FormatException();
       final slotId = int.tryParse(item['num'].toString());
-      final status = int.tryParse(item['state'].toString());
-      if (slotId == null ||
-          slotId < 1 ||
-          slotId > 20 ||
-          !seen.add(slotId) ||
-          status == null ||
-          status < 0 ||
-          status > 9) {
+      final rawState = int.tryParse(item['state'].toString());
+      if (slotId == null || slotId < 1 || slotId > 20 || !seen.add(slotId)) {
         throw const FormatException();
       }
+      if (rawState == null) throw const FormatException();
+      // 站点口径：0 空闲 / 1 占用 / 其余（含 -1 异常、离线）一律 2。
+      final status = rawState == 0 ? 0 : (rawState == 1 ? 1 : 2);
       slots.add(ChargingPileSlot(slotId: slotId, status: status));
     }
     return slots..sort((a, b) => a.slotId.compareTo(b.slotId));
@@ -266,13 +324,29 @@ class ChargingPileApiClient implements ChargingPileApi {
     _lifecycle.cancel();
     final pending = _pending.values.toList(growable: false);
     _pending.clear();
-    for (final completer in pending) {
-      if (!completer.isCompleted) {
-        completer.completeError(
+    for (final entry in pending) {
+      if (!entry.completer.isCompleted) {
+        entry.completer.completeError(
           const ChargingPileException(ChargingPileFailure.cancelled),
         );
       }
     }
     _http.close();
   }
+}
+
+class _PendingQuery {
+  _PendingQuery({required this.device, required this.fresh});
+
+  final ChargingPileDevice device;
+  bool fresh;
+  final completer = Completer<List<ChargingPileSlot>>();
+}
+
+class _Batch {
+  _Batch({required this.source, required this.fresh, required this.entries});
+
+  final ChargingPileSource source;
+  final bool fresh;
+  final Map<String, _PendingQuery> entries;
 }

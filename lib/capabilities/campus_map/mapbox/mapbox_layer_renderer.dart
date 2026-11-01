@@ -39,6 +39,9 @@ class MapboxLayerRenderer {
   static const String _pointLayerSuffix = "-point";
   static const String _labelLayerSuffix = "-label";
   static const String _aggregateLabelLayerSuffix = "-aggregate-label";
+  static const String _aggregateBadgeLayerSuffix = "-aggregate-badge";
+  static const String _aggregatePointLayerSuffix = "-aggregate-point";
+  static const String _emphasizedPointLayerSuffix = "-point-emphasized";
   static const String _lineLayerSuffix = "-line";
   static const String _fillLayerSuffix = "-fill";
 
@@ -49,11 +52,34 @@ class MapboxLayerRenderer {
   static String pointLayerIdFor(String layerId) =>
       "$_idPrefix$layerId$_pointLayerSuffix";
 
+  /// 聚合圆点单独一层。
+  ///
+  /// 单点圆点的半径要随缩放插值，而 Mapbox 只接受**顶层**的 `zoom` 表达式 ——
+  /// 塞进 `case` 分支里会让 addLayer 抛错，整层都建不出来。所以按 aggregate
+  /// 拆成两层：单点层用纯 zoom 插值，聚合层用固定的 `case`。
+  static String aggregatePointLayerIdFor(String layerId) =>
+      "$_idPrefix$layerId$_aggregatePointLayerSuffix";
+
+  /// 选中（强调）态的单点单独一层。
+  ///
+  /// 半径要随缩放插值，而 Mapbox 只接受顶层的 `zoom` 表达式，不能写成
+  /// `case(emphasized, 大, 小)`；于是按 emphasized 再拆一层，两层各自用
+  /// 顶层的 zoom 插值，强调态自然比普通态大一圈。
+  static String emphasizedPointLayerIdFor(String layerId) =>
+      "$_idPrefix$layerId$_emphasizedPointLayerSuffix";
+
   static String labelLayerIdFor(String layerId) =>
       "$_idPrefix$layerId$_labelLayerSuffix";
 
   static String aggregateLabelLayerIdFor(String layerId) =>
       "$_idPrefix$layerId$_aggregateLabelLayerSuffix";
+
+  /// 聚合圆点下方的分组名（「充电桩-北门」）。
+  ///
+  /// 它和逐点桩号是两种标签：共用一个 SymbolLayer 时只能靠 filter 二选一，
+  /// 打开逐点标签就会把分组名过滤掉。
+  static String aggregateBadgeLayerIdFor(String layerId) =>
+      "$_idPrefix$layerId$_aggregateBadgeLayerSuffix";
 
   static String lineLayerIdFor(String layerId) =>
       "$_idPrefix$layerId$_lineLayerSuffix";
@@ -238,8 +264,11 @@ class MapboxLayerRenderer {
     final visibility = _suspended ? "none" : "visible";
     for (final layerId in _appliedOrder) {
       for (final id in <String>[
+        emphasizedPointLayerIdFor(layerId),
         pointLayerIdFor(layerId),
+        aggregatePointLayerIdFor(layerId),
         labelLayerIdFor(layerId),
+        aggregateBadgeLayerIdFor(layerId),
         aggregateLabelLayerIdFor(layerId),
         lineLayerIdFor(layerId),
         fillLayerIdFor(layerId),
@@ -259,9 +288,15 @@ class MapboxLayerRenderer {
     };
     return <String>[
       if (geometryTypes.contains(MapLayerGeometryType.point)) ...<String>[
+        // 文本层在圆点层之上，命中优先级也按这个顺序。
         if (state.features.any((feature) => feature.isAggregate))
           aggregateLabelLayerIdFor(state.layerId),
+        if (state.features.any((feature) => feature.isAggregate))
+          aggregateBadgeLayerIdFor(state.layerId),
+        if (state.features.any((feature) => feature.isAggregate))
+          aggregatePointLayerIdFor(state.layerId),
         labelLayerIdFor(state.layerId),
+        emphasizedPointLayerIdFor(state.layerId),
         pointLayerIdFor(state.layerId),
       ],
       if (geometryTypes.contains(MapLayerGeometryType.lineString))
@@ -361,35 +396,66 @@ class MapboxLayerRenderer {
             id: pointId,
             sourceId: sourceId,
             slot: "top",
+            filter: <Object>[
+              "all",
+              <Object>["==", <Object>["get", "aggregate"], false],
+              <Object>["!=", <Object>["get", "emphasized"], true],
+            ],
             minZoom: layerStyle.minZoom,
             maxZoom: layerStyle.maxZoom,
-            circleSortKeyExpression: <Object>[
-              "case",
-              <Object>["get", "emphasized"],
-              2,
-              1,
+            circleColorExpression: _colorExpression(),
+            // 单点层：半径是顶层 zoom 插值，不能再包 case。
+            circleRadiusExpression: _radiusByZoom(layerStyle),
+            circleStrokeWidth: layerStyle.strokeWidth,
+            circleStrokeColor: layerStyle.strokeColor,
+            circleOpacity: 0.92,
+          ),
+        );
+      }
+      final emphasizedPointId = emphasizedPointLayerIdFor(state.layerId);
+      if (!await style.styleLayerExists(emphasizedPointId)) {
+        if (!_isStyleReady()) return false;
+        await style.addLayer(
+          CircleLayer(
+            id: emphasizedPointId,
+            sourceId: sourceId,
+            slot: "top",
+            filter: <Object>[
+              "all",
+              <Object>["==", <Object>["get", "aggregate"], false],
+              <Object>["==", <Object>["get", "emphasized"], true],
             ],
+            minZoom: layerStyle.minZoom,
+            maxZoom: layerStyle.maxZoom,
+            circleColorExpression: _colorExpression(),
+            circleRadiusExpression: _radiusByZoom(
+              layerStyle,
+              radius: layerStyle.emphasizedCircleRadius,
+            ),
+            circleStrokeWidth: layerStyle.strokeWidth,
+            circleStrokeColor: layerStyle.strokeColor,
+            circleOpacity: 0.92,
+          ),
+        );
+      }
+      final aggregatePointId = aggregatePointLayerIdFor(state.layerId);
+      if (!await style.styleLayerExists(aggregatePointId)) {
+        if (!_isStyleReady()) return false;
+        await style.addLayer(
+          CircleLayer(
+            id: aggregatePointId,
+            sourceId: sourceId,
+            slot: "top",
+            filter: <Object>["==", <Object>["get", "aggregate"], true],
+            minZoom: layerStyle.minZoom,
+            maxZoom: layerStyle.maxZoom,
             circleColorExpression: _colorExpression(),
             circleRadiusExpression: <Object>[
               "case",
-              <Object>[
-                "==",
-                <Object>["get", "emphasized"],
-                true,
-              ],
-              <Object>[
-                "case",
-                ["get", "aggregate"],
-                layerStyle.emphasizedAggregateCircleRadius ??
-                    layerStyle.emphasizedCircleRadius,
-                layerStyle.emphasizedCircleRadius,
-              ],
-              <Object>[
-                "case",
-                ["get", "aggregate"],
-                layerStyle.aggregateCircleRadius ?? layerStyle.circleRadius,
-                layerStyle.circleRadius,
-              ],
+              <Object>["==", <Object>["get", "emphasized"], true],
+              layerStyle.emphasizedAggregateCircleRadius ??
+                  layerStyle.emphasizedCircleRadius,
+              layerStyle.aggregateCircleRadius ?? layerStyle.circleRadius,
             ],
             circleStrokeWidth: layerStyle.strokeWidth,
             circleStrokeColor: layerStyle.strokeColor,
@@ -398,45 +464,31 @@ class MapboxLayerRenderer {
         );
       }
       final labelId = labelLayerIdFor(state.layerId);
-      if ((layerStyle.showLabels || layerStyle.showAggregateCount) &&
-          !await style.styleLayerExists(labelId)) {
+      if (layerStyle.showLabels && !await style.styleLayerExists(labelId)) {
         if (!_isStyleReady()) return false;
         await style.addLayer(
-          SymbolLayer(
+          _badgeLayer(
             id: labelId,
             sourceId: sourceId,
-            slot: "top",
-            filter: <Object>[
-              "==",
-              <Object>["get", "aggregate"],
-              !layerStyle.showLabels,
-            ],
-            minZoom:
-                layerStyle.showLabels
-                    ? layerStyle.labelMinZoom
-                    : layerStyle.minZoom,
-            maxZoom: layerStyle.maxZoom,
-            textFieldExpression: <Object>["get", "badge"],
-            textSize: layerStyle.showAggregateCount ? 13 : 10,
-            textColor: layerStyle.showAggregateCount ? 0xFF000000 : 0xFFFFFFFF,
-            textHaloColor:
-                layerStyle.showAggregateCount ? 0xFFFFFFFF : 0xFF1B1B1B,
-            textHaloWidth: layerStyle.showAggregateCount ? 2 : 0.6,
-            textAnchor:
-                layerStyle.showAggregateCount
-                    ? TextAnchor.TOP
-                    : TextAnchor.CENTER,
-            textOffset:
-                layerStyle.showAggregateCount
-                    ? [
-                      0,
-                      ((layerStyle.emphasizedAggregateCircleRadius ??
-                                  layerStyle.emphasizedCircleRadius) +
-                              5) /
-                          13,
-                    ]
-                    : [0, 0],
-            textAllowOverlap: false,
+            layerStyle: layerStyle,
+            aggregate: false,
+            minZoom: layerStyle.labelMinZoom,
+          ),
+        );
+      }
+      // 聚合圆点下方的分组名。与逐点桩号分开一层：同一个 SymbolLayer 只能靠
+      // filter 二选一，合在一起时打开逐点标签就会把分组名一起过滤掉。
+      final aggregateBadgeId = aggregateBadgeLayerIdFor(state.layerId);
+      if (layerStyle.showAggregateCount &&
+          !await style.styleLayerExists(aggregateBadgeId)) {
+        if (!_isStyleReady()) return false;
+        await style.addLayer(
+          _badgeLayer(
+            id: aggregateBadgeId,
+            sourceId: sourceId,
+            layerStyle: layerStyle,
+            aggregate: true,
+            minZoom: layerStyle.minZoom,
           ),
         );
       }
@@ -490,9 +542,68 @@ class MapboxLayerRenderer {
     return true;
   }
 
+  /// 点位短文本的标签层。
+  ///
+  /// 两种标签各有一套视觉：
+  /// * 逐点桩号 —— 白字、**无描边**，压在圆点正中，和聚合圆点里的可用数同款；
+  /// * 聚合分组名 —— 黑字白描边，浮在聚合圆点下方，因为它是压在底图上而不是色块上。
+  static SymbolLayer _badgeLayer({
+    required String id,
+    required String sourceId,
+    required MapLayerStyle layerStyle,
+    required bool aggregate,
+    required double minZoom,
+  }) {
+    if (!aggregate) {
+      return SymbolLayer(
+        id: id,
+        sourceId: sourceId,
+        slot: "top",
+        filter: <Object>["==", <Object>["get", "aggregate"], false],
+        minZoom: minZoom,
+        maxZoom: layerStyle.maxZoom,
+        textFieldExpression: <Object>["get", "badge"],
+        // 与聚合圆点里的可用数同款：白色、不描边。字号收到 10，最长的
+        // 五字符桩号（TY-01）也装得进固定半径的圆点里。
+        textSize: 10,
+        textColor: 0xFFFFFFFF,
+        textHaloWidth: 0,
+        textAnchor: TextAnchor.CENTER,
+        textOffset: <double>[0, 0],
+        textAllowOverlap: false,
+      );
+    }
+    // 这一层只在 showAggregateCount 为真时创建，所以直接写死「大号黑字浮在圆点下方」。
+    return SymbolLayer(
+      id: id,
+      sourceId: sourceId,
+      slot: "top",
+      filter: <Object>["==", <Object>["get", "aggregate"], true],
+      minZoom: minZoom,
+      maxZoom: layerStyle.maxZoom,
+      textFieldExpression: <Object>["get", "badge"],
+      textSize: 13,
+      textColor: 0xFF000000,
+      textHaloColor: 0xFFFFFFFF,
+      textHaloWidth: 2,
+      textAnchor: TextAnchor.TOP,
+      textOffset: <double>[
+        0,
+        ((layerStyle.emphasizedAggregateCircleRadius ??
+                    layerStyle.emphasizedCircleRadius) +
+                5) /
+            13,
+      ],
+      textAllowOverlap: false,
+    );
+  }
+
   Future<void> _removeLayer(StyleManager style, String layerId) async {
     for (final id in <String>[
       aggregateLabelLayerIdFor(layerId),
+      aggregateBadgeLayerIdFor(layerId),
+      aggregatePointLayerIdFor(layerId),
+      emphasizedPointLayerIdFor(layerId),
       labelLayerIdFor(layerId),
       pointLayerIdFor(layerId),
       lineLayerIdFor(layerId),
@@ -583,6 +694,27 @@ class MapboxLayerRenderer {
   }
 
   static List<Object> _colorExpression() => <Object>["get", "color"];
+
+  /// 带文本的点位半径随缩放变化。
+  ///
+  /// 半径如果固定成屏幕像素，缩小时点不会变小，几十个点会糊成一整片；放大后
+  /// 又显得过小。这里让它在「开始画单个点」到「文本出现后一格」之间从 1/3 长到
+  /// 满尺寸：缩小时收成小点、放大后长到能装下文本。不带文本的图层仍用固定半径。
+  static List<Object> _radiusByZoom(MapLayerStyle style, {double? radius}) {
+    final base = radius ?? style.circleRadius;
+    if (!style.showLabels) return <Object>[base];
+    // 带文本时半径随缩放变化：缩小时收成小点避免糊成一片，放大后长到能装下文本。
+    final high = style.labelMinZoom;
+    return <Object>[
+      "interpolate",
+      <Object>["linear"],
+      <Object>["zoom"],
+      high - 1.8,
+      base * 0.31,
+      high + 1.2,
+      base,
+    ];
+  }
 
   static String _hex(int argb) {
     final rgb = argb & 0xFFFFFF;

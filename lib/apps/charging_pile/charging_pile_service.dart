@@ -5,7 +5,9 @@ import 'package:flutter/foundation.dart';
 
 import '../../services/privacy_agreement_service.dart';
 import 'charging_pile_api_client.dart';
-import 'charging_pile_catalog.dart';
+import 'charging_pile_catalog_document.dart';
+import 'charging_pile_catalog_service.dart';
+import 'charging_pile_snapshot_client.dart';
 import 'charging_pile_models.dart';
 import 'charging_pile_status_cache.dart';
 
@@ -34,28 +36,47 @@ class ChargingPileRepository extends ChangeNotifier {
 
   ChargingPileRepository({
     ChargingPileApi? api,
-    List<ChargingPileDevice>? catalog,
+    ChargingPileCatalogDocument? catalog,
+    ChargingPileCatalogService? catalogs,
     ChargingPileStatusCache? cache,
+    ChargingPileSnapshotClient? snapshotClient,
     DateTime Function()? now,
     Future<bool> Function()? consent,
     this.retryDelay = const Duration(milliseconds: 800),
     this.deviceCooldown = const Duration(seconds: 5),
-    this.liveWindow = const Duration(minutes: 2),
-  }) : _catalog = List.unmodifiable(catalog ?? kChargingPileDevices),
-       _now = now ?? DateTime.now,
+    this.liveWindow = const Duration(minutes: 10),
+  }) : _now = now ?? DateTime.now,
        _consent = consent ?? PrivacyAgreementService.isAccepted {
     _api = api ?? ChargingPileApiClient();
+    if (catalog != null) {
+      _applyCatalog(catalog);
+    } else {
+      _catalogs = catalogs ?? ChargingPileCatalogService.shared();
+      _catalogs!.addListener(_catalogChanged);
+      final loaded = _catalogs!.document;
+      if (loaded != null) _applyCatalog(loaded);
+    }
     _cache = cache ?? ChargingPileStatusCache(catalog: _catalog);
-    _devicesById = {for (final device in _catalog) device.id: device};
+    _snapshotClient = snapshotClient ?? ChargingPileSnapshotClient();
     PrivacyAgreementService.revision.addListener(_privacyChanged);
   }
 
   late final ChargingPileApi _api;
   late final ChargingPileStatusCache _cache;
-  late final Map<String, ChargingPileDevice> _devicesById;
-  final List<ChargingPileDevice> _catalog;
+  late final ChargingPileSnapshotClient _snapshotClient;
+  ChargingPileCatalogService? _catalogs;
+  List<ChargingPileDevice> _catalog = const <ChargingPileDevice>[];
+  List<ChargingPileArea> _areas = const <ChargingPileArea>[];
+  Map<String, ChargingPileDevice> _devicesById =
+      const <String, ChargingPileDevice>{};
   final DateTime Function() _now;
   final Future<bool> Function() _consent;
+
+  /// 当前生效的目录快照；随远端更新而变化。
+  ChargingPileCatalogDocument? _document;
+
+  /// 目录是否已有可用快照。未就绪时页面显示加载态而不是空列表。
+  bool get hasCatalog => _catalog.isNotEmpty;
 
   /// Delay before the single retry of a transient network failure.
   final Duration retryDelay;
@@ -103,8 +124,51 @@ class ChargingPileRepository extends ChangeNotifier {
   static const _rateLimitPause = Duration(seconds: 60);
 
   List<ChargingPileDevice> loadCatalog() => _catalog;
-  List<ChargingPileArea> loadAreas() =>
-      List.unmodifiable(_catalog.map((d) => d.area).toSet());
+
+  /// 分区列表由站点目录给出（含 `key`/`statsKey`/`anchor`），不再来自编译期 enum。
+  List<ChargingPileArea> loadAreas() => _areas;
+
+  /// 确保目录已就绪：返回当前快照，必要时等待目录服务首次载入。
+  Future<ChargingPileCatalogDocument> ensureCatalog() async {
+    final existing = _document;
+    if (existing != null) return existing;
+    final service = _catalogs;
+    if (service == null) {
+      throw StateError('目录尚未就绪');
+    }
+    final document = await service.ensureLoaded();
+    if (_disposed) return document;
+    if (!identical(_document, document)) {
+      _applyCatalog(document);
+      _cache.updateCatalog(_catalog);
+      _emit();
+    }
+    return document;
+  }
+
+  /// 目录快照更新（站点新增桩位/分区、或首次从远端载入）。
+  ///
+  /// 设备 id 跨版本稳定，所以已确认的状态按 id 保留；目录里消失的设备丢弃，
+  /// 免得被删掉的桩继续出现在列表里。
+  void _applyCatalog(ChargingPileCatalogDocument document) {
+    _document = document;
+    _catalog = List<ChargingPileDevice>.unmodifiable(document.devices);
+    _areas = List<ChargingPileArea>.unmodifiable(document.areas);
+    _devicesById = {for (final device in _catalog) device.id: device};
+    _states.removeWhere((id, _) => !_devicesById.containsKey(id));
+  }
+
+  void _catalogChanged() {
+    final document = _catalogs?.document;
+    if (_disposed || document == null || identical(document, _document)) return;
+    _applyCatalog(document);
+    _cache.updateCatalog(_catalog);
+    // 新目录里可能有上次没见过的设备，需要重新把缓存里能对上的状态读回来。
+    _restoreDone = false;
+    _refreshUpdatedAt();
+    _emit();
+    unawaited(ensureCacheRestored());
+  }
 
   /// Devices belonging to one area, identified by [ChargingPileArea.location].
   List<ChargingPileDevice> devicesInArea(String areaId) =>
@@ -231,6 +295,72 @@ class ChargingPileRepository extends ChangeNotifier {
     _lastPageAttempt = null;
     _lastDeviceAttempt.clear();
     _emit();
+  }
+
+  /// 用站点全校快照铺满一次：**1 个请求**换全部设备的状态。
+  ///
+  /// 快照来自站点定时采样（白天分钟级、深夜小时级），比 `/api/pile` 旧，
+  /// 所以它负责「首屏/回到前台时别空着」，用户主动刷新仍走 [refreshAll]。
+  /// 单个分区没取到就保留该区上一次的结果；分区内某台没采到则记为未知 ——
+  /// 站点自己的口径是「没采到 = 未知」，不是「占用」。
+  Future<void> refreshSnapshot({bool force = false}) async {
+    if (_disposed) return;
+    final runtime = _runtime;
+    if (runtime.isCancelled) return;
+    if (!await _consentAllows()) return;
+    if (runtime.isCancelled || _disposed) return;
+    await ensureCacheRestored();
+    if (runtime.isCancelled || _disposed) return;
+    final batch = _RefreshBatch(total: _catalog.length);
+    _batches.add(batch);
+    _failure = null;
+    _emit();
+    try {
+      final snapshot = await _snapshotClient.fetch(force: force);
+      if (_disposed || runtime.isCancelled) return;
+      _applySnapshot(snapshot);
+      batch.completed = batch.total;
+      _networkFailures = 0;
+      _refreshUpdatedAt();
+      _emit();
+      await _persistCache();
+    } on ChargingPileException catch (error) {
+      if (error.failure == ChargingPileFailure.cancelled) return;
+      _networkFailures = error.failure == ChargingPileFailure.network
+          ? _networkFailures + 1
+          : 0;
+      _failure = error.failure;
+      _emit();
+    } catch (_) {
+      _failure = ChargingPileFailure.malformed;
+      _emit();
+    } finally {
+      if (_batches.remove(batch)) _emit();
+    }
+  }
+
+  void _applySnapshot(ChargingPileSnapshot snapshot) {
+    final areaByKey = {for (final area in _areas) area.key: area};
+    for (final areaSnapshot in snapshot.areas) {
+      // 整个区这次没取到：保留上一次的结果，别把它当成「全部未知」。
+      if (!areaSnapshot.hasData) continue;
+      final area = areaByKey[areaSnapshot.key];
+      // 目录比站点旧时可能不认识这个区；跳过即可，下一次目录刷新会补上。
+      if (area == null) continue;
+      final sampledAt = areaSnapshot.sampledAt ?? _now();
+      for (final device in devicesInArea(area.areaId)) {
+        final slots = areaSnapshot.devices[device.id];
+        _states[device.id] = slots == null
+            ? const ChargingPileDeviceState()
+            : ChargingPileDeviceState(
+                status: ChargingPileDeviceStatus(
+                  device: device,
+                  slots: slots,
+                  fetchedAt: sampledAt,
+                ),
+              );
+      }
+    }
   }
 
   /// Refresh the entire catalog as one transaction. Consumers share the same
@@ -400,7 +530,12 @@ class ChargingPileRepository extends ChangeNotifier {
         final position = index++;
         if (position >= eligible.length) return;
         final device = eligible[position];
-        final outcome = await _queryDevice(device.id, runtime, stopped);
+        final outcome = await _queryDevice(
+          device,
+          runtime,
+          stopped,
+          fresh: force,
+        );
         if (runtime.isCancelled || _disposed) return;
         switch (outcome) {
           case _QuerySkipped(:final degraded):
@@ -427,13 +562,12 @@ class ChargingPileRepository extends ChangeNotifier {
                 failure == ChargingPileFailure.network
                     ? _networkFailures + 1
                     : 0;
-            // 请求失败保留最后一次成功数据；从未成功时仍为无数据。
+            // 与站点口径一致：查询失败就清空插座数据、显示「未知」。
+            // 站点在失败记录里写 `ports: []` 并把卡片画成未知状态，这里同样不
+            // 保留上一次的绿点——否则「整片超时」会被误读成「刚才还有空位」。
             publish(
               device,
-              ChargingPileDeviceState(
-                status: _states[device.id]?.status,
-                failure: failure,
-              ),
+              ChargingPileDeviceState(failure: failure),
             );
             if (failure == ChargingPileFailure.rateLimited) {
               stopReason ??= failure;
@@ -518,14 +652,16 @@ class ChargingPileRepository extends ChangeNotifier {
   }
 
   Future<_QueryOutcome> _queryDevice(
-    String deviceId,
+    ChargingPileDevice device,
     ChargingPileCancellation runtime,
-    bool Function() stopped,
-  ) async {
+    bool Function() stopped, {
+    required bool fresh,
+  }) async {
+    final deviceId = device.id;
     final joined = _inFlight[deviceId];
     if (joined != null) return _settle(joined);
     if (_deviceCooldownActive(deviceId)) return const _QuerySkipped();
-    final flight = _requestSlots(deviceId, runtime, stopped);
+    final flight = _requestSlots(device, runtime, stopped, fresh: fresh);
     _inFlight[deviceId] = flight;
     try {
       return await _settle(flight);
@@ -554,10 +690,11 @@ class ChargingPileRepository extends ChangeNotifier {
   }
 
   Future<List<ChargingPileSlot>> _requestSlots(
-    String id,
+    ChargingPileDevice device,
     ChargingPileCancellation runtime,
-    bool Function() stopped,
-  ) async {
+    bool Function() stopped, {
+    required bool fresh,
+  }) async {
     // Cancelled generations can still be draining when a new transaction
     // starts. Keep the same global request budget across generations without
     // polling timers.
@@ -580,7 +717,7 @@ class ChargingPileRepository extends ChangeNotifier {
           throw const ChargingPileException(ChargingPileFailure.cancelled);
         }
         try {
-          return await _api.queryDevice(id, runtime);
+          return await _api.queryDevice(device, runtime, fresh: fresh);
         } on ChargingPileException catch (e) {
           if (e.failure != ChargingPileFailure.network || attempt == 1) rethrow;
           await Future.any([
@@ -634,8 +771,10 @@ class ChargingPileRepository extends ChangeNotifier {
     if (_disposed) return;
     _disposed = true;
     PrivacyAgreementService.revision.removeListener(_privacyChanged);
+    _catalogs?.removeListener(_catalogChanged);
     _cancelWork();
     _api.close();
+    _snapshotClient.close();
     if (identical(_shared, this)) _shared = null;
     super.dispose();
   }
