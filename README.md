@@ -20,6 +20,10 @@ MyCHU 是为长安大学学生开发的第三方校园助手，聚合数十项�
 [更新日志](CHANGELOG.md)
 其余内容待补充
 
+
+## 联系开发者
+email: [mychu@rinn.moe](mailto://mychu@rinn.moe)
+
 ## 鸣谢
 
 本项目开发中受到了 [HFUT-Schedule](https://github.com/Chiu-xaH/HFUT-Schedule)、[DanXi](https://github.com/DanXi-Dev/DanXi) 等项目的灵感启发，在此向他们表示感谢。
