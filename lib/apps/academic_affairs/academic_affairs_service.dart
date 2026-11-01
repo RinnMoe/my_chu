@@ -1,4 +1,3 @@
-import '../../services/failure_details.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -14,6 +13,7 @@ import '../../capabilities/text_utils.dart';
 import '../../services/academic_affairs_backend.dart';
 import '../../services/auth_service.dart';
 import '../../services/campus_session.dart';
+import '../../services/logger_service.dart';
 import '../../services/service_endpoints.dart';
 import 'academic_affairs_html_parser.dart';
 import 'academic_affairs_models.dart';
@@ -364,32 +364,62 @@ class AcademicAffairsService {
     bool force = false,
   ]) async {
     final owner = await _tryCurrentAccountKey();
-    final revision = AuthService.sessionRevision;
     final backend = await _resolveBackend();
-    Future<List<AcademicExam>> load() async {
-      final result =
-          backend == AcademicAffairsBackend.graduate
-              ? await _fetchGraduateExams(semesterId)
-              : await _fetchExams(
-                semesterId: semesterId,
-                batchId: batchId ?? '0',
-              );
-      if (owner != null &&
-          (revision != AuthService.sessionRevision ||
-              owner != await _tryCurrentAccountKey())) {
-        throw StateError('Exam result belongs to an obsolete session');
+    var revision = AuthService.sessionRevision;
+    final identityRevision = AuthService.identityRevision;
+    final examServiceId =
+        backend == AcademicAffairsBackend.graduate
+            ? CampusServices.graduateAcademicAffairs
+            : CampusServices.academicAffairs;
+
+    Future<List<AcademicExam>> loadForRevision(int revision) async {
+      Future<List<AcademicExam>> load() async {
+        final result =
+            backend == AcademicAffairsBackend.graduate
+                ? await _fetchGraduateExams(semesterId)
+                : await _fetchExams(
+                  semesterId: semesterId,
+                  batchId: batchId ?? '0',
+                );
+        if (owner != null &&
+            (revision != AuthService.sessionRevision ||
+                owner != await _tryCurrentAccountKey())) {
+          throw StaleSessionResultException(examServiceId);
+        }
+        return List.unmodifiable(result);
       }
-      return List.unmodifiable(result);
+
+      return owner == null
+          ? await load()
+          : await _examCache.load(
+            '$owner:$revision:${backend.name}:${semesterId?.trim() ?? ''}:${batchId ?? '0'}',
+            load,
+            force: force,
+          );
     }
 
-    final exams =
-        owner == null
-            ? await load()
-            : await _examCache.load(
-              '$owner:$revision:${backend.name}:${semesterId?.trim() ?? ''}:${batchId ?? '0'}',
-              load,
-              force: force,
-            );
+    Future<List<AcademicExam>> loadWithRetry() async {
+      try {
+        return await loadForRevision(revision);
+      } on StaleSessionResultException {
+        final currentOwner = await _tryCurrentAccountKey();
+        final nextRevision = AuthService.sessionRevision;
+        if (owner == null ||
+            currentOwner != owner ||
+            AuthService.identityRevision != identityRevision ||
+            nextRevision == revision) {
+          rethrow;
+        }
+        // A same-account root refresh invalidates in-flight exam pages without
+        // changing the identity. Retry once under the new revision so the home
+        // focus aggregation and the exam reminder refresh keep their data.
+        revision = nextRevision;
+        AppLogger.info('教务考试加载跨会话刷新，按新会话重试一次');
+        return loadForRevision(revision);
+      }
+    }
+
+    final exams = await loadWithRetry();
     if (evaluateAlerts &&
         (batchId == null || batchId == '0') &&
         owner != null &&
@@ -457,6 +487,10 @@ class AcademicAffairsService {
     try {
       overview = await _loadDocument(_withCacheBuster(_examUri));
     } catch (overviewError) {
+      // A stale root session will fail the detail request on the same fence;
+      // let fetchExamsByBatch retry once under the new revision instead of
+      // spending another request that is already known to be discarded.
+      if (overviewError is StaleSessionResultException) rethrow;
       final exams = await _tryExamsFromDetail(
         semesterId: semesterId,
         batchId: batchId,

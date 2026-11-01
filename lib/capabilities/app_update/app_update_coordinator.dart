@@ -3,16 +3,14 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
-import '../../services/app_remote_services_service.dart';
-import '../../services/build_info.dart';
 import '../../services/fenfa/fenfa_models.dart';
 import '../../services/logger_service.dart';
-import '../../services/platform_compatibility_service.dart';
-import '../../services/privacy_agreement_service.dart';
 import '../in_app_download/in_app_download.dart';
+import 'app_update_gate.dart';
 import 'app_update_manifest.dart';
 import 'app_update_native.dart';
 import 'app_update_package.dart';
+import 'app_update_patch_plan.dart';
 
 typedef PrivateUpdateDownload =
     Future<InAppDownloadedFile> Function({
@@ -33,21 +31,9 @@ class AppUpdateCoordinator {
     int Function()? gateRevision,
   }) : _native = native,
        _download = download ?? const InAppDownloadCapability().downloadPrivate,
-       _isEligible =
-           isEligible ??
-           (() =>
-               PlatformCompatibilityService.isAndroid &&
-               BuildInfo.current.isOfficialRelease),
-       _isAllowed =
-           isAllowed ??
-           (() async =>
-               await PrivacyAgreementService.isAccepted() &&
-               await AppRemoteServicesService.isEnabled()),
-       _gateRevision =
-           gateRevision ??
-           (() =>
-               AppRemoteServicesService.revision.value +
-               PrivacyAgreementService.revision.value);
+       _isEligible = isEligible ?? AppUpdateGate.deltaEligible,
+       _isAllowed = isAllowed ?? AppUpdateGate.allowed,
+       _gateRevision = gateRevision ?? AppUpdateGate.revision;
 
   final AppUpdateNative _native;
   final PrivateUpdateDownload _download;
@@ -59,7 +45,7 @@ class AppUpdateCoordinator {
 
   /// A card offers delta only after checking the actual installed APK. The
   /// transaction repeats these checks because the package may change meanwhile.
-  Future<AppUpdatePatch?> matchingPatch(AppUpdatePackage release) async {
+  Future<AppUpdateDelta?> matchingPatch(AppUpdatePackage release) async {
     final revision = _gateRevision();
     bool continuing() => revision == _gateRevision();
     if (!_isEligible() || _running || !await _isAllowed() || !continuing()) {
@@ -109,7 +95,11 @@ class AppUpdateCoordinator {
               manifest.target.size + patch.size + 32 * 1024 * 1024) {
         return null;
       }
-      return patch;
+      final delta = AppUpdateDelta(
+        patchSize: patch.size,
+        targetSize: manifest.target.size,
+      );
+      return delta.isWorthwhile ? delta : null;
     } catch (_) {
       return null;
     } finally {
@@ -249,7 +239,7 @@ class AppUpdateCoordinator {
           await check();
           phase(AppUpdatePhase.merging);
           await check();
-          output = await _native.merge(task, manifest, patch);
+          output = await _native.merge(task, _planFor(manifest, patch));
           await check();
         } catch (_) {
           await check();
@@ -272,7 +262,7 @@ class AppUpdateCoordinator {
         );
         await check();
         phase(AppUpdatePhase.verifying);
-        output = await _native.verifyFull(task, manifest);
+        output = await _native.verifyFull(task, _targetFor(manifest));
       }
       await check();
       phase(AppUpdatePhase.installing);
@@ -291,4 +281,26 @@ class AppUpdateCoordinator {
       _running = false;
     }
   }
+
+  /// Fenfa manifests always publish SHA-256 for base, patch and target.
+  AppUpdateTargetSpec _targetFor(AppUpdateManifest manifest) =>
+      AppUpdateTargetSpec(
+        version: manifest.target.version,
+        versionCode: manifest.target.versionCode,
+        size: manifest.target.size,
+        hash: manifest.target.sha256,
+        hashAlgorithm: AppUpdateHashAlgorithm.sha256,
+      );
+
+  AppUpdatePatchPlan _planFor(
+    AppUpdateManifest manifest,
+    AppUpdatePatch patch,
+  ) => AppUpdatePatchPlan(
+    patchSize: patch.size,
+    patchHash: patch.sha256,
+    patchHashAlgorithm: AppUpdateHashAlgorithm.sha256,
+    patchFormat: AppUpdatePatchFormat.hdiffpatchZlib,
+    target: _targetFor(manifest),
+    baseSha256: patch.fromSha256,
+  );
 }

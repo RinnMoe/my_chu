@@ -9,7 +9,7 @@ String updateProgressLabel(InAppDownloadProgress? progress) {
     case AppUpdatePhase.merging:
       return '正在准备安装…';
     case AppUpdatePhase.verifying:
-      return '正在校验更新…';
+      return '正在确认安装包…';
     case AppUpdatePhase.installing:
       return '正在打开安装程序…';
     case AppUpdatePhase.downloadingPatch:

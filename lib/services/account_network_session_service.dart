@@ -42,6 +42,16 @@ class AccountNetworkSessionService {
     session.clearAt(definition.seedUri, definition.cookiePath);
   }
 
+  /// Clears the in-memory root identity hosts only. Used after a plain root
+  /// cookie replacement so stale root names cannot survive the merge-based
+  /// seed while derived service sessions remain untouched.
+  static void clearRootIdentity(String accountId) {
+    final session = _sessions[accountId];
+    if (session == null) return;
+    session.clearHost(CampusServiceEndpoints.idsAuthUri);
+    session.clearHost(CampusServiceEndpoints.identityRealmUri);
+  }
+
   /// Clears one path-scoped portal sub-application session.
   static void clearScoped(String accountId, Uri uri, String path) {
     _sessions[accountId]?.clearAt(uri, path);
@@ -89,6 +99,10 @@ class AccountNetworkSession {
 
   void clearAt(Uri uri, String path) {
     _cookies.clearAt(uri.host, path);
+  }
+
+  void clearHost(Uri uri) {
+    _cookies.clearHost(uri.host);
   }
 
   Future<AccountNetworkResponse> send(

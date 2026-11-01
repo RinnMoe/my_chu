@@ -70,11 +70,33 @@ class CampusSessionStore {
 
   /// Seeds the two CHD identity hosts without exposing the cookie header to
   /// callers outside the identity/session layer.
-  Future<void> seedRootIdentityCookies(String cookieHeader) async {
+  Future<void> seedRootIdentityCookies(String cookieHeader) =>
+      _seedRootIdentityCookies(cookieHeader);
+
+  Future<String> rootCookieHeader({Uri? uri}) =>
+      rootCookieJar.headerFor(uri ?? CampusServiceEndpoints.idsAuthUri);
+
+  /// Replaces the root identity cookies for the current account.
+  ///
+  /// Unlike [replaceRootIdentity] this keeps the identity epoch and every
+  /// derived service session. Re-authenticating the same student through the
+  /// unified identity does not invalidate the independent sessions that each
+  /// campus service issued, so the next cold start can reuse them the way a
+  /// browser reuses per-site cookies.
+  Future<void> replaceRootCookies(String cookieHeader) =>
+      _seedRootIdentityCookies(cookieHeader, clearFirst: true);
+
+  /// Writes the same header to both identity hosts as one materialization
+  /// mutation, optionally discarding the cookies already stored for them.
+  Future<void> _seedRootIdentityCookies(
+    String cookieHeader, {
+    bool clearFirst = false,
+  }) async {
     if (cookieHeader.isEmpty) return;
     final mutation = await beginRootMaterializationMutation();
     var ended = false;
     try {
+      if (clearFirst) await rootCookieJar.clear(mutation: mutation);
       await rootCookieJar.seedCookieHeader(
         CampusServiceEndpoints.idsAuthUri,
         cookieHeader,
@@ -91,9 +113,6 @@ class CampusSessionStore {
       if (!ended) await mutation.end(commit: false);
     }
   }
-
-  Future<String> rootCookieHeader({Uri? uri}) =>
-      rootCookieJar.headerFor(uri ?? CampusServiceEndpoints.idsAuthUri);
 
   SessionRuntimeFence captureFence({
     required CampusServiceId serviceId,

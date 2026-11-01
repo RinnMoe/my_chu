@@ -1,67 +1,75 @@
 package moe.rinn.mychu
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import com.github.sisong.HPatch
 import java.io.File
+import java.io.IOException
 import java.security.MessageDigest
-import java.util.UUID
+import moe.rinn.mychu.AppUpdateVerifier.hex
 
-/** Private update workspaces. Never retains an Activity or a Flutter result. */
+/** Thin Android adapter over [AppUpdateWorkspace] and [AppUpdateVerifier]. */
 class AppUpdateEngine(context: Context) {
     private val context = context.applicationContext
-    private val root = File(this.context.cacheDir, "app_updates")
+    private val workspace = AppUpdateWorkspace(
+        File(this.context.cacheDir, "app_updates"),
+        sessions = sessions,
+    )
 
     companion object {
         private val lock = Any()
-        private val sessions = mutableMapOf<String, Session>()
-        private const val RETENTION_MS = 24L * 60 * 60 * 1000
-        private const val MAX_SIZE = 1024L * 1024 * 1024
+        private val sessions = mutableMapOf<String, AppUpdateWorkspace.Session>()
     }
 
-    private data class Session(val directory: File, val source: File, val sourceHash: String)
     class Failure(val code: String) : Exception(code)
 
-    fun inspect(): Map<String, Any> = synchronized(lock) {
-        root.mkdirs()
-        // Outputs may still be open by the system installer. Keep for 24 hours.
-        val active = sessions.values.map { it.directory.canonicalPath }.toSet()
-        root.listFiles()?.filter {
-            it.canonicalPath !in active && System.currentTimeMillis() - it.lastModified() > RETENTION_MS
-        }?.forEach { it.deleteRecursively() }
-        if (sessions.isNotEmpty()) throw Failure("UPDATE_BUSY")
-        val source = File(context.applicationInfo.sourceDir)
-        val hash = hash(source)
-        val id = UUID.randomUUID().toString()
-        val directory = File(root, id)
-        if (!directory.mkdirs()) throw Failure("UPDATE_STORAGE")
-        sessions[id] = Session(directory, source, hash)
+    /** Side-effect-free eligibility probe: never creates a task or touches storage. */
+    fun capabilities(): Map<String, Any> {
+        val info = context.applicationInfo
+        val source = File(info.sourceDir)
         val installed = context.packageManager.getPackageInfo(context.packageName, 0)
-        mapOf("taskId" to id, "directory" to directory.absolutePath,
+        return mapOf(
+            "packageName" to context.packageName,
+            "versionCode" to versionCode(installed),
+            "supportsDelta" to supportsDelta(info),
+            "availableBytes" to workspace.availableBytes(),
+            "sourceSize" to source.length(),
+            "readable" to AppUpdateVerifier.readableSource(source),
+        )
+    }
+
+    fun inspect(): Map<String, Any> = synchronized(lock) {
+        workspace.prepare()
+        val source = File(context.applicationInfo.sourceDir)
+        val hash = AppUpdateVerifier.digest(source, HashAlgorithm.SHA256)
+        val session = workspace.begin(source, hash)
+        val installed = context.packageManager.getPackageInfo(context.packageName, 0)
+        mapOf("taskId" to session.taskId, "directory" to session.directory.absolutePath,
             "packageName" to context.packageName, "versionCode" to versionCode(installed),
-            "sha256" to hash, "availableBytes" to directory.usableSpace,
-            "supportsDelta" to (context.applicationInfo.splitSourceDirs.isNullOrEmpty() &&
-                Build.SUPPORTED_ABIS.contains("arm64-v8a")))
+            "sha256" to hash, "availableBytes" to session.directory.usableSpace,
+            "supportsDelta" to supportsDelta(context.applicationInfo))
     }
 
     fun merge(args: Map<*, *>): Map<String, Any> = synchronized(lock) {
-        val session = session(args)
-        val patch = File(session.directory, "update.hdiff")
-        val output = File(session.directory, "target.apk")
-        val targetSize = number(args, "targetSize")
-        if (session.directory.usableSpace < targetSize + 32L * 1024 * 1024) {
-            throw Failure("UPDATE_STORAGE")
-        }
+        val request = AppUpdateArguments.merge(args)
+        val target = request.target
+        val session = workspace.session(target.taskId)
+        val patch = session.patch
+        val output = session.output
+        AppUpdateVerifier.checkStorage(session.directory.usableSpace, target.size)
         try {
-            if (hash(session.source) != text(args, "fromSha256") ||
-                session.sourceHash != text(args, "fromSha256")) throw Failure("BASE_MISMATCH")
-            verifyBytes(patch, number(args, "patchSize"), text(args, "patchSha256"))
+            verifyBase(session, request.baseSha256)
+            AppUpdateVerifier.verifyFile(
+                patch, request.patchSize, request.patchHash, request.patchAlgorithm, "PATCH_HASH_MISMATCH",
+            )
             // Standard HDiffPatch (zlib), pinned DiffUpdater core 2.0.0.
             if (HPatch.merge(session.source.absolutePath, patch.absolutePath, output.absolutePath) != 0) {
                 throw Failure("MERGE_FAILED")
             }
-            verifyTarget(output, args)
+            verifyTarget(output, target)
             result(output)
         } catch (error: Throwable) {
             output.delete()
@@ -72,32 +80,38 @@ class AppUpdateEngine(context: Context) {
     }
 
     fun verifyFull(args: Map<*, *>): Map<String, Any> = synchronized(lock) {
-        val session = session(args)
-        val full = File(session.directory, "full.apk")
-        verifyTarget(full, args)
-        val output = File(session.directory, "target.apk")
+        val target = AppUpdateArguments.verifyFull(args)
+        val session = workspace.session(target.taskId)
+        val full = session.full
+        verifyTarget(full, target)
+        val output = session.output
         output.delete()
         if (!full.renameTo(output)) throw Failure("UPDATE_STORAGE")
         result(output)
     }
 
     fun finish(args: Map<*, *>) = synchronized(lock) {
-        val id = text(args, "taskId")
-        val session = sessions.remove(id) ?: return@synchronized
-        if (args["retainApk"] == true) {
-            session.directory.listFiles()?.filter { it.name != "target.apk" }?.forEach { it.delete() }
-            session.directory.setLastModified(System.currentTimeMillis())
-        } else {
-            session.directory.deleteRecursively()
-        }
+        workspace.finish(AppUpdateArguments.text(args, "taskId"), args["retainApk"] == true)
     }
 
-    private fun session(args: Map<*, *>) = sessions[text(args, "taskId")]
-        ?.takeIf { it.directory.parentFile?.canonicalFile == root.canonicalFile }
-        ?: throw Failure("INVALID_UPDATE_TASK")
+    /**
+     * The installed APK must still be the one seen by `inspect`; when the
+     * upstream manifest also publishes a base digest it must match as well.
+     */
+    private fun verifyBase(session: AppUpdateWorkspace.Session, baseSha256: String?) {
+        val installed = try {
+            AppUpdateVerifier.digest(session.source, HashAlgorithm.SHA256)
+        } catch (error: IOException) {
+            throw Failure("BASE_CHANGED")
+        }
+        if (installed != session.sourceHash) throw Failure("BASE_CHANGED")
+        if (baseSha256 != null && installed != baseSha256) throw Failure("BASE_MISMATCH")
+    }
 
-    private fun verifyTarget(file: File, args: Map<*, *>) {
-        verifyBytes(file, number(args, "targetSize"), text(args, "targetSha256"))
+    private fun verifyTarget(file: File, target: AppUpdateTargetRequest) {
+        AppUpdateVerifier.verifyFile(
+            file, target.size, target.hash, target.algorithm, "TARGET_HASH_MISMATCH",
+        )
         val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES
             else @Suppress("DEPRECATION") PackageManager.GET_SIGNATURES
         val manager = context.packageManager
@@ -105,15 +119,18 @@ class AppUpdateEngine(context: Context) {
             ?: throw Failure("INVALID_TARGET_APK")
         val installed = manager.getPackageInfo(context.packageName, flags)
         if (archive.packageName != context.packageName ||
-            versionCode(archive) != number(args, "versionCode") ||
-            archive.versionName != text(args, "version") ||
+            versionCode(archive) != target.versionCode ||
+            archive.versionName != target.version ||
             versionCode(archive) <= versionCode(installed)) throw Failure("TARGET_IDENTITY_MISMATCH")
         val oldSigners = signers(installed)
         if (oldSigners.isEmpty() || oldSigners != signers(archive)) throw Failure("TARGET_SIGNER_MISMATCH")
     }
 
+    private fun supportsDelta(info: ApplicationInfo): Boolean =
+        info.splitSourceDirs.isNullOrEmpty() && Build.SUPPORTED_ABIS.contains("arm64-v8a")
+
     @Suppress("DEPRECATION")
-    private fun signers(info: android.content.pm.PackageInfo): Set<String> {
+    private fun signers(info: PackageInfo): Set<String> {
         val signatures = if (Build.VERSION.SDK_INT >= 28) info.signingInfo?.apkContentsSigners
             else info.signatures
         return signatures?.map { signature ->
@@ -122,30 +139,8 @@ class AppUpdateEngine(context: Context) {
     }
 
     @Suppress("DEPRECATION")
-    private fun versionCode(info: android.content.pm.PackageInfo): Long =
+    private fun versionCode(info: PackageInfo): Long =
         if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
 
-    private fun verifyBytes(file: File, size: Long, expected: String) {
-        if (!file.isFile || file.length() != size || hash(file) != expected) throw Failure("UPDATE_HASH_MISMATCH")
-    }
-
-    private fun hash(file: File): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        file.inputStream().use { stream ->
-            val buffer = ByteArray(64 * 1024)
-            while (true) {
-                val count = stream.read(buffer)
-                if (count < 0) break
-                digest.update(buffer, 0, count)
-            }
-        }
-        return digest.digest().hex()
-    }
-
-    private fun ByteArray.hex() = joinToString("") { "%02x".format(it) }
-    private fun text(args: Map<*, *>, key: String) = (args[key] as? String)
-        ?.takeIf { it.isNotEmpty() && it.length <= 256 } ?: throw Failure("INVALID_UPDATE_ARGUMENT")
-    private fun number(args: Map<*, *>, key: String) = (args[key] as? Number)?.toLong()
-        ?.takeIf { it in 1..MAX_SIZE } ?: throw Failure("INVALID_UPDATE_ARGUMENT")
     private fun result(file: File) = mapOf<String, Any>("path" to file.absolutePath, "size" to file.length())
 }

@@ -15,6 +15,7 @@ import '../apps/portal_notices/mobile_campus_notice_service.dart';
 import '../services/portal_identity_service.dart';
 import '../services/app_remote_services_service.dart';
 import '../services/auth_service.dart';
+import '../services/cold_start_trace.dart';
 import '../services/credential_sync_service.dart';
 import '../services/home_layout_service.dart';
 import '../services/home_focus_service.dart';
@@ -370,6 +371,7 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
         _homeFocus = snapshot;
         _homeFocusLoading = false;
       });
+      ColdStartTrace.homeReady();
       _scheduleFocusRefresh(snapshot.nextRefreshAt);
     } catch (error) {
       if (!_isCurrentRequest(generation, _homeFocusGeneration) ||

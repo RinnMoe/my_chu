@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 
 import '../in_app_download/in_app_download.dart';
-import 'app_update_manifest.dart';
+import 'app_update_patch_plan.dart';
 
 class AppUpdateSource {
   const AppUpdateSource({
@@ -22,12 +22,44 @@ class AppUpdateSource {
   final bool supportsDelta;
 }
 
+/// Installed-package facts read without creating a workspace task.
+///
+/// Delta eligibility is decided from this before any patch is requested, so it
+/// must stay free of side effects and of the single-task `UPDATE_BUSY` rule.
+class AppUpdateHostCapabilities {
+  const AppUpdateHostCapabilities({
+    required this.packageName,
+    required this.versionCode,
+    required this.supportsDelta,
+    required this.availableBytes,
+    required this.readable,
+  });
+
+  final String packageName;
+  final int versionCode;
+  final bool supportsDelta;
+  final int availableBytes;
+  final bool readable;
+}
+
 /// Host-only bridge. No Activity, account or campus session crosses it.
 class AppUpdateNative {
   const AppUpdateNative({
     MethodChannel channel = const MethodChannel('mychu/app_update'),
   }) : _channel = channel;
   final MethodChannel _channel;
+
+  Future<AppUpdateHostCapabilities> capabilities() async {
+    final data =
+        (await _channel.invokeMapMethod<String, dynamic>('capabilities'))!;
+    return AppUpdateHostCapabilities(
+      packageName: data['packageName'] as String,
+      versionCode: data['versionCode'] as int,
+      supportsDelta: data['supportsDelta'] == true,
+      availableBytes: data['availableBytes'] as int,
+      readable: data['readable'] == true,
+    );
+  }
 
   Future<AppUpdateSource> inspect() async {
     final data = (await _channel.invokeMapMethod<String, dynamic>('inspect'))!;
@@ -44,28 +76,30 @@ class AppUpdateNative {
 
   Future<InAppDownloadedFile> merge(
     AppUpdateSource source,
-    AppUpdateManifest manifest,
-    AppUpdatePatch patch,
+    AppUpdatePatchPlan plan,
   ) async {
     final data =
         (await _channel.invokeMapMethod<String, dynamic>('merge', {
-          ..._target(source, manifest),
-          'fromSha256': patch.fromSha256,
-          'patchSha256': patch.sha256,
-          'patchSize': patch.size,
+          'taskId': source.taskId,
+          ..._target(plan.target),
+          'patchSize': plan.patchSize,
+          'patchHash': plan.patchHash,
+          'patchHashAlgorithm': plan.patchHashAlgorithm.wireName,
+          'patchFormat': plan.patchFormat.wireName,
+          if (plan.baseSha256 != null) 'baseSha256': plan.baseSha256!,
         }))!;
     return _file(data);
   }
 
   Future<InAppDownloadedFile> verifyFull(
     AppUpdateSource source,
-    AppUpdateManifest manifest,
+    AppUpdateTargetSpec target,
   ) async {
     final data =
-        (await _channel.invokeMapMethod<String, dynamic>(
-          'verifyFull',
-          _target(source, manifest),
-        ))!;
+        (await _channel.invokeMapMethod<String, dynamic>('verifyFull', {
+          'taskId': source.taskId,
+          ..._target(target),
+        }))!;
     return _file(data);
   }
 
@@ -75,15 +109,12 @@ class AppUpdateNative {
         'retainApk': retainApk,
       });
 
-  Map<String, Object> _target(
-    AppUpdateSource source,
-    AppUpdateManifest manifest,
-  ) => {
-    'taskId': source.taskId,
-    'targetSha256': manifest.target.sha256,
-    'targetSize': manifest.target.size,
-    'versionCode': manifest.target.versionCode,
-    'version': manifest.target.version,
+  Map<String, Object> _target(AppUpdateTargetSpec target) => {
+    'versionCode': target.versionCode,
+    'version': target.version,
+    'targetSize': target.size,
+    'targetHash': target.hash,
+    'targetHashAlgorithm': target.hashAlgorithm.wireName,
   };
   InAppDownloadedFile _file(Map<String, dynamic> data) => InAppDownloadedFile(
     path: data['path'] as String,

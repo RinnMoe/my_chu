@@ -7,6 +7,7 @@ import 'package:html/parser.dart' as html_parser;
 
 import 'auth_service.dart';
 import 'campus_session_store.dart';
+import 'cold_start_trace.dart';
 import 'identity_login_encryptor.dart';
 import 'logger_service.dart';
 import 'failure_classifier.dart';
@@ -95,7 +96,9 @@ class IdentitySilentLoginService {
     final future = _recover(accountKey: accountKey);
     _active[activeKey] = future;
     try {
-      return await future;
+      final result = await future;
+      ColdStartTrace.silentLogin(result.outcome.name);
+      return result;
     } finally {
       if (identical(_active[activeKey], future)) _active.remove(activeKey);
     }
@@ -119,15 +122,22 @@ class IdentitySilentLoginService {
     final account = await AuthService.getCurrentAccount();
     if (account == null ||
         (accountKey != null && account.accountKey != accountKey)) {
+      ColdStartTrace.probeResult(IdentityProbeStatus.unauthenticated.name);
       return IdentityProbeStatus.unauthenticated;
     }
     final probeOverride = debugProbe;
-    if (probeOverride != null) return probeOverride(account.accountKey);
+    if (probeOverride != null) {
+      final status = await probeOverride(account.accountKey);
+      ColdStartTrace.probeResult(status.name);
+      return status;
+    }
     final sessionStore = await CampusSessionStore.open(
       accountKey: account.accountKey,
     );
     final authCookies = await sessionStore.rootCookieHeader();
-    return probeCookies(authCookies);
+    final status = await probeCookies(authCookies);
+    ColdStartTrace.probeResult(status.name);
+    return status;
   }
 
   /// Probes a just-collected interactive-login cookie header before it is

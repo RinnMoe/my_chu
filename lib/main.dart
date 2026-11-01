@@ -1,5 +1,6 @@
 import 'services/host_auth_state.dart';
 import 'services/auth_service.dart';
+import 'services/cold_start_trace.dart';
 import 'services/host_auth_coordinator.dart';
 import 'services/tronclass_rollcall_store.dart';
 import 'widgets/campus_auth_boundary.dart';
@@ -69,6 +70,7 @@ void main() {
 }
 
 void _bootstrap() {
+  ColdStartTrace.markLaunch();
   RuntimeErrorReporter.install();
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   // Plugin debug callbacks serialize complete navigation requests, including

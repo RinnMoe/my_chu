@@ -22,8 +22,9 @@ function Get-UpgradeLinkBuildConfig {
         $url = $config.MYCHU_UPGRADELINK_BASE_URL
         if ($url -isnot [string] -or -not [Uri]::TryCreate($url, [UriKind]::Absolute, [ref]$origin) -or
             $origin.Scheme -ne 'https' -or -not $origin.Host -or $origin.UserInfo -or
-            $origin.Query -or $origin.Fragment -or $origin.AbsolutePath -ne '/') {
-            throw 'UL configuration requires an HTTPS origin without path, credentials, query or fragment.'
+            $origin.Query -or $origin.Fragment -or
+            $origin.AbsolutePath -match '//' -or $origin.AbsolutePath -match '(^|/)\.\.?(/|$)') {
+            throw 'UL configuration requires an HTTPS base URL without credentials, query or fragment; a simple path prefix such as /update is allowed.'
         }
     }
     return (Resolve-Path -LiteralPath $Path).Path

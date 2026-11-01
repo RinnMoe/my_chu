@@ -207,4 +207,176 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
           APK_PATH: ${{ steps.build.outputs.apk_path }}
-        run: gh release upload "$RELEASE_TAG" "$APK_PATH" --clobber
+        run: |
+          set -euo pipefail
+          # A published artifact is immutable: rebuilding the same tag must never
+          # replace different bytes, or the delta base stops matching devices.
+          # Any API failure aborts here instead of falling through to an upload.
+          name="$(basename "$APK_PATH")"
+          want="$(sha256sum "$APK_PATH" | cut -d' ' -f1)"
+          release_api="repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}"
+          names="$(gh api "$release_api" --jq '.assets[].name')"
+          if printf '%s\n' "$names" | grep -Fxq "$name"; then
+            digest="$(gh api "$release_api" --jq ".assets[] | select(.name == \"${name}\") | .digest // \"\"")"
+            if [[ -z "$digest" ]]; then
+              tmp="$(mktemp -d)"
+              gh release download "$RELEASE_TAG" -p "$name" -D "$tmp" --clobber
+              digest="sha256:$(sha256sum "${tmp}/${name}" | cut -d' ' -f1)"
+              rm -rf "$tmp"
+            fi
+            if [[ "$digest" != "sha256:${want}" ]]; then
+              echo "::error::The release already carries different bytes for ${name}."
+              exit 1
+            fi
+            echo "::notice::${name} is already attached with identical bytes; keeping it."
+            exit 0
+          fi
+          gh release upload "$RELEASE_TAG" "$APK_PATH"
+
+  delta:
+    # Runs automatically once the APK is attached: the patch is generated against
+    # the previous release's APK, so no extra manual trigger is needed.
+    needs: build-and-upload
+    if: ${{ github.event_name == 'release' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      HDIFFPATCH_VERSION: '5.1.3'
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+          persist-credentials: false
+
+      - name: Fetch HDiffPatch
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Pinned: patch bytes differ across hdiffz versions.
+          url="https://github.com/sisong/HDiffPatch/releases/download/v${HDIFFPATCH_VERSION}/hdiffpatch_v${HDIFFPATCH_VERSION}_bin_linux64.zip"
+          curl -fsSL "$url" -o /tmp/hdiffpatch.zip
+          unzip -q /tmp/hdiffpatch.zip -d /tmp/hdiffpatch
+          install -m 0755 "$(find /tmp/hdiffpatch -name hdiffz -type f | head -1)" /usr/local/bin/hdiffz
+          install -m 0755 "$(find /tmp/hdiffpatch -name hpatchz -type f | head -1)" /usr/local/bin/hpatchz
+          hdiffz -v
+
+      - name: Prepare Android tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          if ! command -v apkanalyzer >/dev/null; then
+            yes | sdkmanager --licenses >/dev/null 2>&1 || true
+            sdkmanager "cmdline-tools;latest" >/dev/null
+          fi
+          if ! command -v apksigner >/dev/null; then
+            sdkmanager "build-tools;35.0.0" >/dev/null
+          fi
+          echo "$sdk/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          build_tools="$(ls -d "$sdk"/build-tools/* 2>/dev/null | sort -V | tail -1 || true)"
+          if [[ -n "$build_tools" ]]; then echo "$build_tools" >> "$GITHUB_PATH"; fi
+
+      - name: Resolve the previous release
+        id: previous
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Compare versions, not release order: a backfilled or re-published
+          # older tag must never become the base of a newer one.
+          current="${RELEASE_TAG#v}"
+          # Keep the request and the split separate: a process substitution
+          # hides a failing `gh api` behind an empty list.
+          releases="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100")"
+          tag_list="$(printf '%s' "$releases" | jq -r '.[]
+            | select(.draft == false and .prerelease == false)
+            | select(any(.assets[]; (.name | endswith(".apk"))))
+            | .tag_name')"
+          mapfile -t tags <<< "$tag_list"
+          previous=""
+          previous_version=""
+          for tag in "${tags[@]}"; do
+            [[ -z "$tag" ]] && continue
+            version="${tag#v}"
+            # Reject anything that is not a plain dotted version.
+            [[ "$version" =~ ^[0-9]+(\.[0-9]+)*$ ]] || continue
+            [[ "$version" == "$current" ]] && continue
+            # Only versions that sort strictly below the target are candidates.
+            first="$(printf '%s\n%s\n' "$version" "$current" | sort -V | head -1)"
+            [[ "$first" == "$version" ]] || continue
+            if [[ -z "$previous_version" ]] ||
+               [[ "$(printf '%s\n%s\n' "$previous_version" "$version" | sort -V | tail -1)" == "$version" ]]; then
+              previous="$tag"
+              previous_version="$version"
+            fi
+          done
+          echo "tag=$previous" >> "$GITHUB_OUTPUT"
+          if [[ -z "$previous" ]]; then
+            echo "::notice::No earlier release with an APK; skipping delta generation."
+          else
+            echo "Base release: $previous ($previous_version)"
+          fi
+
+      - name: Download the new and previous APKs
+        if: ${{ steps.previous.outputs.tag != '' }}
+        shell: bash
+        env:
+          # Never interpolate a release tag straight into the script body.
+          BASE_TAG: ${{ steps.previous.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$BASE_TAG" =~ ^v?[0-9]+(\.[0-9]+)*$ ]]; then
+            echo "::error::Unexpected base tag: ${BASE_TAG}"
+            exit 1
+          fi
+          mkdir -p work/target work/base
+          gh release download "$RELEASE_TAG" -p '*.apk' -D work/target --clobber
+          gh release download "$BASE_TAG" -p '*.apk' -D work/base --clobber
+          ls -l work/target work/base
+
+      - name: Build the verified patch
+        if: ${{ steps.previous.outputs.tag != '' }}
+        shell: pwsh
+        run: |
+          $targets = @(Get-ChildItem work/target -Filter *.apk)
+          $bases = @(Get-ChildItem work/base -Filter *.apk)
+          if ($targets.Count -ne 1 -or $bases.Count -ne 1) {
+            throw 'Expected exactly one APK on each side.'
+          }
+          pwsh -NoLogo -NoProfile -File scripts/build_delta_update.ps1 `
+            -TargetApk $targets[0].FullName `
+            -BaseApks @($bases[0].FullName) `
+            -OutputDirectory work/out `
+            -Overwrite
+
+      - name: Upload the patch to the release
+        if: ${{ steps.previous.outputs.tag != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          patches=(work/out/*.hdiff)
+          if [[ ${#patches[@]} -eq 0 ]]; then
+            echo "::warning::The base produced no valid patch; the release ships the full package only."
+            exit 0
+          fi
+          # The patch name already encodes both digests; an existing asset must
+          # match byte for byte, otherwise the manifest and the file diverge.
+          for file in work/out/*; do
+            name="$(basename "$file")"
+            want="$(sha256sum "$file" | cut -d' ' -f1)"
+            digest="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" \
+              --jq ".assets[] | select(.name == \"${name}\") | .digest // \"\"")"
+            if [[ -n "$digest" && "$digest" != "sha256:${want}" ]]; then
+              echo "::error::The release already carries different bytes for ${name}."
+              exit 1
+            fi
+            if [[ -z "$digest" ]]; then
+              gh release upload "$RELEASE_TAG" "$file"
+            fi
+          done
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name'

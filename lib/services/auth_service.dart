@@ -20,15 +20,34 @@ class AuthService {
   static Future<void> _writeTail = Future<void>.value();
   static int _sessionRevision = 0;
   static final sessionRevisionNotifier = ValueNotifier<int>(0);
+  static int _identityRevision = 0;
 
   /// Monotonic in-memory generation for the active account/root session.
   /// Background credential work captures it and must discard results from an
   /// older generation, even when the local account key remains unchanged.
   static int get sessionRevision => _sessionRevision;
 
+  /// Monotonic in-memory generation for the active *identity*.
+  ///
+  /// It advances only when the account itself changes: a manual login, an
+  /// account switch, a hard interactive reset or a logout. A same-account root
+  /// refresh advances [sessionRevision] but keeps this value, because the
+  /// persisted service sessions derived from the identity remain usable.
+  /// Cache reuse decisions key on this value; [sessionRevision] keeps fencing
+  /// in-flight exchanges and background batches.
+  ///
+  /// Unlike [CampusSessionStore.identityEpoch], this counter is process-local
+  /// and does not decide whether persisted credentials belong to the identity;
+  /// it only keeps in-process cache decisions coherent.
+  static int get identityRevision => _identityRevision;
+
   static void _advanceSessionRevision() {
     _sessionRevision++;
     sessionRevisionNotifier.value = _sessionRevision;
+  }
+
+  static void _advanceIdentityRevision() {
+    _identityRevision++;
   }
 
   static Future<Account?> getCurrentAccount() =>
@@ -42,6 +61,7 @@ class AuthService {
     // previous account instead of accumulating accounts for later switching.
     await _serializeWrite(() async {
       _advanceSessionRevision();
+      _advanceIdentityRevision();
       NetworkSelfServiceAuthService.clearAll();
       await TimeReminderService.clearAll();
       AccountNetworkSessionService.discardAll();
@@ -85,27 +105,57 @@ class AuthService {
     });
   }
 
-  /// Replaces the root unified-identity session and drops every credential
-  /// derived from the previous root session. The local account key remains
-  /// stable so account-scoped caches and UI state do not change owners.
+  /// Replaces the root unified-identity session.
+  ///
+  /// By default only the root cookies are refreshed: the account key and the
+  /// identity epoch stay stable, and every service session derived from the
+  /// previous CAS login remains usable. This mirrors a browser, where signing
+  /// in to CAS again does not log the user out of sites that already issued
+  /// their own session cookies.
+  ///
+  /// Pass [resetDerivedSessions] when the caller deliberately wants a hard
+  /// reset (interactive login) and every derived service credential must be
+  /// dropped.
   static Future<Account?> replaceIdentityCookies(
     String accountKey,
-    String authCookies,
-  ) async {
+    String authCookies, {
+    bool resetDerivedSessions = false,
+  }) async {
     if (authCookies.isEmpty) return null;
-    _advanceSessionRevision();
-    // Replacing the root identity invalidates every derived service challenge;
-    // drop the network self-service transaction before the new epoch is
-    // persisted so a pending captcha/SMS flow cannot survive the reset.
+    // A pending captcha/SMS transaction belongs to the previous identity
+    // challenge and must not survive any root refresh.
     NetworkSelfServiceAuthService.clearAll();
+    // Every root refresh advances the runtime revision so in-flight work
+    // re-fences against the new credentials. Unlike [resetDerivedSessions],
+    // this does not drop the persisted service sessions.
+    _advanceSessionRevision();
     final current = await getCurrentAccount();
     if (current == null || current.accountKey != accountKey) return null;
+    if (resetDerivedSessions) {
+      // A hard reset starts a new identity generation before any derived state
+      // is touched, so cache reuse cannot observe the previous identity while
+      // the reset is still in flight.
+      _advanceIdentityRevision();
+    }
     final sessionStore = await CampusSessionStore.open(accountKey: accountKey);
+    if (!resetDerivedSessions) {
+      await sessionStore.replaceRootCookies(authCookies);
+      // ScopedCookieJar.seed merges by name, so a removed root cookie would
+      // otherwise survive in the in-memory transport. Clear only the root
+      // identity scopes; derived service sessions remain reusable.
+      AccountNetworkSessionService.clearRootIdentity(accountKey);
+      // The refreshed root identity proves the previous failure was
+      // environmental; let callers retry now instead of waiting out the
+      // account-scoped failure cooldown.
+      AccountCacheRegistry.clearFailures();
+      return current;
+    }
     await sessionStore.replaceRootIdentity();
     await sessionStore.seedRootIdentityCookies(authCookies);
     // Discard the shared transport after replacing the root epoch so old
     // service cookies cannot survive the identity replacement.
     AccountNetworkSessionService.discard(accountKey);
+    AccountCacheRegistry.clearFailures();
     return current;
   }
 
@@ -114,6 +164,7 @@ class AuthService {
     // caller can then start the platform-cookie reset immediately without a
     // window in which an older session fence still appears current.
     _advanceSessionRevision();
+    _advanceIdentityRevision();
     await _serializeWrite(() async {
       await TimeReminderService.clearAll();
       NetworkSelfServiceAuthService.clearAll();

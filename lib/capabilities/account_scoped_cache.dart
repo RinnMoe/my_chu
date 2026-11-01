@@ -92,6 +92,11 @@ class AccountScopedCache<T> {
     _inFlight.clear();
   }
 
+  /// Drops only the failure gate while keeping cached values. A refreshed root
+  /// identity must not leave the UI pinned to a failure from the previous
+  /// session generation.
+  void clearFailures() => _failures.clear();
+
   /// Stores [value] with [fetchedAt] so [load] treats it as already-stale (or
   /// fresh within [ttl]) without running the loader.
   void seed(String accountKey, T value, {DateTime? fetchedAt}) {
@@ -197,6 +202,13 @@ class AccountCacheRegistry {
     }
     for (final backoff in _backoffs) {
       backoff.clearAll();
+    }
+  }
+
+  /// Clears every account-scoped failure gate without dropping cached values.
+  static void clearFailures() {
+    for (final cache in _caches) {
+      cache.clearFailures();
     }
   }
 }

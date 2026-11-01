@@ -30,6 +30,11 @@ class ScopedCookieJar {
     if (domain.isEmpty) _cookiesByDomainPath.remove(host.toLowerCase());
   }
 
+  /// Removes every cookie stored for one host, across all path scopes.
+  void clearHost(String host) {
+    _cookiesByDomainPath.remove(host.toLowerCase());
+  }
+
   void collect(Uri requestUri, HttpClientResponse response) {
     response.headers.forEach((name, values) {
       if (name.toLowerCase() != HttpHeaders.setCookieHeader) return;

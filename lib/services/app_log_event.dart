@@ -134,23 +134,32 @@ class AppLogEvent {
   String get operationKey => operation?.key ?? code;
 
   static Map<String, Object?> _safeFields(Map<String, Object?> fields) {
+    // `exchanges`, `failures`, `homereadyms`, `probe`, `requests`,
+    // `silentlogin` and `stale` are the debug cold-start summary counters.
     const allowedKeys = <String>{
       'automatic',
       'count',
       'durationms',
+      'exchanges',
       'failure',
+      'failures',
       'format',
       'granted',
+      'homereadyms',
       'leftloginpage',
       'login',
       'personcenter',
       'phase',
+      'probe',
       'reason',
+      'requests',
       'result',
       'retry',
       'service',
+      'silentlogin',
       'source',
       'stage',
+      'stale',
       'status',
       'supported',
     };

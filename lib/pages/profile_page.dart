@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 import '../services/app_remote_services_service.dart';
 import '../services/auth_lifecycle_service.dart';
 import '../services/ip_status_service.dart';
+import '../services/logger_service.dart';
 import '../services/portal_identity_service.dart';
 import '../services/campus_settings_service.dart';
 import '../services/updates/app_update_service.dart';
@@ -51,6 +52,8 @@ class _ProfilePageState extends State<ProfilePage>
   String _campusLabel = '渭水校区';
   String _versionLabel = '';
   final _updateCardKey = GlobalKey();
+  bool _signOutDialogOpen = false;
+  bool _signingOut = false;
 
   Future<void> _checkForUpdates() => presentAppUpdateCheck(
     context,
@@ -194,18 +197,53 @@ class _ProfilePageState extends State<ProfilePage>
   }
 
   Future<void> _confirmSignOut() async {
-    const signOutMessage = '退出登录会清除本机保存的登录信息、课程提醒和桌面课表小组件。';
-    final confirmation = showAdaptiveConfirmationDialog(
-      context,
-      title: '退出登录',
-      message: signOutMessage,
-      confirmLabel: '退出登录',
-      destructive: true,
-    );
-    final confirmed = await confirmation;
-    if (confirmed != true) return;
-    await AuthLifecycleService.signOut();
-    if (mounted) widget.onSignedOut();
+    if (_signOutDialogOpen || _signingOut) return;
+    _signOutDialogOpen = true;
+    try {
+      const signOutMessage = '退出登录会清除本机保存的登录信息、课程提醒和桌面课表小组件。';
+      final confirmation = showAdaptiveConfirmationDialog(
+        context,
+        title: '退出登录',
+        message: signOutMessage,
+        confirmLabel: '退出登录',
+        destructive: true,
+        // A second tap while the dialog opens must not dismiss the destructive
+        // confirmation through the barrier; only the explicit buttons decide.
+        barrierDismissible: false,
+      );
+      final confirmed = await confirmation;
+      if (confirmed != true || !mounted) return;
+      setState(() => _signingOut = true);
+      var signOutFailed = false;
+      try {
+        await AuthLifecycleService.signOut();
+      } catch (error) {
+        signOutFailed = true;
+        AppLogger.recordSafeFailure(
+          level: 'WARN',
+          code: 'profile.sign_out_failed',
+          message: '退出登录失败',
+          error: error,
+          domain: 'profile',
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('退出登录未完成，请重试')));
+        }
+      } finally {
+        // The confirmation dialog is a separate route, so the page-level auth
+        // listener can skip its deferred refresh while the dialog is current.
+        // Reload from storage in all cases: after a successful sign-out this
+        // shows the signed-out state immediately, and after a partial failure
+        // it shows the actual remaining account state.
+        if (mounted) await _load();
+        if (mounted) setState(() => _signingOut = false);
+      }
+      if (mounted && !signOutFailed) widget.onSignedOut();
+    } finally {
+      _signOutDialogOpen = false;
+    }
   }
 
   @override
@@ -310,7 +348,7 @@ class _ProfilePageState extends State<ProfilePage>
               ),
               const SizedBox(height: 8),
               if (_account != null)
-                SignOutAction(onPressed: _confirmSignOut)
+                SignOutAction(onPressed: _signingOut ? null : _confirmSignOut)
               else
                 FilledButton.icon(
                   onPressed: () => HostLogin.open(context),

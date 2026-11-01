@@ -6,10 +6,12 @@ import 'dart:math';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../models/account.dart';
 import 'account_network_session_service.dart';
 import 'auth_service.dart';
 import 'campus_session_store.dart';
 import 'campus_service_session_service.dart';
+import 'cold_start_trace.dart';
 import 'logger_service.dart';
 import 'service_endpoints.dart';
 import 'session_runtime_fence.dart';
@@ -41,7 +43,7 @@ class StaleSessionResultException implements Exception, ClassifiedFailure {
 /// entry point. It owns the account/session fence, service credential
 /// preparation, transport policy, retry and response-cookie coordination.
 class CampusSession {
-  CampusSession._(this._store);
+  CampusSession._(this._store, this._account);
 
   static final Map<String, Future<AccountNetworkResponse>> _inFlight = {};
 
@@ -63,14 +65,19 @@ class CampusSession {
       accountKey: account.accountKey,
       storage: storage,
     );
-    return CampusSession._(store);
+    return CampusSession._(store, account);
   }
 
   /// Test/core seam for a store that has already been opened by the host.
   factory CampusSession.fromStore(CampusSessionStore store) =>
-      CampusSession._(store);
+      CampusSession._(store, null);
 
   final CampusSessionStore _store;
+
+  /// Account captured when this session was opened. Request preparation reuses
+  /// it instead of paying another secure-storage read; every fence check still
+  /// reads the live account so an account switch cannot slip through.
+  final Account? _account;
 
   String get accountKey => _store.accountKey;
   String get identityEpoch => _store.identityEpoch;
@@ -166,16 +173,20 @@ class CampusSession {
     final uri = Uri.parse(url);
     _validateUri(definition, uri);
     var fence = captureFence(serviceId, uri);
+    final identityRevision = AuthService.identityRevision;
     CampusServiceSession? serviceSession;
     try {
-      serviceSession = await CampusSessionService.get(serviceId);
+      serviceSession = await CampusSessionService.get(
+        serviceId,
+        forAccount: _account,
+      );
     } catch (error) {
       AppLogger.warn(
         '网络请求准备失败 ${_serviceLabel(serviceId)} (${error.runtimeType})',
       );
       rethrow;
     }
-    final account = await AuthService.getCurrentAccount();
+    final account = _account ?? await AuthService.getCurrentAccount();
     if (account == null) {
       throw const CampusAuthenticationRequired(HostAuthStatus.guest);
     }
@@ -237,8 +248,32 @@ class CampusSession {
         final isJsonBody =
             body != null && body is! String && body is! List<int>;
 
+        var staleFenceRefreshed = false;
         Future<AccountNetworkResponse> send() async {
-          await _assertCurrent(fence);
+          try {
+            await _assertCurrent(fence);
+          } on StaleSessionResultException {
+            // A same-account root refresh advances only the runtime revision.
+            // Re-fence once before anything is sent, but never across a hard
+            // identity reset or an explicit service invalidation: those must
+            // discard the already resolved credential.
+            if (staleFenceRefreshed) rethrow;
+            final latest = await AuthService.getCurrentAccount();
+            if (latest == null ||
+                latest.accountKey != fence.accountKey ||
+                AuthService.identityRevision != identityRevision ||
+                !fence.identityIsCurrent(
+                  currentAccountKey: latest.accountKey,
+                )) {
+              rethrow;
+            }
+            staleFenceRefreshed = true;
+            fence = captureFence(serviceId, uri);
+            await _assertCurrent(fence);
+            if (AuthService.identityRevision != identityRevision) {
+              throw StaleSessionResultException(serviceId);
+            }
+          }
           attempt++;
           seedServiceSession();
           final progress =
@@ -353,6 +388,7 @@ class CampusSession {
           '网络请求 ${_serviceLabel(serviceId)} '
           '→ ${response.statusCode} (${stopwatch.elapsedMilliseconds}ms, 尝试 $attempt 次)',
         );
+        ColdStartTrace.requestSucceeded();
         if (throwOnHttpError && response.statusCode != HttpStatus.ok) {
           AppLogger.warn(
             '$method ${_serviceLabel(serviceId)} 失败: ${response.statusCode}',
@@ -365,6 +401,11 @@ class CampusSession {
           '网络请求失败 ${_serviceLabel(serviceId)} '
           '(${stopwatch.elapsedMilliseconds}ms, 尝试 $attempt 次, ${error.runtimeType})',
         );
+        if (error is StaleSessionResultException) {
+          ColdStartTrace.staleDiscard();
+        } else {
+          ColdStartTrace.requestFailure();
+        }
         rethrow;
       }
     }
@@ -386,21 +427,21 @@ class CampusSession {
       if (pending != null) {
         AppLogger.info('网络请求单飞复用 ${_serviceLabel(serviceId)}');
         final response = await pending;
-        await _assertCurrent(fence);
+        await _assertResponseCurrent(fence, identityRevision);
         return response;
       }
       final future = perform();
       _inFlight[key] = future;
       try {
         final response = await future;
-        await _assertCurrent(fence);
+        await _assertResponseCurrent(fence, identityRevision);
         return response;
       } finally {
         if (identical(_inFlight[key], future)) _inFlight.remove(key);
       }
     }
     final response = await perform();
-    await _assertCurrent(fence);
+    await _assertResponseCurrent(fence, identityRevision);
     return response;
   }
 
@@ -590,6 +631,22 @@ class CampusSession {
       currentAccountKey: account.accountKey,
       currentSessionRevision: AuthService.sessionRevision,
     )) {
+      throw StaleSessionResultException(fence.serviceId);
+    }
+  }
+
+  /// Post-response guard: the response must still belong to the same account,
+  /// identity generation and service session, but may have crossed a plain
+  /// same-account root refresh (which only advances [sessionRevision]).
+  Future<void> _assertResponseCurrent(
+    SessionRuntimeFence fence,
+    int identityRevision,
+  ) async {
+    final account = await AuthService.getCurrentAccount();
+    if (account == null ||
+        account.accountKey != fence.accountKey ||
+        AuthService.identityRevision != identityRevision ||
+        !fence.identityIsCurrent(currentAccountKey: account.accountKey)) {
       throw StaleSessionResultException(fence.serviceId);
     }
   }

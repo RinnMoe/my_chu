@@ -20,7 +20,7 @@ class AppUpdateChannel(context: Context, flutterEngine: FlutterEngine) {
 
     init {
         channel.setMethodCallHandler { call, result ->
-            if (call.method !in setOf("inspect", "merge", "verifyFull", "finish")) {
+            if (call.method !in setOf("capabilities", "inspect", "merge", "verifyFull", "finish")) {
                 result.notImplemented()
                 return@setMethodCallHandler
             }
@@ -28,6 +28,8 @@ class AppUpdateChannel(context: Context, flutterEngine: FlutterEngine) {
                 try {
                     val args = call.arguments as? Map<*, *> ?: emptyMap<Any, Any>()
                     val value = when (call.method) {
+                        // Side-effect-free probe; must not register a task for dispose().
+                        "capabilities" -> engine.capabilities()
                         "inspect" -> engine.inspect().also { taskId = it["taskId"] as String }
                         "merge" -> engine.merge(args)
                         "verifyFull" -> engine.verifyFull(args)

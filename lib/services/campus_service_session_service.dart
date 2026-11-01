@@ -11,6 +11,7 @@ import '../models/account.dart';
 import 'account_network_session_service.dart';
 import 'auth_service.dart';
 import 'campus_session_store.dart';
+import 'cold_start_trace.dart';
 import 'identity_silent_login_service.dart';
 import 'logger_service.dart';
 import 'login_required_notifier.dart';
@@ -103,6 +104,16 @@ class _CredentialPersistenceResult {
   final MaterializationRevisionStamp? stamp;
 }
 
+/// One shared service-exchange flight.
+///
+/// The waiter count belongs to this flight instance rather than to the map key,
+/// so a late waiter of an older flight can never corrupt a newer flight that
+/// happens to reuse the same key.
+class _ServiceRefreshFlight {
+  late final Future<CampusServiceSession?> future;
+  int waiters = 0;
+}
+
 /// Signals that a service generation changed while a WebView lease was being
 /// acquired. The caller may perform one bounded fresh acquisition, but must
 /// never materialize the stale session with a newer fence.
@@ -133,7 +144,7 @@ class CampusSessionService {
   static const _exchangeCooldown = Duration(minutes: 5);
   static const _serviceExchangeCooldown = Duration(minutes: 2);
 
-  static final Map<String, Future<CampusServiceSession?>> _refreshes = {};
+  static final Map<String, _ServiceRefreshFlight> _refreshes = {};
   static final Map<String, Future<(CampusServiceSession?, bool)>>
   _serviceRefreshes = {};
 
@@ -148,6 +159,13 @@ class CampusSessionService {
   /// acquisition reads it. Production callers leave this unset.
   @visibleForTesting
   static Future<void> Function()? beforeWebViewAccountReadOverride;
+
+  /// Test seam invoked right before the cached service projection is read, so
+  /// a test can advance the runtime revision, or the identity, while a caller
+  /// is deciding whether to reuse that projection. Production callers leave
+  /// this unset.
+  @visibleForTesting
+  static Future<void> Function()? beforeCacheReadOverride;
 
   /// 最近一次成功换取凭证的时间（key = accountKey:target）。EAMS 等服务在
   /// 换票链结束后会短暂限流，紧接其后的首个数据请求常被服务端主动断开；
@@ -237,12 +255,17 @@ class CampusSessionService {
   static Future<CampusServiceSession?> get(
     CampusServiceId serviceId, {
     bool forceRefresh = false,
+    Account? forAccount,
   }) async {
     HostAuthState.requireRequestsAllowed();
-    final account = await AuthService.getCurrentAccount();
+    final account = forAccount ?? await AuthService.getCurrentAccount();
     if (account == null) return null;
     var sessionRevision = AuthService.sessionRevision;
-    final cachedSessionRevision = sessionRevision;
+    // Cache reuse is keyed on the identity generation instead of the runtime
+    // revision: a same-account root refresh keeps every persisted service
+    // session valid, so it must not force a second exchange of a session that
+    // is already cached.
+    final identityRevision = AuthService.identityRevision;
     final definition = CampusServiceEndpoints.definitionFor(serviceId);
     if (definition == null) return null;
     var store = await CampusSessionStore.open(accountKey: account.accountKey);
@@ -252,32 +275,33 @@ class CampusSessionService {
       sessionRevision: sessionRevision,
     );
     final key = '${account.accountKey}:${serviceId.value}';
-    final refreshAfter = definition.sessionRefreshAfter;
-    final lastExchangeAt = _lastExchangeAt[key];
-    final policyRefreshDue =
-        !forceRefresh &&
-        refreshAfter != null &&
-        (lastExchangeAt == null ||
-            DateTime.now().difference(lastExchangeAt) >= refreshAfter);
     final usesSavedIdentityPassword =
         definition.authentication is SavedIdentityPasswordAuthentication;
-    final storeCached = await _cachedFromSessionStore(
-      account.accountKey,
-      serviceId,
-    );
+    final beforeCacheRead = beforeCacheReadOverride;
+    if (beforeCacheRead != null) await beforeCacheRead();
+    final cached = await _cachedFromSessionStore(account.accountKey, serviceId);
+    final storeCached = cached.session;
+    // 刷新窗口优先按本进程的换票时间计算；冷启动没有这条内存记录，改用持久
+    // 会话的物化时间，仍在窗口内的会话可以直接复用。取不到任何时间时不判定
+    // 为到期：策略只刷新能确定年龄的会话。
+    final policyRefreshDue =
+        !forceRefresh &&
+        refreshPolicyDue(
+          refreshAfter: definition.sessionRefreshAfter,
+          exchangedAt: _lastExchangeAt[key],
+          materializedAt: cached.materializedAt,
+          now: DateTime.now(),
+        );
     Future<CampusServiceSession?> cachedPolicyFallback() async {
       if (!policyRefreshDue ||
           storeCached == null ||
-          AuthService.sessionRevision != cachedSessionRevision) {
+          AuthService.identityRevision != identityRevision) {
         return null;
       }
       final latest = await AuthService.getCurrentAccount();
       if (latest == null ||
           latest.accountKey != account.accountKey ||
-          !fence.isCurrent(
-            currentAccountKey: latest.accountKey,
-            currentSessionRevision: AuthService.sessionRevision,
-          )) {
+          !fence.identityIsCurrent(currentAccountKey: latest.accountKey)) {
         return null;
       }
       return storeCached;
@@ -285,7 +309,7 @@ class CampusSessionService {
 
     if (!forceRefresh &&
         !policyRefreshDue &&
-        AuthService.sessionRevision == sessionRevision &&
+        AuthService.identityRevision == identityRevision &&
         storeCached != null &&
         (storeCached.cookieHeader.isNotEmpty ||
             storeCached.headers.isNotEmpty)) {
@@ -299,10 +323,13 @@ class CampusSessionService {
           recoveredAccount.accountKey != account.accountKey) {
         return null;
       }
-      return _cachedFromSessionStore(recoveredAccount.accountKey, serviceId);
+      return (await _cachedFromSessionStore(
+        recoveredAccount.accountKey,
+        serviceId,
+      )).session;
     }
 
-    final flightKey = '$key:${fence.fingerprint}';
+    final flightKey = '$key:${fence.identityFingerprint(identityRevision)}';
     if (!forceRefresh &&
         !usesSavedIdentityPassword &&
         _exchangeCooldowns.isBlocked(key)) {
@@ -310,10 +337,18 @@ class CampusSessionService {
     }
     final pending = _refreshes[flightKey];
     if (pending != null) {
-      return pending;
+      // A waiter that arrives after the shared flight already decided whether
+      // to retry can still inherit its null; the next request starts a fresh
+      // flight under the current revision.
+      pending.waiters++;
+      try {
+        return await pending.future;
+      } finally {
+        pending.waiters--;
+      }
     }
 
-    Future<CampusServiceSession?> recover() async {
+    Future<CampusServiceSession?> recover(_ServiceRefreshFlight flight) async {
       var (credential, authExpired) = await _refresh(
         account,
         serviceId,
@@ -342,6 +377,39 @@ class CampusSessionService {
           }
         }
       }
+      // 同账号根刷新只推进 sessionRevision，却会让在途换票的提交 fence 失效。
+      // 只有在有其他调用者共享这次 flight 时才重捕获 fence 重试一次：等待者
+      // 不应继承 null，而单飞发起者保持"跨根刷新丢弃"的原有语义。服务失效
+      // （generation 变化）必须继续丢弃，不能重试。重试只做一次：若期间再次
+      // 发生根刷新，整个 flight 仍返回 null，调用方在下一次请求重新换票。
+      final sharedFlight = flight.waiters > 0;
+      if (credential == null &&
+          !authExpired &&
+          sharedFlight &&
+          AuthService.identityRevision == identityRevision &&
+          fence.hasCurrentServiceGenerations() &&
+          !fence.isCurrent(
+            currentAccountKey: account.accountKey,
+            currentSessionRevision: AuthService.sessionRevision,
+          )) {
+        final latest = await AuthService.getCurrentAccount();
+        if (latest != null &&
+            latest.accountKey == account.accountKey &&
+            AuthService.identityRevision == identityRevision) {
+          sessionRevision = AuthService.sessionRevision;
+          store = await CampusSessionStore.open(accountKey: account.accountKey);
+          fence = _captureServiceFence(
+            store: store,
+            definition: definition,
+            sessionRevision: sessionRevision,
+          );
+          (credential, authExpired) = await _refresh(
+            account,
+            serviceId,
+            fence: fence,
+          );
+        }
+      }
       if (credential != null) {
         _exchangeCooldowns.clear(key);
         _lastExchangeAt[key] = DateTime.now();
@@ -355,7 +423,15 @@ class CampusSessionService {
           return null;
         }
       } else if (!usesSavedIdentityPassword && !authExpired) {
-        _exchangeCooldowns.recordFailure(key);
+        final latest = await AuthService.getCurrentAccount();
+        if (latest != null &&
+            latest.accountKey == account.accountKey &&
+            fence.isCurrent(
+              currentAccountKey: latest.accountKey,
+              currentSessionRevision: AuthService.sessionRevision,
+            )) {
+          _exchangeCooldowns.recordFailure(key);
+        }
       }
       if (credential == null && !authExpired) {
         final fallback = await cachedPolicyFallback();
@@ -369,12 +445,14 @@ class CampusSessionService {
     }
 
     // Share the complete exchange + root recovery + guarded commit transaction.
-    final refresh = recover();
-    _refreshes[flightKey] = refresh;
+    final flight = _ServiceRefreshFlight();
+    final refresh = recover(flight);
+    flight.future = refresh;
+    _refreshes[flightKey] = flight;
     try {
       return await refresh;
     } finally {
-      if (identical(_refreshes[flightKey], refresh)) {
+      if (identical(_refreshes[flightKey], flight)) {
         _refreshes.remove(flightKey);
       }
     }
@@ -605,18 +683,17 @@ class CampusSessionService {
     );
   }
 
-  /// Materialized session projection. The source of truth is the account-scoped
-  /// session store; header names and prefixes are derived from the service
-  /// materializer at read time.
-  static Future<CampusServiceSession?> _cachedFromSessionStore(
-    String accountKey,
-    CampusServiceId serviceId,
-  ) async {
+  /// Materialized session projection plus the newest timestamp its persisted
+  /// credential carries. The source of truth is the account-scoped session
+  /// store; header names and prefixes are derived from the service materializer
+  /// at read time.
+  static Future<({CampusServiceSession? session, DateTime? materializedAt})>
+  _cachedFromSessionStore(String accountKey, CampusServiceId serviceId) async {
     final store = await CampusSessionStore.open(accountKey: accountKey);
     final definition = CampusServiceEndpoints.definitionFor(serviceId);
-    if (definition == null) return null;
+    if (definition == null) return (session: null, materializedAt: null);
     if (definition.sessionMaterializer.containsWebViewSessionMaterializer) {
-      return null;
+      return (session: null, materializedAt: null);
     }
     for (var attempt = 0; attempt < 2; attempt++) {
       final before = await store.captureWebViewFence(
@@ -624,6 +701,7 @@ class CampusSessionService {
         sessionRevision: AuthService.sessionRevision,
       );
       CampusServiceSession? session;
+      final moments = <DateTime>[];
       if (serviceId == CampusServices.unifiedIdentity) {
         final cookies = await store.rootCookieHeader();
         if (cookies.isNotEmpty) {
@@ -638,35 +716,92 @@ class CampusSessionService {
             cookieHeader: '',
             headers: {'token': artifact.rawValue},
           );
+          moments.add(artifact.createdAt);
         }
       } else {
         final jar = store.cookieJar(
           definition.id,
           scope: definition.scopeFor(definition.seedUri),
         );
-        final cookies = await jar.headerFor(definition.seedUri);
-        final headers = await _storeMaterializedHeaders(store, definition, jar);
-        if (_hasCompleteMaterialization(definition, cookies, headers)) {
+        final cookies = await jar.cookiesFor(definition.seedUri);
+        final cookieHeader = _cookieHeader(cookies);
+        for (final cookie in cookies) {
+          moments.add(cookie.createdAt);
+        }
+        final materialized = await _storeMaterializedHeaders(
+          store,
+          definition,
+          cookies,
+        );
+        final artifactCreatedAt = materialized.artifactCreatedAt;
+        if (artifactCreatedAt != null) moments.add(artifactCreatedAt);
+        if (_hasCompleteMaterialization(
+          definition,
+          cookieHeader,
+          materialized.headers,
+        )) {
           session = CampusServiceSession(
-            cookieHeader: cookies,
-            headers: headers,
+            cookieHeader: cookieHeader,
+            headers: materialized.headers,
           );
         }
       }
-      if (session == null) return null;
+      if (session == null) return (session: null, materializedAt: null);
       final after = await store.captureWebViewFence(
         serviceId: serviceId,
         sessionRevision: AuthService.sessionRevision,
       );
       if (!before.hasSameMaterialization(after)) continue;
-      return session.withMaterializationStamp(
-        MaterializationRevisionStamp(
-          rootRevision: after.rootRevision,
-          serviceRevision: after.serviceRevision,
+      return (
+        session: session.withMaterializationStamp(
+          MaterializationRevisionStamp(
+            rootRevision: after.rootRevision,
+            serviceRevision: after.serviceRevision,
+          ),
         ),
+        materializedAt: _latestMaterialization(moments),
       );
     }
-    return null;
+    return (session: null, materializedAt: null);
+  }
+
+  static String _cookieHeader(Iterable<PersistentCampusCookie> cookies) =>
+      cookies.map((cookie) => '${cookie.name}=${cookie.value}').join('; ');
+
+  /// Newest persisted materialization moment. A session that was exchanged and
+  /// then re-issued cookies by the server keeps the later timestamp, so stale
+  /// duplicate entries cannot keep a refreshed session permanently due.
+  static DateTime? _latestMaterialization(Iterable<DateTime> moments) {
+    DateTime? latest;
+    for (final moment in moments) {
+      final utc = moment.toUtc();
+      if (latest == null || utc.isAfter(latest)) latest = utc;
+    }
+    return latest;
+  }
+
+  /// Declarative [CampusServiceDefinition.sessionRefreshAfter] policy.
+  ///
+  /// The in-process exchange time is exact and wins. A cold start has no such
+  /// record, so the persisted materialization time stands in for it. When
+  /// neither exists the session is not treated as expired: the policy only
+  /// refreshes sessions whose age it can establish.
+  ///
+  /// Known approximation: the persisted time is the newest `createdAt` of the
+  /// cookies or token artifact that back the cached session. A server that
+  /// re-issues any cookie for that host during ordinary traffic moves the
+  /// timestamp forward, so the proactive refresh can be postponed. Replacing
+  /// this with an explicitly stored exchange time is a follow-up change.
+  static bool refreshPolicyDue({
+    required Duration? refreshAfter,
+    required DateTime? exchangedAt,
+    required DateTime? materializedAt,
+    required DateTime now,
+  }) {
+    if (refreshAfter == null) return false;
+    final since = exchangedAt ?? materializedAt;
+    if (since == null) return false;
+    return now.toUtc().difference(since.toUtc()) >= refreshAfter;
   }
 
   static bool _hasCompleteMaterialization(
@@ -691,12 +826,14 @@ class CampusSessionService {
     return visit(definition.sessionMaterializer);
   }
 
-  static Future<Map<String, String>> _storeMaterializedHeaders(
+  static Future<({Map<String, String> headers, DateTime? artifactCreatedAt})>
+  _storeMaterializedHeaders(
     CampusSessionStore store,
     CampusServiceDefinition definition,
-    PersistentCampusCookieJar jar,
+    List<PersistentCampusCookie> cookies,
   ) async {
     final headers = <String, String>{};
+    DateTime? artifactCreatedAt;
     Future<void> visit(SessionMaterializer materializer) async {
       switch (materializer) {
         case HeaderFromCookie(
@@ -704,18 +841,16 @@ class CampusSessionService {
           :final fallbackCookieName,
           :final headerName,
         ):
-          final cookies = await jar.cookiesFor(definition.seedUri);
-          final value =
+          String? cookieValue(String name) =>
               cookies
-                  .where((cookie) => cookie.name == cookieName)
+                  .where((cookie) => cookie.name == name)
                   .map((cookie) => cookie.value)
-                  .firstOrNull ??
+                  .firstOrNull;
+          final value =
+              cookieValue(cookieName) ??
               (fallbackCookieName == null
                   ? null
-                  : cookies
-                      .where((cookie) => cookie.name == fallbackCookieName)
-                      .map((cookie) => cookie.value)
-                      .firstOrNull);
+                  : cookieValue(fallbackCookieName));
           if (value != null && value.isNotEmpty) headers[headerName] = value;
         case CompositeMaterializer(:final materializers):
           for (final child in materializers) {
@@ -725,6 +860,7 @@ class CampusSessionService {
           final artifact = await store.artifacts.read(definition.id);
           if (artifact != null) {
             headers[headerName] = '$prefix${artifact.rawValue}';
+            artifactCreatedAt = artifact.createdAt;
           }
         case CookieMaterializer():
         case WebViewSessionMaterializer():
@@ -734,7 +870,7 @@ class CampusSessionService {
     }
 
     await visit(definition.sessionMaterializer);
-    return headers;
+    return (headers: headers, artifactCreatedAt: artifactCreatedAt);
   }
 
   static Future<(CampusServiceSession?, bool)> _refresh(
@@ -763,6 +899,7 @@ class CampusSessionService {
       );
       if (!committed.committed) return (null, false);
       AppLogger.info('${serviceId.value} 本地服务会话已建立并保存');
+      ColdStartTrace.exchange(serviceId.value);
       return (
         committed.stamp == null
             ? session
@@ -794,6 +931,7 @@ class CampusSessionService {
       );
       if (!committed.committed) return (null, false);
       AppLogger.info('移动校园 token 已换取并保存');
+      ColdStartTrace.exchange(serviceId.value);
       return (
         committed.stamp == null
             ? credential
@@ -862,6 +1000,7 @@ class CampusSessionService {
     );
     if (!committed.committed) return (null, false);
     AppLogger.info('${serviceId.value} 服务会话已换取并保存');
+    ColdStartTrace.exchange(serviceId.value);
     return (
       committed.stamp == null
           ? session

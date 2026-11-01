@@ -259,7 +259,7 @@ class TimeReminderService {
       return;
     }
     final epoch = _epoch;
-    final session = AuthService.sessionRevision;
+    var session = AuthService.sessionRevision;
     final version = (_revisions[category] ?? 0) + 1;
     _revisions[category] = version;
     try {
@@ -267,6 +267,14 @@ class TimeReminderService {
       final setting = (await settings())[category]!;
       final events = setting.enabled ? await build() : <TimeReminderEvent>[];
       if (events == null) return;
+      // The root session may refresh while the source data is loading (for
+      // example a silent re-login). Letting a re-login of the same account
+      // through is intentional: the events still belong to that account, so
+      // re-anchor the write fence to the new revision instead of silently
+      // skipping the replacement. A real account change is still rejected by
+      // `_currentAccount()` below, and a sign-out by the `_epoch++` in
+      // `clearAll()`.
+      session = AuthService.sessionRevision;
       final payloads = buildTimeReminderPayloads(
         category,
         setting,

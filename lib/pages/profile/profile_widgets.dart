@@ -225,7 +225,7 @@ class _NetworkStatusChip extends StatelessWidget {
 }
 
 class SignOutAction extends StatelessWidget {
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   const SignOutAction({super.key, required this.onPressed});
 

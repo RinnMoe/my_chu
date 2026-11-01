@@ -1,6 +1,7 @@
 import '../../capabilities/app_update/app_update_package.dart';
 import '../fenfa/fenfa_models.dart';
 import '../fenfa/fenfa_service.dart';
+import 'upgradelink_delta.dart';
 
 enum UpdateProvider { fenfa, upgradeLink }
 
@@ -13,6 +14,8 @@ class UpdateOffer {
     this.sizeBytes,
     this.fenfaRelease,
     this.nativeMd5,
+    this.packageName,
+    this.nativeDelta,
   });
 
   final UpdateProvider provider;
@@ -22,6 +25,14 @@ class UpdateOffer {
   final int? sizeBytes;
   final FenfaRelease? fenfaRelease;
   final String? nativeMd5;
+
+  /// Package the source announced, used to prove the installed base APK is the
+  /// same application before a native patch may be applied.
+  final String? packageName;
+
+  /// Native HDiffPatch patch metadata, present only when UpgradeLink returned a
+  /// complete and usable patch description.
+  final UpgradeLinkNativeDelta? nativeDelta;
 
   factory UpdateOffer.fromFenfa(FenfaRelease release) => UpdateOffer(
     provider: UpdateProvider.fenfa,

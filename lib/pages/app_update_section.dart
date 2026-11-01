@@ -18,7 +18,6 @@ class AppUpdateSection extends StatefulWidget {
 
 class _AppUpdateSectionState extends State<AppUpdateSection> {
   bool _expanded = false;
-  bool _downloadIncremental = false;
   AppUpdateService get service => widget.service ?? AppUpdateService.shared;
   @override
   void initState() {
@@ -45,116 +44,34 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
           service.downloading ||
           service.planning ||
           service.state == UpdateCheckState.checking;
-      Widget card({required bool incremental}) {
-        final patch = service.delta;
-        final downloading =
-            service.downloading && incremental == _downloadIncremental;
-        final fraction = service.progress?.fraction;
-        final actionLabel =
-            downloading
-                ? (fraction == null
-                    ? '更新中…'
-                    : '下载中 ${(fraction * 100).floor()}%')
-                : '下载更新';
-        final background =
-            incremental ? colors.tertiaryContainer : colors.primaryContainer;
-        final foreground =
-            incremental
-                ? colors.onTertiaryContainer
-                : colors.onPrimaryContainer;
-        return Card(
-          margin: const EdgeInsets.only(top: 8),
-          color: background,
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3, right: 12),
-                      child: Icon(
-                        incremental
-                            ? Icons.inventory_2_outlined
-                            : Icons.arrow_upward,
-                        color: foreground,
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            incremental
-                                ? '下载更新'
-                                : (update.force ? '发现新版本 · 需要更新' : '发现新版本'),
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: foreground,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            incremental
-                                ? '更新包约 ${_size(patch!.size)}，下载后自动安装。'
-                                : '$currentVersion → $targetVersion${update.sizeBytes == null ? '' : ' · ${_size(update.sizeBytes!)}'}',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: foreground,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!incremental && update.notes.trim().isNotEmpty)
-                      IconButton(
-                        tooltip: _expanded ? '收起更新说明' : '查看更新说明',
-                        isSelected: _expanded,
-                        onPressed: () => setState(() => _expanded = !_expanded),
-                        icon: const Icon(Icons.notes_outlined),
-                        color: foreground,
-                      ),
-                  ],
-                ),
-              ),
-              if (!incremental && _expanded)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: SelectableText(
-                    update.notes,
-                    style: TextStyle(color: foreground),
-                  ),
-                ),
-              TextButton(
-                key: ValueKey(
-                  incremental
-                      ? 'update-delta-download'
-                      : 'update-full-download',
-                ),
-                onPressed:
-                    busy
-                        ? null
-                        : () {
-                          setState(() => _downloadIncremental = incremental);
-                          unawaited(service.download(preferDelta: incremental));
-                        },
-                style: TextButton.styleFrom(
-                  foregroundColor: foreground,
-                  backgroundColor: foreground.withValues(alpha: 0.07),
-                  shape: const RoundedRectangleBorder(),
-                  minimumSize: const Size.fromHeight(48),
-                ),
-                child: Semantics(
-                  liveRegion: downloading,
-                  child: Text(actionLabel),
-                ),
-              ),
-            ],
-          ),
-        );
-      }
-
+      final delta = service.delta;
+      final downloading = service.downloading;
+      final fraction = service.progress?.fraction;
+      final foreground = colors.onPrimaryContainer;
+      // Sizes live on the actions, not in the body: the primary reports the bytes
+      // this update actually transfers, the folded action reports the full package.
+      final downloadSize = delta?.patchSize ?? update.sizeBytes;
+      final fullSize = delta?.targetSize ?? update.sizeBytes;
+      // After a failed patch the same operation continues with the full package;
+      // say so instead of hiding the extra download behind the patch size.
+      final onFullFallback =
+          downloading && delta != null && service.downloadingFullPackage;
+      final actionLabel =
+          downloading
+              ? (fraction == null
+                  ? '下载中…'
+                  : onFullFallback
+                  ? '下载完整更新 ${(fraction * 100).floor()}%'
+                  : '下载中 ${(fraction * 100).floor()}%')
+              : (downloadSize == null
+                  ? '下载更新'
+                  : '下载更新（${_size(downloadSize)}）');
+      final fullLabel =
+          fullSize == null ? '下载完整更新' : '下载完整更新（${_size(fullSize)}）';
+      // One entry point: the delta is preferred internally and falls back to the
+      // full package by itself, so the user never chooses a download strategy.
+      final sizeLine = '$currentVersion → $targetVersion';
+      final hasDetails = update.notes.trim().isNotEmpty || delta != null;
       return Padding(
         key: const ValueKey('profile-update-section'),
         padding: const EdgeInsets.only(top: 24),
@@ -168,8 +85,110 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            card(incremental: false),
-            if (service.delta != null) card(incremental: true),
+            Card(
+              margin: const EdgeInsets.only(top: 8),
+              color: colors.primaryContainer,
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3, right: 12),
+                          child: Icon(Icons.arrow_upward, color: foreground),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                update.force ? '发现新版本 · 需要更新' : '发现新版本',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: foreground,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                sizeLine,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: foreground,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (hasDetails)
+                          IconButton(
+                            tooltip: _expanded ? '收起' : '更多选项',
+                            isSelected: _expanded,
+                            onPressed:
+                                () => setState(() => _expanded = !_expanded),
+                            icon: const Icon(Icons.notes_outlined),
+                            color: foreground,
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (_expanded && hasDetails)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (update.notes.trim().isNotEmpty)
+                            SelectableText(
+                              update.notes,
+                              style: TextStyle(color: foreground),
+                            ),
+                          if (delta != null)
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton(
+                                key: const ValueKey('update-download-full'),
+                                onPressed:
+                                    busy
+                                        ? null
+                                        : () => unawaited(
+                                          service.download(preferDelta: false),
+                                        ),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: foreground,
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: const Size(0, 40),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: Text(fullLabel),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  TextButton(
+                    key: const ValueKey('update-download'),
+                    onPressed:
+                        busy
+                            ? null
+                            : () =>
+                                unawaited(service.download(preferDelta: true)),
+                    style: TextButton.styleFrom(
+                      foregroundColor: foreground,
+                      backgroundColor: foreground.withValues(alpha: 0.07),
+                      shape: const RoundedRectangleBorder(),
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    child: Semantics(
+                      liveRegion: downloading,
+                      child: Text(actionLabel),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             if (service.error != null)
               Padding(
                 padding: const EdgeInsets.all(8),

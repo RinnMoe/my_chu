@@ -3,7 +3,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../capabilities/app_installer/app_installer.dart';
 import '../../capabilities/app_update/app_update_coordinator.dart';
-import '../../capabilities/app_update/app_update_manifest.dart';
+import '../../capabilities/app_update/app_update_gate.dart';
+import '../../capabilities/app_update/app_update_patch_plan.dart';
 import '../../capabilities/in_app_download/in_app_download.dart';
 import '../app_remote_services_service.dart';
 import '../fenfa/fenfa_service.dart';
@@ -13,6 +14,7 @@ import '../platform_compatibility_service.dart';
 import '../privacy_agreement_service.dart';
 import 'update_offer.dart';
 import 'upgradelink_client.dart';
+import 'upgradelink_delta_update.dart';
 
 enum UpdateCheckState {
   idle,
@@ -30,28 +32,34 @@ class AppUpdateService extends ChangeNotifier {
     UpgradeLinkClient? upgradeLink,
     FenfaService? fenfa,
     AppUpdateCoordinator? coordinator,
+    UpgradeLinkDeltaPlanner? deltaPlanner,
+    UpgradeLinkDeltaRunner? deltaRunner,
     Future<int> Function()? localBuild,
     Future<String> Function()? localVersion,
     Future<String> Function()? packageName,
     Future<bool> Function()? isAllowed,
     bool Function()? isSupported,
+    bool Function()? isDeltaCapable,
     Future<bool> Function(InAppDownloadedFile)? install,
     bool observePolicy = true,
   }) : _upgradeLink = upgradeLink ?? UpgradeLinkClient(),
        _fenfa = fenfa ?? FenfaService.shared,
        _coordinator = coordinator ?? AppUpdateCoordinator(),
+       _deltaPlanner =
+           deltaPlanner ??
+           UpgradeLinkDeltaPlanner(
+             isEligible: isDeltaCapable ?? AppUpdateGate.deltaEligible,
+           ),
+       _deltaRunner = deltaRunner ?? UpgradeLinkDeltaRunner(),
        _localBuild = localBuild ?? (() => AppHostVersion.buildNumber),
        _localVersion = localVersion ?? (() => AppHostVersion.current),
        _packageName =
            packageName ??
            (() async => (await PackageInfo.fromPlatform()).packageName),
-       _allowed =
-           isAllowed ??
-           (() async =>
-               await PrivacyAgreementService.isAccepted() &&
-               await AppRemoteServicesService.isEnabled()),
+       _allowed = isAllowed ?? AppUpdateGate.allowed,
        _supported =
            isSupported ?? (() => PlatformCompatibilityService.isAndroid),
+       _deltaCapable = isDeltaCapable ?? AppUpdateGate.deltaEligible,
        _install = install ?? AppInstallerCapability().install,
        _observePolicy = observePolicy {
     if (_observePolicy) {
@@ -64,11 +72,14 @@ class AppUpdateService extends ChangeNotifier {
   final UpgradeLinkClient _upgradeLink;
   final FenfaService _fenfa;
   final AppUpdateCoordinator _coordinator;
+  final UpgradeLinkDeltaPlanner _deltaPlanner;
+  final UpgradeLinkDeltaRunner _deltaRunner;
   final Future<int> Function() _localBuild;
   final Future<String> Function() _localVersion;
   final Future<String> Function() _packageName;
   final Future<bool> Function() _allowed;
   final bool Function() _supported;
+  final bool Function() _deltaCapable;
   final Future<bool> Function(InAppDownloadedFile) _install;
   final bool _observePolicy;
   bool _disposed = false;
@@ -79,11 +90,17 @@ class AppUpdateService extends ChangeNotifier {
 
   UpdateCheckState state = UpdateCheckState.idle;
   UpdateOffer? offer;
-  AppUpdatePatch? delta;
+  AppUpdateDelta? delta;
   String localVersion = '';
   int localVersionCode = 0;
   bool planning = false;
   bool downloading = false;
+
+  /// Whether the in-flight download currently transfers the full package.
+  ///
+  /// A native patch that fails moves the same operation to the full package, so
+  /// the section must follow the transfer instead of the button that started it.
+  bool downloadingFullPackage = false;
   bool installerOpened = false;
   InAppDownloadProgress? progress;
   String? error;
@@ -99,6 +116,7 @@ class AppUpdateService extends ChangeNotifier {
     offer = null;
     delta = null;
     planning = false;
+    downloadingFullPackage = false;
     error = null;
     state = UpdateCheckState.disabled;
     _emit();
@@ -158,11 +176,20 @@ class AppUpdateService extends ChangeNotifier {
           // stream using the same Android version-code convention as Release.
           final debugReleaseCheck =
               kDebugMode && name == 'moe.rinn.mychu.debug';
+          final officialPackage = debugReleaseCheck ? 'moe.rinn.mychu' : name;
           final updateCode = debugReleaseCheck ? 2000 + code : code;
           localVersionCode = updateCode;
+          // A patch may only be merged against the installed binary of the
+          // production package in an official release build; Debug reads the
+          // same stream but must never ask for one.
+          final patchCapable =
+              !debugReleaseCheck &&
+              _deltaCapable() &&
+              officialPackage == 'moe.rinn.mychu';
           result = await _upgradeLink.check(
             versionCode: updateCode,
-            packageName: debugReleaseCheck ? 'moe.rinn.mychu' : name,
+            packageName: officialPackage,
+            patchCapable: patchCapable,
           );
         } catch (error) {
           // Only an unavailable/invalid source falls back. "No update" is
@@ -195,6 +222,7 @@ class AppUpdateService extends ChangeNotifier {
       offer = result;
       delta = null;
       planning = false;
+      downloadingFullPackage = false;
       installerOpened = false;
       progress = null;
       _checkedAt = DateTime.now();
@@ -202,7 +230,9 @@ class AppUpdateService extends ChangeNotifier {
           result == null
               ? UpdateCheckState.current
               : UpdateCheckState.available;
-      if (result != null && result.provider == UpdateProvider.fenfa) {
+      if (result != null &&
+          (result.provider == UpdateProvider.fenfa ||
+              result.nativeDelta != null)) {
         planning = true;
         _planning = (_planning ?? Future<void>.value()).then(
           (_) => _plan(result!, epoch),
@@ -221,7 +251,17 @@ class AppUpdateService extends ChangeNotifier {
   Future<void> _plan(UpdateOffer candidate, int epoch) async {
     try {
       if (!await _current(epoch) || !identical(offer, candidate)) return;
-      final match = await _coordinator.matchingPatch(candidate.package);
+      final AppUpdateDelta? match;
+      if (candidate.provider == UpdateProvider.fenfa) {
+        match = await _coordinator.matchingPatch(candidate.package);
+      } else if (candidate.nativeDelta != null) {
+        match = await _deltaPlanner.readiness(
+          candidate,
+          installedVersionCode: localVersionCode,
+        );
+      } else {
+        match = null;
+      }
       if (!await _current(epoch) || !identical(offer, candidate)) return;
       delta = match;
     } catch (_) {
@@ -245,6 +285,7 @@ class AppUpdateService extends ChangeNotifier {
     installerOpened = false;
     error = null;
     progress = null;
+    downloadingFullPackage = !preferDelta;
     _emit();
     try {
       await _planning;
@@ -254,6 +295,19 @@ class AppUpdateService extends ChangeNotifier {
       void report(InAppDownloadProgress item) {
         if (_disposed || epoch != _epoch) {
           throw const InAppDownloadException(InAppDownloadErrorType.cancelled);
+        }
+        // Follow the bytes actually transferring: a failed patch switches the
+        // same operation to the full package.
+        switch (item.phase) {
+          case AppUpdatePhase.downloadingFull:
+            downloadingFullPackage = true;
+          case AppUpdatePhase.downloadingPatch:
+            downloadingFullPackage = false;
+          case AppUpdatePhase.preparing:
+          case AppUpdatePhase.merging:
+          case AppUpdatePhase.verifying:
+          case AppUpdatePhase.installing:
+            break;
         }
         progress = item;
         _emit();
@@ -268,6 +322,9 @@ class AppUpdateService extends ChangeNotifier {
           onProgress: report,
         );
       } else {
+        final planned = delta;
+        final attemptDelta =
+            preferDelta && selected.nativeDelta != null && planned != null;
         opened = await _upgradeLink.downloadAndInstall(
           selected,
           localVersionCode: localVersionCode,
@@ -276,6 +333,18 @@ class AppUpdateService extends ChangeNotifier {
           isAllowed:
               () async => await _current(epoch) && identical(offer, selected),
           onProgress: report,
+          tryDelta:
+              attemptDelta
+                  ? () => _deltaRunner.attempt(
+                    selected,
+                    installedVersionCode: localVersionCode,
+                    shouldContinue: () => !_disposed && epoch == _epoch,
+                    isAllowed:
+                        () async =>
+                            await _current(epoch) && identical(offer, selected),
+                    onProgress: report,
+                  )
+                  : null,
         );
       }
       if (!_disposed && epoch == _epoch) {

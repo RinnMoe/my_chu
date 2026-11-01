@@ -26,14 +26,22 @@ class SessionRuntimeFence {
   /// Stable key for single-flight operations sharing this exact runtime
   /// fence. Map entries are sorted so multi-scope captures do not depend on
   /// insertion order.
-  String get fingerprint {
+  String get fingerprint =>
+      '$accountKey|${serviceId.value}|$sessionRevision|$_generationsKey';
+
+  /// Single-flight key that survives a same-account root refresh.
+  ///
+  /// The identity generation replaces the runtime revision, while the captured
+  /// service generations still split scopes invalidated by an explicit refresh.
+  /// Callers must keep using [isCurrent] for the exchange fence itself.
+  String identityFingerprint(int identityRevision) =>
+      '$accountKey|${serviceId.value}|i$identityRevision|$_generationsKey';
+
+  String get _generationsKey {
     final entries =
         serviceGenerations.entries.toList()
           ..sort((a, b) => a.key.compareTo(b.key));
-    final generations = entries
-        .map((entry) => '${entry.key}=${entry.value}')
-        .join(',');
-    return '$accountKey|${serviceId.value}|$sessionRevision|$generations';
+    return entries.map((entry) => '${entry.key}=${entry.value}').join(',');
   }
 
   bool hasSameServiceGenerations(SessionRuntimeFence other) {
@@ -53,15 +61,29 @@ class SessionRuntimeFence {
         sessionRevision != currentSessionRevision) {
       return false;
     }
-    return serviceGenerations.entries.every(
-      (entry) =>
-          entry.value ==
-          ServiceGenerationRegistry.current(
-            accountKey: accountKey,
-            serviceId: serviceId,
-            scopeKey: entry.key,
-          ),
-    );
+    return hasCurrentServiceGenerations();
+  }
+
+  /// Whether every captured service generation is still current.
+  bool hasCurrentServiceGenerations() => serviceGenerations.entries.every(
+    (entry) =>
+        entry.value ==
+        ServiceGenerationRegistry.current(
+          accountKey: accountKey,
+          serviceId: serviceId,
+          scopeKey: entry.key,
+        ),
+  );
+
+  /// Account and service-generation check that deliberately ignores
+  /// [sessionRevision].
+  ///
+  /// A same-account root refresh advances the runtime revision but keeps every
+  /// persisted service session valid, so a cached projection may still be
+  /// reused. An explicit service invalidation still fails this check.
+  bool identityIsCurrent({required String currentAccountKey}) {
+    if (accountKey != currentAccountKey) return false;
+    return hasCurrentServiceGenerations();
   }
 
   /// Checks the captured generation for one redirect target scope.

@@ -8,9 +8,11 @@ Future<bool?> showAdaptiveConfirmationDialog(
   required String confirmLabel,
   String cancelLabel = '取消',
   bool destructive = false,
+  bool barrierDismissible = true,
 }) {
   return showDialog<bool>(
     context: context,
+    barrierDismissible: barrierDismissible,
     builder:
         (_) => AdaptiveConfirmationDialog(
           title: title,

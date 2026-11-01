@@ -49,9 +49,15 @@ class AuthLifecycleService {
   @visibleForTesting
   static void Function(String accountKey)? debugWarmup;
 
+  /// Test seam for exercising the profile sign-out page without real host
+  /// cleanup. Production callers leave this unset.
+  @visibleForTesting
+  static Future<void> Function()? debugSignOut;
+
   @visibleForTesting
   static void debugReset() {
     debugWarmup = null;
+    debugSignOut = null;
   }
 
   static Future<AuthLifecycleResult> restore() => _restore(warmUp: true);
@@ -188,9 +194,13 @@ class AuthLifecycleService {
     final current = await AuthService.getCurrentAccount();
     if (current?.accountKey == account.accountKey &&
         rootIdentityCookies != null) {
+      // An interactive login is an explicit identity reset: drop every derived
+      // service credential so the user starts from the freshly confirmed root
+      // session instead of inheriting sessions from the previous one.
       await AuthService.replaceIdentityCookies(
         account.accountKey,
         rootIdentityCookies,
+        resetDerivedSessions: true,
       );
       await AuthService.patchAccount(account.accountKey, (_) => account);
     } else {
@@ -226,6 +236,8 @@ class AuthLifecycleService {
   /// single host operation. The low-level AuthService remains usable by tests
   /// and storage callers, but UI sign-out goes through this method.
   static Future<void> signOut() async {
+    final override = debugSignOut;
+    if (override != null) return override();
     HostAuthCoordinator.signedOut();
     CredentialSyncService.cancel();
     final clearWidgetFuture = DesktopWidgetSyncService.clearSchedule();
@@ -233,7 +245,11 @@ class AuthLifecycleService {
     // first platform reset also advances cookieManagerEpoch immediately, but
     // its final barrier is repeated after account persistence cleanup below.
     final clearFuture = AuthService.clearAll();
-    await RecentScheduleRepository.instance.clear();
+    try {
+      await RecentScheduleRepository.instance.clear();
+    } catch (error) {
+      AppLogger.warn('退出登录清理最近课表失败 (${error.runtimeType})');
+    }
     final initialResetFuture = WebViewCookieCoordinator.resetCookies();
     try {
       await TimeReminderService.clearAll();
@@ -245,9 +261,19 @@ class AuthLifecycleService {
     } catch (_) {}
     try {
       await clearFuture;
+    } catch (error) {
+      AppLogger.warn('退出登录清理账号失败 (${error.runtimeType})');
+      // A cleanup step can fail after the account itself was removed. Only
+      // surface a failure when the account is still present; otherwise the
+      // sign-out is complete from the user's perspective.
+      if (await AuthService.getCurrentAccount() != null) rethrow;
     } finally {
-      await clearWidgetFuture;
-      await DesktopWidgetSyncService.clearSchedule();
+      try {
+        await clearWidgetFuture;
+        await DesktopWidgetSyncService.clearSchedule();
+      } catch (error) {
+        AppLogger.warn('退出登录清理桌面课表小组件失败 (${error.runtimeType})');
+      }
       try {
         await initialResetFuture;
       } catch (_) {
@@ -260,5 +286,9 @@ class AuthLifecycleService {
       }
     }
     LoginRequiredNotifier.markPromptDismissed();
+    // The first signedOut() runs before persistence cleanup. A page rebuilt in
+    // that window can read the old account and keep showing it; publish a
+    // second guest snapshot after cleanup so listeners reload the final state.
+    HostAuthCoordinator.signedOut();
   }
 }
