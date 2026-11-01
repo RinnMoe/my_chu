@@ -161,6 +161,23 @@ class CredentialSyncService {
           getter != null
               ? await getter(serviceId)
               : await SessionReadinessService.ensure(serviceId);
+      if (!available) {
+        // 未就绪是“部分校园服务暂不可用”横幅的唯一来源，但此前只存在于 UI 状态里，
+        // 诊断导出看不到是哪个服务、在哪一步失败。
+        AppLogger.event(
+          level: 'WARN',
+          code: 'credential.sync.item_not_ready',
+          message: '${CampusServiceEndpoints.labelFor(serviceId)} 预热未就绪',
+          domain: 'credential',
+          failureReason: FailureReason.sessionUnavailable,
+          failureStage: FailureStage.sessionPrepare,
+          fields: {
+            'service': serviceId.value,
+            'phase': 'warmup',
+            'result': 'not_ready',
+          },
+        );
+      }
       _publishItem(
         accountKey: accountKey,
         sessionRevision: sessionRevision,

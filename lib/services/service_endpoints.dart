@@ -477,12 +477,15 @@ class CampusServiceEndpoints {
       exactExchangePaths: const ['/qljfwapp/'],
       scopedPaths: const {'/qljfwapp/': PathPrefixSessionScope('/qljfwapp/')},
     ),
+    // 畅课把失效会话直接表现为 HTTP 401（不跳登录页）。没有这条策略时 401 只会
+    // 被当作普通业务失败，整段会话都不再换票，首页待办、焦点与待办提醒持续失败。
     CampusServiceDefinition(
       id: CampusServices.courseOnline,
       host: 'course-online.chd.edu.cn',
       startUri: courseLoginUri,
       seedUri: courseLoginUri,
       validationUri: courseProfileUri,
+      authFailurePolicy: const StatusAuthFailure({401}),
       sessionMaterializer: const CompositeMaterializer([
         CookieMaterializer(),
         HeaderFromCookie(
@@ -491,6 +494,10 @@ class CampusServiceEndpoints {
           headerName: 'x-session-id',
         ),
       ]),
+      transportPolicy: const TransportPolicy(
+        // 课程列表是只读查询，重放一次不会产生写副作用。
+        replaySafePostPaths: ['/api/my-courses'],
+      ),
     ),
     // 畅课移动端：静态 SPA 启动后才发起 OAuth/CAS，宿主先播种根身份。
     CampusServiceDefinition(

@@ -93,7 +93,12 @@ class TronclassService {
       throwOnHttpError: false,
     );
     if (response.statusCode != HttpStatus.ok) {
-      throw TronclassException('待办请求失败（HTTP ${response.statusCode}）');
+      // 带上状态码，否则 401 会被记成 unexpected，首页焦点与提醒诊断看不出
+      // 是认证失败。
+      throw TronclassException(
+        '待办请求失败（HTTP ${response.statusCode}）',
+        statusCode: response.statusCode,
+      );
     }
     final decoded = _decodeJson(response.body);
     final rawList =

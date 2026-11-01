@@ -1170,6 +1170,30 @@ class CampusSessionService {
     currentSessionRevision: AuthService.sessionRevision,
   );
 
+  /// 换票未取得可用会话时的结构化诊断事件。
+  ///
+  /// 只记录服务 ID 与有限原因类别；地址、Cookie、ticket 和响应正文一律不进入
+  /// 事件。缺少这类事件时，线上只能看到“部分校园服务暂不可用”横幅，无法判断
+  /// 究竟是换票失败、根身份过期，还是换票后的校验未通过。
+  static void _recordExchangeFailure(
+    CampusServiceDefinition definition,
+    String reason,
+  ) {
+    AppLogger.event(
+      level: 'WARN',
+      code: 'service.session.exchange_failed',
+      message: '${CampusServiceEndpoints.labelFor(definition.id)} 换票未取得可用会话',
+      domain: 'session',
+      failureReason: FailureReason.sessionUnavailable,
+      failureStage: FailureStage.sessionPrepare,
+      fields: {
+        'service': definition.id.value,
+        'phase': 'exchange',
+        'result': reason,
+      },
+    );
+  }
+
   /// 通用 federated 换票与 materializer 投影，附带“统一身份会话是否已过期”
   /// 的信号：换票链最终停留在 ids 登录页时 [bool] 为 true。
   static Future<(CampusServiceSession?, bool)>
@@ -1186,7 +1210,10 @@ class CampusSessionService {
     // A service can issue a preliminary session cookie before redirecting to
     // CAS. It is not an authenticated credential when the chain ultimately
     // stops at the unified-identity login page.
-    if (result.endedAtIdsLogin) return (null, true);
+    if (result.endedAtIdsLogin) {
+      _recordExchangeFailure(definition, 'identity_expired');
+      return (null, true);
+    }
     final cookies = result.jar.headerFor(definition.seedUri);
     final headers = _derivedHeaders(definition, result.jar, cookies);
     final tokenMaterializer = definition.sessionMaterializer.tokenFromRedirect;
@@ -1196,12 +1223,14 @@ class CampusSessionService {
         AppLogger.warn(
           '${CampusServiceEndpoints.labelFor(definition.id)} 未获取到访问令牌',
         );
+        _recordExchangeFailure(definition, 'token_missing');
         return (null, false);
       }
       headers[tokenMaterializer.headerName] = tokenHeader;
     }
     if (definition.sessionMaterializer.containsCookieMaterializer &&
         cookies.isEmpty) {
+      _recordExchangeFailure(definition, 'empty_cookie');
       return (null, false);
     }
     final session = CampusServiceSession(
@@ -1215,6 +1244,7 @@ class CampusSessionService {
       cookies,
       headers: headers,
     )) {
+      _recordExchangeFailure(definition, 'validation_failed');
       return (null, false);
     }
     return (session, false);

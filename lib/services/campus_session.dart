@@ -345,6 +345,13 @@ class CampusSession {
                   !_canRetryTransientFailure(method, null)) {
                 rethrow;
               }
+            } on HandshakeException {
+              // 移动网络冷启动偶尔出现一次 TLS 握手失败；它与连接失败同属瞬时
+              // 网络事件，只对可重放方法补一次重试。
+              if (transientRetries >= 1 ||
+                  !_canRetryTransientFailure(method, null)) {
+                rethrow;
+              }
             } on TimeoutException {
               if (transientRetries >= 1 ||
                   !_canRetryTransientFailure(method, null)) {
@@ -383,6 +390,25 @@ class CampusSession {
             fence = captureFence(serviceId, uri);
             response = await sendWithTransientRetry();
           }
+        }
+        if (!throwOnHttpError &&
+            response.statusCode == HttpStatus.unauthorized) {
+          // 调用方自行处理状态码时，401 不会抛异常，此前只留一条 INFO 行，
+          // 无法区分“已尝试恢复仍失败”和“策略未覆盖、从未尝试恢复”。
+          AppLogger.event(
+            level: 'WARN',
+            code: 'service.request.unauthorized',
+            message: '${_serviceLabel(serviceId)} 返回 401，本次请求未取得会话恢复',
+            domain: 'session',
+            statusCode: response.statusCode,
+            failureReason: FailureReason.httpAuthentication,
+            failureStage: FailureStage.request,
+            fields: {
+              'service': serviceId.value,
+              'phase': 'request',
+              'result': 'unauthorized',
+            },
+          );
         }
         AppLogger.info(
           '网络请求 ${_serviceLabel(serviceId)} '
