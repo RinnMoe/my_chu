@@ -14,7 +14,6 @@ import 'web_view_error_view.dart';
 import 'web_view_external_navigation.dart';
 import 'web_view_permission_capability.dart';
 import 'web_view_rendering_policy.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// 手动登录 WebView 页面（共享能力）。
 ///
@@ -235,18 +234,16 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
       canGoBack: _canGoBack,
       onBack: _goBack,
       child: Scaffold(
-        appBar: WindowControlsAwareAppBar(
-          child: AppBar(
-            leading: const WebViewCloseButton(),
-            title: Text(widget.title),
-            actions: [
-              IconButton(
-                tooltip: '刷新',
-                onPressed: _reload,
-                icon: const Icon(Icons.refresh),
-              ),
-            ],
-          ),
+        appBar: AppBar(
+          leading: const WebViewCloseButton(),
+          title: Text(widget.title),
+          actions: [
+            IconButton(
+              tooltip: '刷新',
+              onPressed: _reload,
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
         ),
         body: _buildWebViewContent(context),
         bottomNavigationBar:

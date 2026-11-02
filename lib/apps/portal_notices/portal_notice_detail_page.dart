@@ -8,7 +8,6 @@ import 'mobile_campus_notice_models.dart';
 import 'mobile_campus_notice_rich_text.dart';
 import 'mobile_campus_notice_service.dart';
 import 'portal_notice_presentation.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 typedef PortalNoticeDetailLoader =
     Future<MobileCampusNoticeDetail> Function(String messageId, String tagId);
@@ -89,9 +88,7 @@ class _PortalNoticeDetailPageState extends State<PortalNoticeDetailPage>
   Widget build(BuildContext context) {
     if (widget.embedded) return _buildBody();
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('公告详情')),
-      ),
+      appBar: AppBar(title: const Text('公告详情')),
       body: _buildBody(),
     );
   }

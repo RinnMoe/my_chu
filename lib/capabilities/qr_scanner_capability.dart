@@ -11,7 +11,6 @@ import '../pages/host_permission_purpose_overlay.dart';
 import '../services/host_permission_service.dart';
 import '../services/host_platform.dart';
 import 'qr_image_decoder.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// Shown when a decoded payload is not a valid symbol for the requesting app.
 const String _unrecognizedQrMessage = '二维码内容无法识别，请重试。';
@@ -155,8 +154,7 @@ class QrScannerCapability {
         ),
       );
     }
-    if (_hostPlatform != HostPlatform.android &&
-        _hostPlatform != HostPlatform.apple) {
+    if (_hostPlatform != HostPlatform.android) {
       _showMessage(context, '当前平台暂不支持相机扫码。');
       return null;
     }
@@ -521,14 +519,12 @@ class _HarmonyQrScannerPageState<T> extends State<_HarmonyQrScannerPage<T>> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(
-          title: Text(widget.request.title),
-          leading: IconButton(
-            tooltip: '关闭',
-            onPressed: _working ? null : () => Navigator.pop<T>(context),
-            icon: const Icon(Icons.close),
-          ),
+      appBar: AppBar(
+        title: Text(widget.request.title),
+        leading: IconButton(
+          tooltip: '关闭',
+          onPressed: _working ? null : () => Navigator.pop<T>(context),
+          icon: const Icon(Icons.close),
         ),
       ),
       body: SafeArea(
@@ -901,16 +897,14 @@ class _QrScannerPageState<T> extends State<_QrScannerPage<T>>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          title: Text(widget.request.title),
-          leading: IconButton(
-            tooltip: '关闭',
-            onPressed: () => Navigator.pop<T>(context),
-            icon: const Icon(Icons.close),
-          ),
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text(widget.request.title),
+        leading: IconButton(
+          tooltip: '关闭',
+          onPressed: () => Navigator.pop<T>(context),
+          icon: const Icon(Icons.close),
         ),
       ),
       body: SafeArea(top: false, child: _buildScannerStack(context)),

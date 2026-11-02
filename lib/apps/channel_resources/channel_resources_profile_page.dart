@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'channel_resources_models.dart';
 import 'channel_resources_service.dart';
 import 'channel_resources_widgets.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 class ChannelResourcesProfilePage extends StatefulWidget {
   final ChannelResourcesService service;
@@ -320,9 +319,7 @@ class _ChannelResourcesSubmitResourcePageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: Text(channelResourcesSubPageTitle('分享资料'))),
-      ),
+      appBar: AppBar(title: Text(channelResourcesSubPageTitle('分享资料'))),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -525,32 +522,26 @@ class _ChannelResourcesContactAdminPageState
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        appBar: WindowControlsAwareAppBar(
-          child: AppBar(title: Text(channelResourcesSubPageTitle('联系管理员'))),
-        ),
+        appBar: AppBar(title: Text(channelResourcesSubPageTitle('联系管理员'))),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
     if (_error != null && _admins.isEmpty) {
       return Scaffold(
-        appBar: WindowControlsAwareAppBar(
-          child: AppBar(title: Text(channelResourcesSubPageTitle('联系管理员'))),
-        ),
+        appBar: AppBar(title: Text(channelResourcesSubPageTitle('联系管理员'))),
         body: ChannelResourcesErrorView(message: _error!, onRetry: _loadAdmins),
       );
     }
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(
-          title: Text(channelResourcesSubPageTitle('联系管理员')),
-          actions: [
-            IconButton(
-              tooltip: '系统消息',
-              onPressed: _openMessages,
-              icon: const Icon(Icons.inbox_outlined),
-            ),
-          ],
-        ),
+      appBar: AppBar(
+        title: Text(channelResourcesSubPageTitle('联系管理员')),
+        actions: [
+          IconButton(
+            tooltip: '系统消息',
+            onPressed: _openMessages,
+            icon: const Icon(Icons.inbox_outlined),
+          ),
+        ],
       ),
       body: Form(
         key: _formKey,
@@ -723,32 +714,26 @@ class _ChannelResourcesMessagesPageState
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        appBar: WindowControlsAwareAppBar(
-          child: AppBar(title: Text(channelResourcesSubPageTitle('系统消息'))),
-        ),
+        appBar: AppBar(title: Text(channelResourcesSubPageTitle('系统消息'))),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
     if (_error != null && _messages.isEmpty) {
       return Scaffold(
-        appBar: WindowControlsAwareAppBar(
-          child: AppBar(title: Text(channelResourcesSubPageTitle('系统消息'))),
-        ),
+        appBar: AppBar(title: Text(channelResourcesSubPageTitle('系统消息'))),
         body: ChannelResourcesErrorView(message: _error!, onRetry: _load),
       );
     }
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(
-          title: Text(channelResourcesSubPageTitle('系统消息')),
-          actions: [
-            IconButton(
-              tooltip: '清空消息',
-              onPressed: _busy ? null : _deleteAll,
-              icon: const Icon(Icons.delete_sweep_outlined),
-            ),
-          ],
-        ),
+      appBar: AppBar(
+        title: Text(channelResourcesSubPageTitle('系统消息')),
+        actions: [
+          IconButton(
+            tooltip: '清空消息',
+            onPressed: _busy ? null : _deleteAll,
+            icon: const Icon(Icons.delete_sweep_outlined),
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -831,24 +816,18 @@ class _ChannelResourcesReviewPageState
   Widget build(BuildContext context) {
     if (_stats == null && _error == null) {
       return Scaffold(
-        appBar: WindowControlsAwareAppBar(
-          child: AppBar(title: Text(channelResourcesSubPageTitle('审核记录'))),
-        ),
+        appBar: AppBar(title: Text(channelResourcesSubPageTitle('审核记录'))),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
     if (_stats == null) {
       return Scaffold(
-        appBar: WindowControlsAwareAppBar(
-          child: AppBar(title: Text(channelResourcesSubPageTitle('审核记录'))),
-        ),
+        appBar: AppBar(title: Text(channelResourcesSubPageTitle('审核记录'))),
         body: ChannelResourcesErrorView(message: _error!, onRetry: _load),
       );
     }
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: Text(channelResourcesSubPageTitle('审核记录'))),
-      ),
+      appBar: AppBar(title: Text(channelResourcesSubPageTitle('审核记录'))),
       body:
           _stats!.counts.isEmpty
               ? const ChannelResourcesEmptyView(

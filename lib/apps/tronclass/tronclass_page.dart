@@ -6,7 +6,6 @@ import '../../services/logger_service.dart';
 import '../../services/user_error_message.dart';
 import 'tronclass_models.dart';
 import 'tronclass_service.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 class TronclassPage extends StatelessWidget {
   const TronclassPage({super.key});
@@ -14,9 +13,7 @@ class TronclassPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('畅课课件下载'), centerTitle: true),
-      ),
+      appBar: AppBar(title: const Text('畅课课件下载'), centerTitle: true),
       body: const _CoursewareTab(),
     );
   }
@@ -531,11 +528,9 @@ class _CoursewareFilesPageState extends State<_CoursewareFilesPage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(
-          title: Text(widget.course.chineseName),
-          centerTitle: true,
-        ),
+      appBar: AppBar(
+        title: Text(widget.course.chineseName),
+        centerTitle: true,
       ),
       body: _buildBody(theme),
     );

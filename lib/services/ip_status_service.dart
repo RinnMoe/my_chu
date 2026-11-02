@@ -8,7 +8,7 @@ import 'service_endpoints.dart';
 ///
 /// 接口：`GET https://lib.chd.edu.cn/entry/user/getUserIpAndCheck`，
 /// 返回 `data.ip` 与 `data.inWhiteList`；无需登录态。短时内存缓存避免
-/// 每次进入“我的”页都重复请求。走共享公开 HTTP 客户端（[PublicHttpClient]）。
+/// 每次进入“选项”页都重复请求。走共享公开 HTTP 客户端（[PublicHttpClient]）。
 class IpStatusService {
   IpStatusService({http.Client? client})
     : _http = client == null ? _sharedHttp : PublicHttpClient(client: client);

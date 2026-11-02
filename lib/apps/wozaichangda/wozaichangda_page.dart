@@ -5,7 +5,6 @@ import '../../capabilities/authenticated_web_view_capability.dart';
 import '../../services/user_error_message.dart';
 import 'wozaichangda_models.dart';
 import 'wozaichangda_service.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 class WozaichangdaPage extends StatefulWidget {
   const WozaichangdaPage({super.key});
@@ -77,9 +76,7 @@ class _WozaichangdaPageState extends State<WozaichangdaPage>
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('我在长大'), centerTitle: true),
-      ),
+      appBar: AppBar(title: const Text('我在长大'), centerTitle: true),
       body: _buildBody(theme),
     );
   }

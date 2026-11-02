@@ -28,7 +28,6 @@ import 'web_view_external_navigation.dart';
 import 'web_view_permission_capability.dart';
 import 'web_view_rendering_policy.dart';
 import '../widgets/root_destination_active_scope.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// Host-side bridge for authenticated WebViews.
 ///
@@ -946,11 +945,9 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
       canGoBack: _canGoBack,
       onBack: _goBack,
       child: Scaffold(
-        appBar: WindowControlsAwareAppBar(
-          child: AppBar(
-            leading: const WebViewCloseButton(),
-            title: Text(widget.title),
-          ),
+        appBar: AppBar(
+          leading: const WebViewCloseButton(),
+          title: Text(widget.title),
         ),
         body: _buildWebViewContent(context),
         bottomNavigationBar:

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../services/demo_data_service.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// 数据 Demo 配置页。
 ///
@@ -53,9 +52,7 @@ class _DataDemoPageState extends State<DataDemoPage> {
     final body = _buildBody(context, theme, muted);
 
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('数据 Demo')),
-      ),
+      appBar: AppBar(title: const Text('数据 Demo')),
       body: body,
     );
   }

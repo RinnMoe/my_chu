@@ -18,7 +18,6 @@ import "mapbox_campus_map_view.dart";
 import "mapbox_layer_panel.dart";
 import "mapbox_map_engine.dart";
 import "mapbox_offline_cache.dart";
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// Mapbox-powered campus map page.
 ///
@@ -512,11 +511,9 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(
-          automaticallyImplyLeading: !widget.asRootTab,
-          title: const Text("校园地图"),
-        ),
+      appBar: AppBar(
+        automaticallyImplyLeading: !widget.asRootTab,
+        title: const Text("校园地图"),
       ),
       body: _buildMapBody(context, mapReady, presentation, status, indoorView),
     );

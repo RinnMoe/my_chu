@@ -392,8 +392,6 @@ class RemoteFeaturePolicyService {
     switch (platform) {
       case HostPlatform.android:
         return FeaturePlatform.android;
-      case HostPlatform.apple:
-        return FeaturePlatform.ios;
       case HostPlatform.harmony:
         return FeaturePlatform.harmony;
       case HostPlatform.web:
@@ -426,7 +424,6 @@ Future<FeaturePolicyContext> loadHostFeaturePolicyContext() async {
   return FeaturePolicyContext(
     platform: switch (platform) {
       HostPlatform.android => FeaturePlatform.android,
-      HostPlatform.apple => FeaturePlatform.ios,
       HostPlatform.harmony => FeaturePlatform.harmony,
       HostPlatform.web => FeaturePlatform.web,
       HostPlatform.other => FeaturePlatform.other,

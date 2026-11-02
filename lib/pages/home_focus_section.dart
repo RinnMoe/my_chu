@@ -7,7 +7,6 @@ import '../services/credential_sync_service.dart';
 import '../services/home_focus_service.dart';
 import '../services/platform_environment.dart';
 import 'app_sheet.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// 首页 Focus：统一渲染考试、待办、公告与同步状态，最多 3 条。
 class HomeFocusSection extends StatelessWidget {
@@ -133,7 +132,7 @@ class HomeFocusSection extends StatelessWidget {
         const SizedBox(height: 4),
         Semantics(
           container: true,
-          label: '首页焦点',
+          label: '焦点',
           child: Column(
             children: [
               if (showCredentialSync) ...[
@@ -181,9 +180,7 @@ class _AppAnnouncementPage extends StatelessWidget {
     );
 
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('应用公告')),
-      ),
+      appBar: AppBar(title: const Text('应用公告')),
       body: body,
     );
   }

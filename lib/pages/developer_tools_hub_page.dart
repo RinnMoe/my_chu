@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/apple_window_controls.dart';
 import 'dev_tools_page.dart';
 import 'log_page.dart';
 
@@ -18,9 +17,7 @@ class DeveloperToolsHubPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('开发者工具')),
-      ),
+      appBar: AppBar(title: const Text('开发者工具')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [

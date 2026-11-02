@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../capabilities/campus_map/campus_map_capability.dart';
+import '../../capabilities/campus_places/campus_registry.dart';
 import 'charging_pile_map_link.dart';
 import 'charging_pile_models.dart';
+import 'charging_pile_scan.dart';
 import 'charging_pile_service.dart';
 import 'charging_pile_stats.dart';
 import 'charging_pile_widgets.dart';
@@ -53,6 +55,12 @@ class _ChargingPilePageState extends State<ChargingPilePage>
   /// `null` is the "全部分区" selection, which is the default on open. A map
   /// jump may narrow it to the device's area once the page receives a target.
   ChargingPileArea? _area;
+
+  /// 当前校区；源站把多个校区的桩放在同一份目录里，页面按校区收窄。
+  String? _campusId;
+
+  /// 校区 id → 显示名，来自地图的校区清单；加载失败时退回 id 本身。
+  Map<String, String> _campusNames = const <String, String>{};
   _PileSort _sort = _PileSort.number;
   bool _onlyFree = false;
   bool _searching = false;
@@ -68,6 +76,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     super.initState();
     _repository =
         widget.repositoryForTesting ?? ChargingPileRepository.shared();
+    unawaited(_loadCampusNames());
     WidgetsBinding.instance.addObserver(this);
     _repository.addListener(_changed);
     _release = _repository.acquire();
@@ -230,9 +239,49 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     }
   }
 
+  /// 校区显示名取自地图的校区清单（`assets/maps/campuses.json`），
+  /// 这样新增校区时不用在充电桩这边再抄一份名字。
+  Future<void> _loadCampusNames() async {
+    try {
+      final registry = await CampusRegistryLoader().load();
+      if (!mounted) return;
+      setState(() {
+        _campusNames = <String, String>{
+          for (final campus in registry.campuses)
+            campus.campusId: campus.displayName,
+        };
+      });
+    } catch (_) {
+      // 名字读不出来不影响功能：下拉里显示 id。
+    }
+  }
+
+  String get _activeCampusId =>
+      _campusId ?? _repository.loadAreas().firstOrNull?.campusId ?? '';
+
+  String _campusLabel(String campusId) =>
+      _campusNames[campusId] ?? campusId;
+
+  /// 当前校区的分区；没选校区（目录为空）时回退到全部分区。
+  List<ChargingPileArea> get _campusAreas {
+    final areas = _repository.loadAreas();
+    final campusId = _activeCampusId;
+    if (campusId.isEmpty) return areas;
+    return areas.where((area) => area.campusId == campusId).toList();
+  }
+
+  void _selectCampus(String campusId) {
+    if (campusId == _activeCampusId) return;
+    setState(() {
+      _campusId = campusId;
+      // 分区属于校区，切校区后原来的分区不再适用。
+      _area = null;
+    });
+  }
+
   void _changed() {
     if (!mounted) return;
-    final areas = _repository.loadAreas();
+    final areas = _campusAreas;
     if (_area != null && areas.isNotEmpty && !areas.contains(_area))
       _area = areas.first;
     setState(() {});
@@ -394,7 +443,11 @@ class _ChargingPilePageState extends State<ChargingPilePage>
 
   /// 打开校园地图并聚焦该设备；不使用任何绕过地图 Capability 的跳转方式。
   Future<void> _openOnMap(ChargingPileDevice device) async {
-    final result = await openChargingPileOnMap(context, deviceId: device.id);
+    final result = await openChargingPileOnMap(
+      context,
+      deviceId: device.id,
+      campusId: device.campusId,
+    );
     if (!mounted) return;
     final message = switch (result) {
       MapLayerOpenResult.opened => null,
@@ -412,10 +465,15 @@ class _ChargingPilePageState extends State<ChargingPilePage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final now = _repository.now;
+    final campusId = _activeCampusId;
     final devices =
         _repository
             .loadCatalog()
-            .where((device) => _area == null || device.area == _area)
+            .where(
+              (device) =>
+                  (campusId.isEmpty || device.campusId == campusId) &&
+                  (_area == null || device.area == _area),
+            )
             .toList();
     final query = _search.text.trim().toLowerCase();
     final filtered =
@@ -454,6 +512,17 @@ class _ChargingPilePageState extends State<ChargingPilePage>
       appBar: AppBar(
         title: const Text('空闲充电桩'),
         actions: [
+          IconButton(
+            tooltip: '扫码采设备号',
+            icon: const Icon(Icons.qr_code_scanner),
+            onPressed: () => showChargingPileScan(
+              context,
+              knownDeviceIds: {
+                for (final device in _repository.loadCatalog())
+                  device.id.toUpperCase(),
+              },
+            ),
+          ),
           IconButton(
             tooltip: '一周回顾',
             icon: const Icon(Icons.insights_outlined),
@@ -495,6 +564,53 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                           children: [
                             Row(
                               children: [
+                                PopupMenuButton<String>(
+                                  tooltip: '切换校区',
+                                  initialValue: _activeCampusId,
+                                  onSelected: _selectCampus,
+                                  itemBuilder:
+                                      (context) => [
+                                        for (final id in _repository
+                                            .loadAreas()
+                                            .map((area) => area.campusId)
+                                            .toSet())
+                                          CheckedPopupMenuItem(
+                                            value: id,
+                                            checked: id == _activeCampusId,
+                                            child: Text(_campusLabel(id)),
+                                          ),
+                                      ],
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      minHeight: 48,
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(
+                                        left: 4,
+                                        right: 8,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            _campusLabel(_activeCampusId),
+                                            style: theme.textTheme.titleSmall
+                                                ?.copyWith(
+                                                  color:
+                                                      theme.colorScheme.primary,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                          const Icon(
+                                            Icons.arrow_drop_down,
+                                            size: 20,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
                                 Expanded(
                                   child: PopupMenuButton<String>(
                                     tooltip: '选择分区',
@@ -507,7 +623,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                                             checked: _area == null,
                                             child: const Text('全部分区'),
                                           ),
-                                          ..._repository.loadAreas().map(
+                                          ..._campusAreas.map(
                                             (area) => CheckedPopupMenuItem(
                                               value: area.areaId,
                                               checked: _area == area,

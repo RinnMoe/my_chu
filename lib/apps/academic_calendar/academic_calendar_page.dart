@@ -9,7 +9,6 @@ import '../../services/error_feedback_service.dart';
 import '../../services/user_error_message.dart';
 import 'academic_calendar_models.dart';
 import 'academic_calendar_service.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 class AcademicCalendarPage extends StatefulWidget {
   final AcademicCalendarService? service;
@@ -211,14 +210,12 @@ class _AcademicCalendarPageState extends State<AcademicCalendarPage> {
     final body = _buildBody();
 
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(
-          title: const Text('校历'),
-          actions: [
-            if (_terms.isNotEmpty && _calendar != null)
-              _termPickerButton(context, _calendar!),
-          ],
-        ),
+      appBar: AppBar(
+        title: const Text('校历'),
+        actions: [
+          if (_terms.isNotEmpty && _calendar != null)
+            _termPickerButton(context, _calendar!),
+        ],
       ),
       body: body,
     );

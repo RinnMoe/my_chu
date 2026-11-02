@@ -39,7 +39,7 @@ Future<void> presentAppUpdateCheck(
     }
   } else if (manual && (offer == null || onUpdateAvailable == null)) {
     final message = switch (updates.state) {
-      UpdateCheckState.available => '新版本已显示在“我的”页面，可选择下载更新',
+      UpdateCheckState.available => '新版本已显示在“选项”页面，可选择下载更新',
       UpdateCheckState.current => '当前已是最新版本',
       UpdateCheckState.disabled => '暂时无法检查更新，请稍后重试',
       _ => '检查更新失败，请稍后重试',

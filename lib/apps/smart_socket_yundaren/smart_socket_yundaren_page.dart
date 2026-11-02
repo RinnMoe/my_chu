@@ -8,7 +8,6 @@ import '../../pages/host_permission_purpose_overlay.dart';
 import '../../services/host_permission_service.dart';
 import 'smart_socket_protocol.dart';
 import 'smart_socket_protocol_service.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 enum _SmartSocketView {
   ready,
@@ -261,9 +260,7 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('云达人')),
-      ),
+      appBar: AppBar(title: const Text('云达人')),
       body: SafeArea(
         top: false,
         child: LayoutBuilder(

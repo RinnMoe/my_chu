@@ -7,7 +7,6 @@ import '../capabilities/academic_schedule/academic_schedule_appearance_page.dart
 import '../capabilities/academic_schedule/academic_schedule_store.dart';
 import '../services/theme_service.dart';
 import '../theme/app_palette.dart';
-import '../widgets/apple_window_controls.dart';
 import '../widgets/setting_reset_region.dart';
 
 /// Appearance settings opened from Profile.
@@ -43,9 +42,7 @@ class _AppearanceThemePageState extends State<AppearanceThemePage> {
     builder: (context, snapshot) {
       if (snapshot.hasData) return snapshot.data!;
       return Scaffold(
-        appBar: WindowControlsAwareAppBar(
-          child: AppBar(title: const Text('外观与主题')),
-        ),
+        appBar: AppBar(title: const Text('外观与主题')),
         body:
             snapshot.hasError
                 ? Center(

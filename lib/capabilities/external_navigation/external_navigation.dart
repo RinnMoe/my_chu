@@ -5,8 +5,6 @@
 /// 尝试顺序：所选应用 → 其他已安装地图 → 系统地图；全部失败时由入口提示复制坐标。
 library;
 
-import "package:flutter/foundation.dart"
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -66,10 +64,6 @@ class ExternalNavigationUri {
 
   static const CoordinateConverter _converter = CoordinateConverter();
   static const String _androidBaiduSource = "andr.rinn.mychu";
-  static const String _iosBaiduSource = "ios.rinn.mychu";
-
-  static bool get _isIOS =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   /// 按目标地图生成 URI；不支持的组合返回 null。
   Uri? build(ExternalMapApp app, ExternalNavigationTarget target) {
@@ -78,7 +72,7 @@ class ExternalNavigationUri {
       case ExternalMapApp.amap:
         final gcj = _converter.wgs84ToGcj02(target.wgs84);
         return Uri.parse(
-          "${_isIOS ? 'iosamap' : 'androidamap'}://navi?sourceApplication=mychu"
+          "androidamap://navi?sourceApplication=mychu"
           "&lat=${gcj.latitude}&lon=${gcj.longitude}"
           "&poiname=${Uri.encodeComponent(_label(target))}"
           "&style=2&dev=0",
@@ -90,15 +84,9 @@ class ExternalNavigationUri {
           "?destination=latlng:${bd.latitude},${bd.longitude}"
           "|name:${Uri.encodeComponent(_label(target))}"
           "&coord_type=bd09ll&mode=walking"
-          "&src=${_isIOS ? _iosBaiduSource : _androidBaiduSource}",
+          "&src=$_androidBaiduSource",
         );
       case ExternalMapApp.system:
-        if (_isIOS) {
-          return Uri.https("maps.apple.com", "/", {
-            "ll": "${target.wgs84.latitude},${target.wgs84.longitude}",
-            "q": _label(target),
-          });
-        }
         return Uri.parse(
           "geo:${target.wgs84.latitude},${target.wgs84.longitude}"
           "?q=${Uri.encodeComponent(_label(target))}",

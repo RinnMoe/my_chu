@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../services/privacy_policy_document.dart';
 import '../services/privacy_policy_repository.dart';
 import '../services/privacy_agreement_service.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 class PrivacyPolicyPage extends StatefulWidget {
   const PrivacyPolicyPage({super.key, this.document});
@@ -76,18 +75,16 @@ class _PrivacyPolicyPageState extends State<PrivacyPolicyPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(
-          title: const Text('用户协议'),
-          actions: [
-            if (widget.document == null)
-              IconButton(
-                tooltip: '刷新协议',
-                onPressed: _loading ? null : () => _load(refresh: true),
-                icon: const Icon(Icons.refresh),
-              ),
-          ],
-        ),
+      appBar: AppBar(
+        title: const Text('用户协议'),
+        actions: [
+          if (widget.document == null)
+            IconButton(
+              tooltip: '刷新协议',
+              onPressed: _loading ? null : () => _load(refresh: true),
+              icon: const Icon(Icons.refresh),
+            ),
+        ],
       ),
       body: SafeArea(
         child: Column(

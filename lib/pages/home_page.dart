@@ -698,7 +698,7 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.space_dashboard_outlined),
-                  title: const Text('从首页移除'),
+                  title: const Text('从焦点页移除'),
                   onTap:
                       () => Navigator.pop(
                         context,

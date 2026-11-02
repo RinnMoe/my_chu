@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../capabilities/channel_account_capability.dart';
 import '../capabilities/channel_resources_link_capability.dart';
 import '../capabilities/saved_login_credential.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 class ChannelAccountPage extends StatefulWidget {
   final ChannelAccountCapability? capability;
@@ -388,9 +387,7 @@ class _ChannelAccountPageState extends State<ChannelAccountPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('频道账号')),
-      ),
+      appBar: AppBar(title: const Text('频道账号')),
       body: ValueListenableBuilder<ChannelAccountState>(
         valueListenable: _capability.stateListenable,
         builder: (context, state, _) {
@@ -466,9 +463,7 @@ class _ChannelAccountChangePasswordPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('修改频道账号密码')),
-      ),
+      appBar: AppBar(title: const Text('修改频道账号密码')),
       body: Form(
         key: _formKey,
         child: ListView(

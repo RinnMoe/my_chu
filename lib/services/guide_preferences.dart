@@ -10,8 +10,6 @@ class GuidePreferences {
   static const onboardingFlowKey = 'guide.onboarding.flow.version';
 
   static const scheduleFeatureTourHintId = 'schedule_course';
-  static const scheduleCourseHintId = scheduleFeatureTourHintId;
-  static const pageManagementHintId = 'page_management';
 
   Future<bool> shouldShowCampusPrompt() async {
     try {

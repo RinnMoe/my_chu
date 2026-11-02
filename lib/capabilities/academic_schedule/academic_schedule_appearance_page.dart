@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../widgets/appearance_color_dialog.dart';
 import '../../services/theme_service.dart';
 import '../../theme/app_palette.dart';
-import '../../widgets/apple_window_controls.dart';
 import '../../widgets/setting_reset_region.dart';
 
 import 'academic_schedule_appearance.dart';
@@ -546,40 +545,38 @@ class _AcademicScheduleAppearancePageState
       ),
     );
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(
-          title: const Text('外观与主题'),
-          actions: [
-            IconButton(
-              key: const ValueKey('appearance-help'),
-              tooltip: '帮助',
-              icon: const Icon(Icons.help_outline),
-              onPressed:
-                  () => showDialog<void>(
-                    context: context,
-                    builder:
-                        (context) => AlertDialog(
-                          title: const Text('设置帮助'),
-                          content: const Text('长按任一设置项可恢复默认，不影响其他设置。'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('知道了'),
-                            ),
-                          ],
-                        ),
-                  ),
-            ),
-            if (_section == 1)
-              IconButton(
-                tooltip: '切换预览明暗',
-                icon: Icon(
-                  dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+      appBar: AppBar(
+        title: const Text('外观与主题'),
+        actions: [
+          IconButton(
+            key: const ValueKey('appearance-help'),
+            tooltip: '帮助',
+            icon: const Icon(Icons.help_outline),
+            onPressed:
+                () => showDialog<void>(
+                  context: context,
+                  builder:
+                      (context) => AlertDialog(
+                        title: const Text('设置帮助'),
+                        content: const Text('长按任一设置项可恢复默认，不影响其他设置。'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('知道了'),
+                          ),
+                        ],
+                      ),
                 ),
-                onPressed: () => setState(() => _previewDark = !dark),
+          ),
+          if (_section == 1)
+            IconButton(
+              tooltip: '切换预览明暗',
+              icon: Icon(
+                dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
               ),
-          ],
-        ),
+              onPressed: () => setState(() => _previewDark = !dark),
+            ),
+        ],
       ),
       body: SafeArea(
         top: false,

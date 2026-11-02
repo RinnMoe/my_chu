@@ -14,7 +14,6 @@ import '../../services/user_error_message.dart';
 import 'academic_affairs_models.dart';
 import 'academic_affairs_service.dart';
 import 'academic_affairs_widgets.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// 成绩查询：成绩、绩点与学分。
 class AcademicGradesPage extends StatefulWidget {
@@ -136,7 +135,7 @@ class _AcademicGradesPageState extends State<AcademicGradesPage>
     );
 
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(child: AppBar(title: const Text('成绩'))),
+      appBar: AppBar(title: const Text('成绩')),
       body: CampusProtectedContent(
         title: '成绩',
         icon: Icons.school_outlined,

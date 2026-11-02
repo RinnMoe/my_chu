@@ -55,9 +55,7 @@ class TimeReminderService {
   static DateTime Function()? debugClock;
 
   static bool get isSupported =>
-      debugInvoke != null ||
-      PlatformCompatibilityService.isAndroid ||
-      PlatformCompatibilityService.isApple;
+      debugInvoke != null || PlatformCompatibilityService.isAndroid;
   static Future<Object?> _invoke(String method, [Object? args]) async {
     if (!isSupported) return null;
     try {

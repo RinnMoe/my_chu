@@ -1,4 +1,5 @@
 import '../capabilities/host_login.dart';
+import '../capabilities/qq_group_join_capability.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
@@ -25,14 +26,22 @@ import 'channel_account_page.dart';
 import 'feedback_community_page.dart';
 import 'fenfa_dialogs.dart' show showAppRemoteServicesDisabledMessage;
 import 'notification_settings_page.dart';
-import 'page_management_page.dart';
+import 'page_preferences_page.dart';
 import 'profile/profile_widgets.dart';
 
 class ProfilePage extends StatefulWidget {
   final VoidCallback onSignedOut;
   final AppUpdateService? updates;
 
-  const ProfilePage({super.key, required this.onSignedOut, this.updates});
+  /// 加群调起可注入，测试不需要真实的系统 QQ。
+  final QqGroupJoinCapability qqGroup;
+
+  const ProfilePage({
+    super.key,
+    required this.onSignedOut,
+    this.updates,
+    this.qqGroup = const QqGroupJoinCapability(),
+  });
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -196,6 +205,19 @@ class _ProfilePageState extends State<ProfilePage>
     if (mounted) _push(const FeedbackCommunityPage());
   }
 
+  /// 调起手机 QQ 加群；QQ 不可用时提示群号，避免入口变成死路。
+  Future<void> _joinQqGroup() async {
+    final opened = await widget.qqGroup.joinGroup();
+    if (!mounted || opened) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          '未能唤起 QQ，可在 QQ 中搜索群号 ${QqGroupJoinCapability.groupNumber}',
+        ),
+      ),
+    );
+  }
+
   Future<void> _confirmSignOut() async {
     if (_signOutDialogOpen || _signingOut) return;
     _signOutDialogOpen = true;
@@ -250,42 +272,43 @@ class _ProfilePageState extends State<ProfilePage>
   Widget build(BuildContext context) {
     final content = CustomScrollView(
       slivers: [
-        const SliverAppBar.medium(title: Text('我的')),
+        const SliverAppBar.medium(pinned: true, title: Text('选项')),
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           sliver: SliverList.list(
             children: [
-              ProfileIdentityCard(
-                loading: _accountPhase == _AccountPhase.loading,
-                loadFailed: _accountPhase == _AccountPhase.failed,
-                name: _account?.name,
-                uid: _account?.uid,
-                identity: _account?.identity,
-                networkStatus: _networkStatus,
-                networkLoading: _networkLoading,
-                onRetryAccount:
-                    _accountPhase == _AccountPhase.failed
-                        ? () {
-                          setState(() => _accountPhase = _AccountPhase.loading);
-                          _load();
-                        }
-                        : null,
-                onOpenNetworkDetails:
-                    _networkLoading
-                        ? null
-                        : () => showNetworkStatusSheet(
-                          context,
-                          status: _networkStatus,
-                          refresh: _refreshNetworkStatus,
-                        ),
-              ),
               AppUpdateSection(key: _updateCardKey, service: widget.updates),
               const SizedBox(height: 24),
               AdaptiveSettingsSection(
                 title: '账号',
-
                 margin: EdgeInsets.zero,
                 children: [
+                  ProfileIdentityRow(
+                    loading: _accountPhase == _AccountPhase.loading,
+                    loadFailed: _accountPhase == _AccountPhase.failed,
+                    name: _account?.name,
+                    uid: _account?.uid,
+                    identity: _account?.identity,
+                    networkStatus: _networkStatus,
+                    networkLoading: _networkLoading,
+                    onRetryAccount:
+                        _accountPhase == _AccountPhase.failed
+                            ? () {
+                              setState(
+                                () => _accountPhase = _AccountPhase.loading,
+                              );
+                              _load();
+                            }
+                            : null,
+                    onOpenNetworkDetails:
+                        _networkLoading
+                            ? null
+                            : () => showNetworkStatusSheet(
+                              context,
+                              status: _networkStatus,
+                              refresh: _refreshNetworkStatus,
+                            ),
+                  ),
                   ProfileSettingTile(
                     icon: Icons.forum_outlined,
                     title: '频道账号',
@@ -296,7 +319,6 @@ class _ProfilePageState extends State<ProfilePage>
               const SizedBox(height: 24),
               AdaptiveSettingsSection(
                 title: '偏好设置',
-
                 margin: EdgeInsets.zero,
                 children: [
                   ProfileSettingTile(
@@ -312,8 +334,8 @@ class _ProfilePageState extends State<ProfilePage>
                   ),
                   ProfileSettingTile(
                     icon: Icons.tune_outlined,
-                    title: '首页与导航',
-                    onTap: () => _push(const PageManagementPage()),
+                    title: '底栏与页面偏好',
+                    onTap: () => _push(const PagePreferencesPage()),
                   ),
                   ProfileSettingTile(
                     icon: Icons.notifications_outlined,
@@ -324,8 +346,7 @@ class _ProfilePageState extends State<ProfilePage>
               ),
               const SizedBox(height: 24),
               AdaptiveSettingsSection(
-                title: '其他',
-
+                title: '关于本应用',
                 margin: EdgeInsets.zero,
                 children: [
                   ProfileSettingTile(
@@ -343,6 +364,12 @@ class _ProfilePageState extends State<ProfilePage>
                     icon: Icons.feedback_outlined,
                     title: '建言献策',
                     onTap: _openFeedback,
+                  ),
+                  ProfileSettingTile(
+                    icon: Icons.groups_outlined,
+                    title: 'QQ交流群',
+                    trailingValue: QqGroupJoinCapability.groupNumber,
+                    onTap: _joinQqGroup,
                   ),
                 ],
               ),

@@ -5,3 +5,8 @@ assets/maps/** -text
 # Published policy hashes bind exact UTF-8 bytes.
 privacy/**/*.json -text
 privacy/latest.json -text
+
+# AOCI 认知卷的基线指纹绑定精确字节，检出时保持 LF，避免 core.autocrlf 转换后漂移。
+aoci.txt text eol=lf
+aoci.meta.txt text eol=lf
+aoci.code.txt text eol=lf

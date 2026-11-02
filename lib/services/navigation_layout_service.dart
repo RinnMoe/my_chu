@@ -6,27 +6,45 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../apps/app_registry.dart';
 import '../apps/app_service.dart';
 
-/// Persisted middle-section order for the bottom navigation bar.
+/// Persisted middle-section order and launch page for the bottom navigation
+/// bar.
 ///
-/// The bar is `首页` (fixed first) + a reorderable middle + `我的` (fixed
-/// last). The middle holds the host tabs `应用`/`课表`/`地图` and any user-enabled
+/// The bar is `焦点` (fixed first) + a reorderable middle + `选项` (fixed
+/// last). The middle holds the host tabs `功能`/`课表`/`地图` and any user-enabled
 /// app tabs. App tab order is the single source of truth: an app id
 /// present in [NavigationTabLayout.order] is enabled. Development-only host tabs
 /// may be injected into the resolved runtime order without being persisted.
+///
+/// [NavigationTabLayout.startKey] is the destination selected on launch. It may
+/// name any destination the bar can render, including the fixed first/last ones.
 class NavigationTabLayout {
   final List<String> order;
 
-  const NavigationTabLayout({required this.order});
+  /// Destination selected when the application starts. Defaults to the focus
+  /// page, which keeps the pre-setting behaviour for existing layouts.
+  final String startKey;
 
-  Map<String, dynamic> toJson() => {'order': order};
+  const NavigationTabLayout({
+    required this.order,
+    this.startKey = NavigationLayoutService.hostHomeKey,
+  });
+
+  Map<String, dynamic> toJson() => {'order': order, 'startKey': startKey};
 
   factory NavigationTabLayout.fromJson(Map<String, dynamic> json) {
     final raw = json['order'];
+    final rawStartKey = json['startKey'];
     return NavigationTabLayout(
       order:
           raw is List
               ? raw.whereType<String>().toList(growable: false)
               : const [],
+      // Layouts written before the launch setting existed carry no start key;
+      // they must keep opening on the focus page instead of failing to decode.
+      startKey:
+          rawStartKey is String && rawStartKey.isNotEmpty
+              ? rawStartKey
+              : NavigationLayoutService.hostHomeKey,
     );
   }
 }
@@ -71,17 +89,48 @@ class NavigationLayoutService {
 
   /// Reorders the middle section. The `apps` host key is always kept;
   /// `map` is optional; the schedule host is always present. App ids are
-  /// capped at [maxAppTabs]; `home`/`profile` are rejected.
+  /// capped at [maxAppTabs]; `home`/`profile` are rejected. The stored launch
+  /// page is preserved unless the reordered bar no longer renders it.
   static Future<void> setOrder(List<String> keys) async {
     final validNavigationAppIds = await _validNavigationAppIds();
+    final current = await read(validAppIds: validNavigationAppIds);
     final middle = _normalized(
       NavigationTabLayout(
         order: keys.where((key) => !_isHostRoot(key)).toList(),
+        startKey: current.startKey,
       ),
       validNavigationAppIds,
     );
     await _write(middle);
   }
+
+  /// Selects the destination the application starts on.
+  ///
+  /// Any rendered bar destination is accepted, including the fixed focus and
+  /// profile pages. A key that is not part of the resolved middle section (for
+  /// example a disabled app tab) is normalised back to the focus page.
+  static Future<void> setStartKey(String key) async {
+    final validNavigationAppIds = await _validNavigationAppIds();
+    final layout = await read(validAppIds: validNavigationAppIds);
+    final next = _normalized(
+      NavigationTabLayout(order: layout.order, startKey: key),
+      validNavigationAppIds,
+    );
+    await _write(next);
+  }
+
+  /// Resolves [NavigationTabLayout.startKey] against the destinations the shell
+  /// can actually render right now.
+  ///
+  /// A tab hidden by the published safety policy, an uninstalled app or a build
+  /// filter falls back to the focus page without discarding the stored choice,
+  /// so the user's launch page returns once the destination is available.
+  static String resolveStartKey(
+    NavigationTabLayout layout, {
+    required Iterable<String> availableKeys,
+  }) => availableKeys.contains(layout.startKey)
+      ? layout.startKey
+      : hostHomeKey;
 
   /// Enables or disables an app tab. Host tabs use [setOrder]. Returns false
   /// when the app tab cap would be exceeded. The schedule host is mandatory.
@@ -94,7 +143,7 @@ class NavigationLayoutService {
     if (enabled) {
       if (!validNavigationAppIds.contains(pluginId)) return false;
       final pluginCount = order.where(validNavigationAppIds.contains).length;
-      final totalCount = order.length + 2; // 中段 + 首页/我的
+      final totalCount = order.length + 2; // 中段 + 首页/选项
       if (!present && pluginCount >= maxAppTabs) return false;
       if (!present && totalCount >= maxTotalTabs) return false;
       if (!present) {
@@ -103,7 +152,7 @@ class NavigationLayoutService {
     } else {
       order.remove(pluginId);
     }
-    await _write(NavigationTabLayout(order: order));
+    await _write(NavigationTabLayout(order: order, startKey: layout.startKey));
     return true;
   }
 
@@ -113,7 +162,7 @@ class NavigationLayoutService {
     revision.value++;
   }
 
-  /// Full tab key order: `首页` first, `我的` last.
+  /// Full tab key order: `焦点` first, `选项` last.
   static List<String> resolveTabKeys(NavigationTabLayout layout) {
     final middle = layout.order;
     return [hostHomeKey, ...middle, hostProfileKey];
@@ -144,7 +193,7 @@ class NavigationLayoutService {
       result.insert(appsIndex >= 0 ? appsIndex + 1 : 0, academicScheduleKey);
     }
 
-    // 首页和我的占两项，因此中段最多保留四项。 Preserve the configured
+    // 焦点和选项占两项，因此中段最多保留四项。 Preserve the configured
     // relative order and trim only optional entries when migrating an older
     // layout that exceeded the new mandatory schedule-tab limit.
     const maxMiddle = maxTotalTabs - 2;
@@ -155,7 +204,19 @@ class NavigationLayoutService {
       if (removable < 0) break;
       result.removeAt(removable);
     }
-    return NavigationTabLayout(order: result);
+    // The launch page must still be a member of the resolved bar; a disabled
+    // app tab silently returns to the focus page instead of persisting a
+    // destination that can never be selected.
+    final startKey = layout.startKey;
+    return NavigationTabLayout(
+      order: result,
+      startKey:
+          startKey == hostHomeKey ||
+                  startKey == hostProfileKey ||
+                  result.contains(startKey)
+              ? startKey
+              : hostHomeKey,
+    );
   }
 
   static NavigationTabLayout _decodeOrDefault(

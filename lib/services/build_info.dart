@@ -60,8 +60,8 @@ class BuildInfo {
   static String get _configuredChannel {
     if (_rawChannel.isNotEmpty) return _rawChannel;
     // Android's Gradle build defaults to Official when no channel define is
-    // supplied. Apple direct builds remain fail-closed; the checked-in
-    // unsigned Official script injects its channel explicitly.
+    // supplied. Other platforms stay fail-closed (unknown); their build scripts
+    // inject the channel explicitly when they produce distributable artifacts.
     return defaultBuildChannelForPlatform(HostPlatform.current).name;
   }
 

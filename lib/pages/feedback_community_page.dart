@@ -4,7 +4,6 @@ import '../services/app_remote_services_service.dart';
 import '../services/feedback_community_service.dart';
 import '../services/privacy_agreement_service.dart';
 import '../theme/app_palette.dart';
-import '../widgets/apple_window_controls.dart';
 import 'feedback_composer_page.dart';
 
 const _stateLabels = {
@@ -425,9 +424,7 @@ class _FeedbackCommunityPageState extends State<FeedbackCommunityPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('建言献策')),
-      ),
+      appBar: AppBar(title: const Text('建言献策')),
       floatingActionButton: FloatingActionButton(
         tooltip: '提出建议',
         onPressed: _loading ? null : _propose,
@@ -539,17 +536,15 @@ class _ProposalPageState extends State<_ProposalPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: WindowControlsAwareAppBar(
-      child: AppBar(
-        title: const Text('建议详情'),
-        actions: [
-          IconButton(
-            tooltip: '刷新',
-            onPressed: _busy ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
+    appBar: AppBar(
+      title: const Text('建议详情'),
+      actions: [
+        IconButton(
+          tooltip: '刷新',
+          onPressed: _busy ? null : _load,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
     ),
     body: SafeArea(
       top: false,

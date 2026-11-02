@@ -4,8 +4,11 @@ import '../../capabilities/text_utils.dart';
 
 /// Wire values accepted by the `platform` column of `feature_policies`.
 ///
-/// `all` matches every host; the remaining values mirror [HostPlatform] so a
-/// policy can be limited to one distribution platform.
+/// `all` matches every host; `android`, `harmony`, `web` and `other` mirror
+/// [HostPlatform] so a policy can be limited to one distribution platform.
+/// `ios` is retained only as a historical wire value: iOS/iPadOS support moved
+/// to a separate repository from 1.3.5, no host maps to it, and existing server
+/// rows must keep decoding instead of invalidating the whole snapshot.
 enum FeaturePlatform {
   all('all'),
   android('android'),

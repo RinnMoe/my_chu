@@ -10,7 +10,6 @@ import '../services/remote_feature_policy/feature_access_guard.dart';
 import '../services/remote_feature_policy/remote_feature_policy_service.dart';
 import '../widgets/feature_icon_tile.dart';
 import 'app_sheet.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 class AppsPage extends StatefulWidget {
   const AppsPage({super.key});
@@ -69,7 +68,7 @@ class _AppsPageState extends State<AppsPage> {
   @override
   Widget build(BuildContext context) {
     final page = Scaffold(
-      appBar: WindowControlsAwareAppBar(child: AppBar(title: const Text('功能'))),
+      appBar: AppBar(title: const Text('功能')),
       body: SafeArea(bottom: false, child: _buildCatalogBody()),
     );
     return page;

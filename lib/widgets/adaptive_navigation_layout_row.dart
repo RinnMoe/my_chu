@@ -12,17 +12,21 @@ class AdaptiveNavigationLayoutRow extends StatelessWidget {
   final VoidCallback? onMoveUp;
   final VoidCallback? onMoveDown;
 
+  /// 整行点击；与 [onEnabledChanged] 不同，它不是开关行。
+  final VoidCallback? onTap;
+
   const AdaptiveNavigationLayoutRow({
     super.key,
     required this.icon,
     required this.title,
     this.subtitle,
     this.titleAccessory,
-    required this.enabled,
+    this.enabled = true,
     this.onEnabledChanged,
     this.reorderable = false,
     this.onMoveUp,
     this.onMoveDown,
+    this.onTap,
   });
 
   @override
@@ -47,7 +51,7 @@ class AdaptiveNavigationLayoutRow extends StatelessWidget {
       ],
     );
 
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(
         children: [
@@ -103,5 +107,6 @@ class AdaptiveNavigationLayoutRow extends StatelessWidget {
         ],
       ),
     );
+    return onTap == null ? row : InkWell(onTap: onTap, child: row);
   }
 }

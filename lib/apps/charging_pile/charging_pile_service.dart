@@ -297,12 +297,17 @@ class ChargingPileRepository extends ChangeNotifier {
     _emit();
   }
 
-  /// 用站点全校快照铺满一次：**1 个请求**换全部设备的状态。
+  /// 用站点全校快照铺满一次，再用 `/api/pile` 补齐快照没覆盖的设备。
   ///
   /// 快照来自站点定时采样（白天分钟级、深夜小时级），比 `/api/pile` 旧，
   /// 所以它负责「首屏/回到前台时别空着」，用户主动刷新仍走 [refreshAll]。
   /// 单个分区没取到就保留该区上一次的结果；分区内某台没采到则记为未知 ——
   /// 站点自己的口径是「没采到 = 未知」，不是「占用」。
+  ///
+  /// ⚠️ 源站的全校快照目前**只覆盖渭水校区**（校本部的 57 台不在
+  /// `/api/snap` 里，`area=beiyuan` 会直接回 `snapshot_unavailable`）。
+  /// 所以快照之后要把没覆盖到的设备交给 `/api/pile`，否则它们会永远停在
+  /// 「未知」——这也让本方法在源站把校本部并入快照后自动退化成一个请求。
   Future<void> refreshSnapshot({bool force = false}) async {
     if (_disposed) return;
     final runtime = _runtime;
@@ -318,12 +323,20 @@ class ChargingPileRepository extends ChangeNotifier {
     try {
       final snapshot = await _snapshotClient.fetch(force: force);
       if (_disposed || runtime.isCancelled) return;
-      _applySnapshot(snapshot);
+      final covered = _applySnapshot(snapshot);
       batch.completed = batch.total;
       _networkFailures = 0;
       _refreshUpdatedAt();
       _emit();
       await _persistCache();
+      // 快照没覆盖到的设备（源站的采样范围之外）改用逐台查询补齐。
+      final uncovered = <ChargingPileDevice>[
+        for (final device in _catalog)
+          if (!covered.contains(device.id)) device,
+      ];
+      if (uncovered.isNotEmpty && !_disposed && !runtime.isCancelled) {
+        await _refreshScope(uncovered, force: force, fullCatalog: false);
+      }
     } on ChargingPileException catch (error) {
       if (error.failure == ChargingPileFailure.cancelled) return;
       _networkFailures = error.failure == ChargingPileFailure.network
@@ -339,7 +352,11 @@ class ChargingPileRepository extends ChangeNotifier {
     }
   }
 
-  void _applySnapshot(ChargingPileSnapshot snapshot) {
+  /// 把快照写进状态，返回**本次真正拿到数据的设备 id**。
+  ///
+  /// 调用方据此判断哪些设备还需要走 `/api/pile` 补齐。
+  Set<String> _applySnapshot(ChargingPileSnapshot snapshot) {
+    final covered = <String>{};
     final areaByKey = {for (final area in _areas) area.key: area};
     for (final areaSnapshot in snapshot.areas) {
       // 整个区这次没取到：保留上一次的结果，别把它当成「全部未知」。
@@ -359,8 +376,10 @@ class ChargingPileRepository extends ChangeNotifier {
                   fetchedAt: sampledAt,
                 ),
               );
+        if (slots != null) covered.add(device.id);
       }
     }
+    return covered;
   }
 
   /// Refresh the entire catalog as one transaction. Consumers share the same
@@ -404,12 +423,15 @@ class ChargingPileRepository extends ChangeNotifier {
   /// Refresh only devices without data or needing an update:
   /// unknown, failed or older than [maxAge] (defaults to [liveWindow]). Used on
   /// foreground resume so a quick app switch does not stampede the platform.
-  Future<void> refreshIfStale({Duration? maxAge}) async {
+  /// 刷新过期设备。[campusId] 非空时只刷该校区，供按校区渲染的地图图层使用 ——
+  /// 在渭水校区看图不该顺带把校本部的 57 台也查一遍。
+  Future<void> refreshIfStale({Duration? maxAge, String? campusId}) async {
     if (_disposed) return;
     final limit = maxAge ?? liveWindow;
     final current = _now();
     final devices = _catalog
         .where((device) {
+          if (campusId != null && device.campusId != campusId) return false;
           final status = _states[device.id]?.status;
           if (status == null) return true;
           return current.difference(status.fetchedAt) >= limit;

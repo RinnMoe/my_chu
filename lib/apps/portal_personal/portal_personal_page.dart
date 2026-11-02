@@ -8,7 +8,6 @@ import '../../services/user_error_message.dart';
 import '../information_portal/information_portal_models.dart';
 import '../information_portal/information_portal_service.dart';
 import 'portal_todos_view.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 typedef PortalPersonalDataLoader =
     Future<Map<PortalInfoKind, PortalPersonalInfo>> Function({
@@ -66,20 +65,18 @@ class _PortalPersonalPageState extends State<PortalPersonalPage>
       length: 2,
       initialIndex: widget.initialTabIndex.clamp(0, 1).toInt(),
       child: Scaffold(
-        appBar: WindowControlsAwareAppBar(
-          child: AppBar(
-            title: const Text('个人数据'),
-            actions: [
-              IconButton(
-                tooltip: '刷新个人数据',
-                onPressed: _refreshPersonalStatus,
-                icon: const Icon(Icons.refresh),
-              ),
-            ],
-            bottom: TabBar(
-              controller: _tabController,
-              tabs: const [Tab(text: '校园信息'), Tab(text: '课程待办')],
+        appBar: AppBar(
+          title: const Text('个人数据'),
+          actions: [
+            IconButton(
+              tooltip: '刷新个人数据',
+              onPressed: _refreshPersonalStatus,
+              icon: const Icon(Icons.refresh),
             ),
+          ],
+          bottom: TabBar(
+            controller: _tabController,
+            tabs: const [Tab(text: '校园信息'), Tab(text: '课程待办')],
           ),
         ),
         body: _buildMaterialTabView(),

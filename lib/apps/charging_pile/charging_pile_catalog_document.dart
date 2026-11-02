@@ -50,7 +50,7 @@ class ChargingPileCatalogDocument {
   ChargingPileCatalogDocument._({
     required this.siteVersion,
     required this.catalogVersion,
-    required this.campusId,
+    required this.campusIds,
     required this.areas,
     required this.devices,
   }) : _deviceById = {for (final device in devices) device.id: device};
@@ -70,8 +70,25 @@ class ChargingPileCatalogDocument {
   /// 宽容解析允许丢弃的单条脏数据比例上限；超过即整份拒绝。
   static const double _maxDroppedRatio = 0.1;
 
-  /// 当前只有渭水校区；目录本身不带校区字段。
+  /// 站点不给校区字段时的兜底校区。
   static const String defaultCampusId = 'weishui';
+
+  /// 站点 `location` 前缀 → 本仓库校区 ID（对齐 `assets/maps/campuses.json`）。
+  ///
+  /// 源站把多个校区的桩放在同一份目录里，只靠分区名区分；地图是按校区加载的，
+  /// 所以这里按前缀派生。新增校区时补一行即可。
+  static const Map<String, String> campusByLocationPrefix = <String, String>{
+    '渭水-': 'weishui',
+    '北院-': 'beiyuan',
+  };
+
+  /// 由站点分区全名派生校区 ID；认不出的前缀落到 [defaultCampusId]。
+  static String campusIdFor(String location) {
+    for (final entry in campusByLocationPrefix.entries) {
+      if (location.startsWith(entry.key)) return entry.value;
+    }
+    return defaultCampusId;
+  }
 
   /// 站点页脚版本（例如 `v2.67`），仅用于诊断与变更提示。
   final String siteVersion;
@@ -80,7 +97,8 @@ class ChargingPileCatalogDocument {
   /// 用它判断「拉到的这份和本机那份是不是同一份」。
   final String catalogVersion;
 
-  final String campusId;
+  /// 目录里出现过的校区（由分区前缀派生）。
+  final Set<String> campusIds;
 
   /// 按站点给出的顺序排列。
   final List<ChargingPileArea> areas;
@@ -116,7 +134,9 @@ class ChargingPileCatalogDocument {
     return ChargingPileCatalogDocument._(
       siteVersion: siteVersion,
       catalogVersion: catalogVersion,
-      campusId: defaultCampusId,
+      campusIds: Set<String>.unmodifiable(
+        areas.map((area) => area.campusId),
+      ),
       areas: List<ChargingPileArea>.unmodifiable(areas),
       devices: List<ChargingPileDevice>.unmodifiable(devices),
     );
@@ -277,7 +297,9 @@ class ChargingPileCatalogDocument {
           .convert(utf8.encode(jsonText))
           .toString()
           .substring(0, 12),
-      campusId: defaultCampusId,
+      campusIds: Set<String>.unmodifiable(
+        areas.map((area) => area.campusId),
+      ),
       areas: List<ChargingPileArea>.unmodifiable(areas),
       devices: List<ChargingPileDevice>.unmodifiable(devices),
     );
@@ -298,6 +320,7 @@ class ChargingPileCatalogDocument {
       areaId: location,
       key: key ?? location,
       name: (name == null || name.isEmpty) ? location : name,
+      campusId: campusIdFor(location),
       statsKey: key,
     );
   }

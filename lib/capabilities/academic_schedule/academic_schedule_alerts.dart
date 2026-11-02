@@ -19,7 +19,8 @@ Future<void> refreshRecentCourseAlerts(String accountKey, {
   if (PlatformCompatibilityService.isAndroid) {
     await CourseLiveActivityService.refresh(accountKey, force: true);
   } else {
-    // Preserve existing Apple local reminders; this change only introduces Android live routing.
+    // Android publishes live activities; other supported hosts use the typed
+    // course reminder channel instead.
     await _ordinaryCourses(accountKey, repository: repository, isCurrent: isCurrent);
   }
 }

@@ -9,7 +9,6 @@ import '../services/diagnostic_report_service.dart';
 import '../services/feedback_community_service.dart';
 import '../services/platform_environment.dart';
 import '../services/public_http_client.dart';
-import '../widgets/apple_window_controls.dart';
 
 /// 提出建议：公开与私密共用一份表单，由「公开我的建议」决定提交目标。
 class FeedbackComposerPage extends StatefulWidget {
@@ -264,9 +263,7 @@ class _FeedbackComposerPageState extends State<FeedbackComposerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('提出建议')),
-      ),
+      appBar: AppBar(title: const Text('提出建议')),
       body: SafeArea(
         top: false,
         child: Align(

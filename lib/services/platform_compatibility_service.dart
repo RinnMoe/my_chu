@@ -18,9 +18,9 @@ class PlatformCompatibilityService {
   @visibleForTesting
   static Future<Object?> Function(String method)? debugInvoke;
 
-  /// Android-only native compatibility surfaces stay unavailable on Apple,
-  /// HarmonyOS, web, and unsupported desktop platforms. A debug method
-  /// override represents a simulated Android host in tests.
+  /// Android-only native compatibility surfaces stay unavailable on HarmonyOS,
+  /// web, and unsupported desktop platforms. A debug method override
+  /// represents a simulated Android host in tests.
   @visibleForTesting
   static HostPlatform? hostPlatformOverride;
 
@@ -30,8 +30,6 @@ class PlatformCompatibilityService {
   }
 
   static bool get isAndroid => _hostPlatform == HostPlatform.android;
-
-  static bool get isApple => _hostPlatform == HostPlatform.apple;
 
   static bool get isHarmony => _hostPlatform == HostPlatform.harmony;
 

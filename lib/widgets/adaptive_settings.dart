@@ -5,12 +5,16 @@ class AdaptiveSettingsSection extends StatelessWidget {
   const AdaptiveSettingsSection({
     super.key,
     this.title,
+    this.footer,
     required this.children,
     this.margin = EdgeInsets.zero,
     this.dividerIndent = 56,
   });
 
   final String? title;
+
+  /// 卡片下方的说明，用于承载布局本身表达不了的约束或后果。
+  final String? footer;
   final List<Widget> children;
   final EdgeInsetsGeometry margin;
   final double dividerIndent;
@@ -47,6 +51,18 @@ class AdaptiveSettingsSection extends StatelessWidget {
                   ],
                 ),
               ),
+              if (footer != null) ...[
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    footer!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

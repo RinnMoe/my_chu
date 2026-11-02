@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/logger_service.dart';
 import '../theme/app_palette.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 class LogPage extends StatefulWidget {
   const LogPage({super.key});
@@ -70,54 +69,52 @@ class _LogPageState extends State<LogPage> {
     final body = _buildBody(context, entries);
 
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(
-          title: const Text('日志'),
-          centerTitle: true,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.copy),
-              tooltip: '复制全部',
-              onPressed: _copyAll,
-            ),
-            PopupMenuButton<String>(
-              onSelected: (action) {
-                switch (action) {
-                  case 'clear':
-                    AppLogger.clear();
-                  case 'toggle_scroll':
-                    setState(() => _autoScroll = !_autoScroll);
-                }
-              },
-              itemBuilder:
-                  (context) => [
-                    const PopupMenuItem(
-                      value: 'clear',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete_outline, size: 20),
-                          SizedBox(width: 8),
-                          Text('清空日志'),
-                        ],
-                      ),
+      appBar: AppBar(
+        title: const Text('日志'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.copy),
+            tooltip: '复制全部',
+            onPressed: _copyAll,
+          ),
+          PopupMenuButton<String>(
+            onSelected: (action) {
+              switch (action) {
+                case 'clear':
+                  AppLogger.clear();
+                case 'toggle_scroll':
+                  setState(() => _autoScroll = !_autoScroll);
+              }
+            },
+            itemBuilder:
+                (context) => [
+                  const PopupMenuItem(
+                    value: 'clear',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, size: 20),
+                        SizedBox(width: 8),
+                        Text('清空日志'),
+                      ],
                     ),
-                    PopupMenuItem(
-                      value: 'toggle_scroll',
-                      child: Row(
-                        children: [
-                          Icon(
-                            _autoScroll ? Icons.lock : Icons.lock_open,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(_autoScroll ? '暂停滚动' : '自动滚动'),
-                        ],
-                      ),
+                  ),
+                  PopupMenuItem(
+                    value: 'toggle_scroll',
+                    child: Row(
+                      children: [
+                        Icon(
+                          _autoScroll ? Icons.lock : Icons.lock_open,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(_autoScroll ? '暂停滚动' : '自动滚动'),
+                      ],
                     ),
-                  ],
-            ),
-          ],
-        ),
+                  ),
+                ],
+          ),
+        ],
       ),
       body: body,
     );

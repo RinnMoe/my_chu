@@ -5,7 +5,6 @@ import 'diagnostic_report_page.dart';
 import 'developer_tools_hub_page.dart';
 import 'open_source_page.dart';
 import 'privacy_settings_page.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 Widget _aboutArtwork({required double width, required double height}) {
   return ClipRect(
@@ -131,7 +130,7 @@ class _AboutPageState extends State<AboutPage> {
       ],
     );
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(child: AppBar(title: const Text('关于'))),
+      appBar: AppBar(title: const Text('关于')),
       body: body,
     );
   }

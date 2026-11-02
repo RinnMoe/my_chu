@@ -12,7 +12,6 @@ import '../capabilities/academic_schedule/recent_schedule_repository.dart';
 import '../capabilities/desktop_widgets/desktop_widget_bridge.dart';
 import '../services/usage_analytics_service.dart';
 import 'privacy_policy_page.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 class PrivacySettingsPage extends StatefulWidget {
   const PrivacySettingsPage({super.key, this.onExit});
@@ -154,9 +153,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     final theme = Theme.of(context);
     final enabled = _remoteServicesEnabled ?? true;
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('用户协议与在线功能')),
-      ),
+      appBar: AppBar(title: const Text('用户协议与在线功能')),
       body: ListView(
         children: [
           const SizedBox(height: 8),

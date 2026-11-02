@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../services/course_live_activity_service.dart';
 import '../services/platform_compatibility_service.dart';
-import '../widgets/apple_window_controls.dart';
 
 class CourseLiveTestPage extends StatefulWidget {
   const CourseLiveTestPage({super.key});
@@ -51,9 +50,7 @@ class _CourseLiveTestPageState extends State<CourseLiveTestPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: WindowControlsAwareAppBar(
-      child: AppBar(title: const Text('课前通知测试')),
-    ),
+    appBar: AppBar(title: const Text('课前通知测试')),
     body:
         !kDebugMode || !PlatformCompatibilityService.isAndroid
             ? const Center(child: Text('仅 Android 开发版可用'))

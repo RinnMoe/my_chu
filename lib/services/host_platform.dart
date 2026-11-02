@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 /// referring to a fork-only enum value so standard Flutter remains compatible.
 enum HostPlatform {
   android,
-  apple,
   harmony,
   web,
   other;
@@ -25,7 +24,10 @@ enum HostPlatform {
       case 'android':
         return HostPlatform.android;
       case 'ios':
-        return HostPlatform.apple;
+        // iOS/iPadOS support moved to a separate repository from 1.3.5. It is
+        // intentionally not a supported host branch here, so no mobile-only
+        // capability treats an iOS runtime as a working platform.
+        return HostPlatform.other;
       case 'ohos':
         return HostPlatform.harmony;
       default:

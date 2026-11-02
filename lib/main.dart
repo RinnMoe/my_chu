@@ -6,7 +6,6 @@ import 'services/tronclass_rollcall_store.dart';
 import 'widgets/campus_auth_boundary.dart';
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -33,6 +32,7 @@ import 'apps/app_service.dart';
 import 'services/login_required_notifier.dart';
 import 'services/logger_service.dart';
 import 'services/navigation_layout_service.dart';
+import 'services/navigation_tab_presentation.dart';
 import 'services/privacy_agreement_service.dart';
 import 'services/usage_analytics_service.dart';
 import 'services/time_reminder_service.dart';
@@ -61,8 +61,6 @@ import 'widgets/adaptive_navigation_item.dart';
 import 'widgets/adaptive_root_navigation.dart';
 import 'widgets/feature_access_notice.dart';
 import 'widgets/adaptive_startup_splash.dart';
-import 'widgets/apple_window_controls.dart';
-import 'widgets/viewport_preview_host.dart';
 import 'widgets/root_destination_active_scope.dart';
 
 void main() {
@@ -136,11 +134,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       builder:
           (context, child) => ScaffoldMessenger(
-            child: AppleWindowControlsMetricsScope(
-              child: ViewportPreviewHost(
-                child: child ?? const SizedBox.shrink(),
-              ),
-            ),
+            child: child ?? const SizedBox.shrink(),
           ),
       themeMode: preferences.mode.materialThemeMode,
       theme: _buildTheme(
@@ -167,8 +161,6 @@ class MyApp extends StatelessWidget {
     return PageTransitionsTheme(
       builders: {
         TargetPlatform.android: androidBuilder,
-        TargetPlatform.iOS: const CupertinoPageTransitionsBuilder(),
-        TargetPlatform.macOS: const CupertinoPageTransitionsBuilder(),
         TargetPlatform.windows: const ZoomPageTransitionsBuilder(),
         TargetPlatform.linux: const ZoomPageTransitionsBuilder(),
         TargetPlatform.fuchsia: const ZoomPageTransitionsBuilder(),
@@ -456,6 +448,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   List<_NavTab> _tabs = [];
   final Map<String, Widget?> _pages = {};
   String _currentKey = NavigationLayoutService.hostHomeKey;
+
+  /// Destination the shell opened on this launch. Used for the first-run guide
+  /// gate so a user-chosen launch page still receives it.
+  String _launchKey = NavigationLayoutService.hostHomeKey;
+  bool _currentTabInitialized = false;
   String? _accountKey;
   int _authContentRevision = HostAuthState.snapshot.value.contentRevision;
   bool _startupReady = false;
@@ -500,7 +497,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         (_) => unawaited(RemoteFeaturePolicyService.instance.refresh()),
       );
     }
-    // 普通更新进入“我的”栏目，只有强制升级弹窗；公告仍由首页 Focus 加载。
+    // 普通更新进入“选项”栏目，只有强制升级弹窗；公告仍由首页 Focus 加载。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) TronclassRollcallStore.instance.start();
       if (mounted) {
@@ -799,12 +796,23 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (tabs.isEmpty) {
       tabs.addAll(_defaultTabs());
     }
+    final availableKeys = tabs.map((tab) => tab.key);
+    final launchKey = NavigationLayoutService.resolveStartKey(
+      layout,
+      availableKeys: availableKeys,
+    );
     if (!mounted) return;
     setState(() {
       _accountKey = HostAuthState.snapshot.value.accountKey;
       _tabs = tabs;
-      if (!tabs.any((tab) => tab.key == _currentKey)) {
-        _currentKey = NavigationLayoutService.hostHomeKey;
+      _launchKey = launchKey;
+      if (!_currentTabInitialized) {
+        // Cold start lands on the configured launch page; later layout,
+        // catalog or policy changes must not move the user away.
+        _currentKey = launchKey;
+        _currentTabInitialized = true;
+      } else if (!tabs.any((tab) => tab.key == _currentKey)) {
+        _currentKey = launchKey;
       }
       // 启动时立即构建当前 Tab，避免底栏已出现但页面空白。
       final current = tabs.where((tab) => tab.key == _currentKey).firstOrNull;
@@ -817,56 +825,49 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   _NavTab? _tabFor(String key) {
+    final presentation = NavigationTabPresentations.forKey(key);
+    if (presentation == null) return null;
+    final builder = _pageBuilderFor(key);
+    if (builder == null) return null;
+    return _NavTab(
+      key: key,
+      role: _navigationRoleFor(key),
+      label: presentation.label,
+      icon: presentation.icon,
+      selectedIcon: presentation.selectedIcon,
+      builder: builder,
+    );
+  }
+
+  AdaptiveNavigationRole _navigationRoleFor(String key) {
     switch (key) {
       case NavigationLayoutService.hostHomeKey:
-        return _NavTab(
-          key: key,
-          role: AdaptiveNavigationRole.home,
-          label: '首页',
-          icon: Icons.home_outlined,
-          selectedIcon: Icons.home,
-          builder:
-              (_) => HomePage(
-                deviceFamilyOverride: widget.deviceFamilyOverride,
-                windowClassOverride: widget.windowClassOverride,
-              ),
+        return AdaptiveNavigationRole.home;
+      case NavigationLayoutService.hostAppsKey:
+        return AdaptiveNavigationRole.apps;
+      case NavigationLayoutService.hostMapKey:
+        return AdaptiveNavigationRole.map;
+      case NavigationLayoutService.hostProfileKey:
+        return AdaptiveNavigationRole.profile;
+    }
+    return AdaptiveNavigationRole.custom;
+  }
+
+  WidgetBuilder? _pageBuilderFor(String key) {
+    switch (key) {
+      case NavigationLayoutService.hostHomeKey:
+        return (_) => HomePage(
+          deviceFamilyOverride: widget.deviceFamilyOverride,
+          windowClassOverride: widget.windowClassOverride,
         );
       case NavigationLayoutService.hostAppsKey:
-        return _NavTab(
-          key: key,
-          role: AdaptiveNavigationRole.apps,
-          label: '功能',
-          icon: Icons.apps_outlined,
-          selectedIcon: Icons.apps,
-          builder: (_) => const AppsPage(),
-        );
+        return (_) => const AppsPage();
       case NavigationLayoutService.hostMapKey:
-        return _NavTab(
-          key: key,
-          role: AdaptiveNavigationRole.map,
-          label: '地图',
-          icon: Icons.map_outlined,
-          selectedIcon: Icons.map,
-          builder: (_) => campusMapCapability.createPage(asRootTab: true),
-        );
+        return (_) => campusMapCapability.createPage(asRootTab: true);
       case NavigationLayoutService.academicScheduleKey:
-        return _NavTab(
-          key: key,
-          role: AdaptiveNavigationRole.custom,
-          label: academicScheduleCapability.navigationLabel,
-          icon: academicScheduleCapability.icon,
-          selectedIcon: academicScheduleCapability.icon,
-          builder: (_) => academicScheduleCapability.createPage(),
-        );
+        return (_) => academicScheduleCapability.createPage();
       case NavigationLayoutService.hostProfileKey:
-        return _NavTab(
-          key: key,
-          role: AdaptiveNavigationRole.profile,
-          label: '我的',
-          icon: Icons.person_outline,
-          selectedIcon: Icons.person,
-          builder: (_) => ProfilePage(onSignedOut: widget.onSignedOut),
-        );
+        return (_) => ProfilePage(onSignedOut: widget.onSignedOut);
     }
     final plugin = AppRegistry.publishedById(key);
     if (plugin != null &&
@@ -877,24 +878,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         // Remote hiding only removes the runtime tab; the persisted navigation
         // layout keeps the user's choice so it returns when the policy does.
         FeatureEntryVisibility.isVisible(plugin)) {
-      return _NavTab(
-        key: key,
-        role: AdaptiveNavigationRole.custom,
-        label: plugin.metadata.navigationLabel ?? plugin.metadata.name,
-        icon: plugin.metadata.icon,
-        selectedIcon: plugin.metadata.icon,
-        builder:
-            (context) => FeatureAccessHost(
-              featureId: plugin.metadata.id,
-              child:
-                  plugin.requiresCampusAccount
-                      ? CampusAuthBoundary(
-                        title: plugin.metadata.name,
-                        retainGuestShell: plugin.retainsGuestShell,
-                        builder: plugin.pageBuilder!,
-                      )
-                      : plugin.pageBuilder!(context),
-            ),
+      return (context) => FeatureAccessHost(
+        featureId: plugin.metadata.id,
+        child:
+            plugin.requiresCampusAccount
+                ? CampusAuthBoundary(
+                  title: plugin.metadata.name,
+                  retainGuestShell: plugin.retainsGuestShell,
+                  builder: plugin.pageBuilder!,
+                )
+                : plugin.pageBuilder!(context),
       );
     }
     return null;
@@ -962,7 +955,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (_tabs.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_startupReady && _currentKey == NavigationLayoutService.hostHomeKey) {
+    if (_startupReady && _currentKey == _launchKey) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_maybeStartOnboardingFlow());
       });
@@ -970,28 +963,41 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     return ListenableBuilder(
       listenable: AppUpdateService.shared,
       child: _buildIndexedPages(),
-      builder:
-          (context, child) => AdaptiveRootNavigation(
-            items: [
-              for (final tab in _tabs)
-                AdaptiveNavigationItem(
-                  role: tab.role,
-                  label: tab.label,
-                  icon: tab.icon,
-                  selectedIcon: tab.selectedIcon,
-                  badgeLabel:
-                      tab.role == AdaptiveNavigationRole.profile &&
-                              AppUpdateService.shared.offer != null
-                          ? '有可用更新'
-                          : null,
-                ),
-            ],
-            selectedIndex: _selectedIndex,
-            onSelected: _selectTab,
-            deviceFamilyOverride: widget.deviceFamilyOverride,
-            windowClassOverride: widget.windowClassOverride,
-            child: child!,
-          ),
+      builder: (context, child) {
+        final updateAvailable = AppUpdateService.shared.offer != null;
+        // 选项页图标跟随宿主状态变化；其余页面使用各自的固定图标。
+        final profileIcon = NavigationTabPresentations.profileIconFor(
+          updateAvailable: updateAvailable,
+          signedIn: _accountKey != null,
+        );
+        return AdaptiveRootNavigation(
+          items: [
+            for (final tab in _tabs)
+              AdaptiveNavigationItem(
+                role: tab.role,
+                label: tab.label,
+                icon:
+                    tab.role == AdaptiveNavigationRole.profile
+                        ? profileIcon
+                        : tab.icon,
+                selectedIcon:
+                    tab.role == AdaptiveNavigationRole.profile
+                        ? profileIcon
+                        : tab.selectedIcon,
+                badgeLabel:
+                    tab.role == AdaptiveNavigationRole.profile &&
+                            updateAvailable
+                        ? '有可用更新'
+                        : null,
+              ),
+          ],
+          selectedIndex: _selectedIndex,
+          onSelected: _selectTab,
+          deviceFamilyOverride: widget.deviceFamilyOverride,
+          windowClassOverride: widget.windowClassOverride,
+          child: child!,
+        );
+      },
     );
   }
 
@@ -999,7 +1005,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       mounted &&
       _startupReady &&
       _accountKey != null &&
-      _currentKey == NavigationLayoutService.hostHomeKey &&
+      _currentKey == _launchKey &&
       (ModalRoute.of(context)?.isCurrent ?? true);
 
   Future<void> _maybeStartOnboardingFlow() async {
@@ -1057,8 +1063,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     Widget buildPanel(BuildContext dialogContext) {
       return CampusSelectionPanel(
         title: '选择常用校区',
-        message: '首页信息、课表上课时间和地图默认校区会根据校区设置变化。',
-        note: '之后也可以在“我的 → 校区设置”中修改。',
+        message: '焦点信息、课表上课时间和地图默认校区会根据校区设置变化。',
+        note: '之后也可以在“选项 → 校区设置”中修改。',
         saveLabel: '保存并继续',
         skipLabel: '暂不设置',
         onSaved: (_) => Navigator.of(dialogContext).pop(),

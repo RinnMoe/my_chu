@@ -31,6 +31,7 @@ class ChargingPileArea {
     required this.areaId,
     required this.key,
     required this.name,
+    required this.campusId,
     this.statsKey,
   });
 
@@ -39,11 +40,16 @@ class ChargingPileArea {
     areaId: '',
     key: '',
     name: '未分区',
+    campusId: '',
   );
 
   final String areaId;
   final String key;
   final String name;
+
+  /// 该分区所属校区，由站点 `location` 前缀派生（`渭水-` → `weishui`）。
+  /// 站点不单独下发校区字段，而地图按校区渲染，所以这层派生是必须的。
+  final String campusId;
 
   /// 站点 `/api/stats` 的 `areas` 键；该分区没有统计时为 null。
   final String? statsKey;
@@ -114,6 +120,9 @@ class ChargingPileDevice {
   final ChargingPileGeoPoint? point;
 
   String get location => area.areaId;
+
+  /// 所属校区；地图按它把设备分到各自的校区底图上。
+  String get campusId => area.campusId;
 
   @override
   bool operator ==(Object other) =>

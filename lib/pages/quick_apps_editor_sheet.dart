@@ -5,7 +5,7 @@ import '../apps/app_service.dart';
 import '../capabilities/dev_visibility.dart';
 import '../services/home_layout_service.dart';
 
-/// 打开常用应用编辑器。首页与页面管理共用同一实现。
+/// 打开常用应用编辑器。焦点页与底栏设置共用同一实现。
 Future<void> showQuickAppsEditorSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
@@ -225,7 +225,7 @@ class _QuickAppsEditorSheetState extends State<QuickAppsEditorSheet> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 2, 20, 8),
                   child: Text(
-                    '已达到首页显示上限',
+                    '已达到焦点页显示上限',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

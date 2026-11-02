@@ -13,7 +13,6 @@ import '../../services/service_endpoints.dart';
 import 'network_self_service_dashboard.dart';
 import 'network_self_service_models.dart';
 import 'network_self_service_service.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 class NetworkSelfServicePage extends StatefulWidget {
   final NetworkSelfServiceService? service;
@@ -222,17 +221,15 @@ class _NetworkSelfServicePageState extends State<NetworkSelfServicePage>
     final overview = _overview;
     final overviewError = _overviewError(authState);
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(
-          title: const Text('网络自服'),
-          actions: [
-            IconButton(
-              tooltip: '打开网页版',
-              onPressed: _loading ? null : _openWebHome,
-              icon: const Icon(Icons.open_in_browser_outlined),
-            ),
-          ],
-        ),
+      appBar: AppBar(
+        title: const Text('网络自服'),
+        actions: [
+          IconButton(
+            tooltip: '打开网页版',
+            onPressed: _loading ? null : _openWebHome,
+            icon: const Icon(Icons.open_in_browser_outlined),
+          ),
+        ],
       ),
       body:
           overview == null

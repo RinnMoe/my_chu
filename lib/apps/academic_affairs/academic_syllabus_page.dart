@@ -13,7 +13,6 @@ import 'academic_affairs_models.dart';
 import 'academic_affairs_service.dart';
 import 'academic_affairs_widgets.dart';
 import '../../capabilities/academic_schedule/academic_schedule_utils.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// 全校排课查询：按学期筛选全校课程并展开排课安排。
 class AcademicSyllabusPage extends StatefulWidget {
@@ -272,17 +271,15 @@ class _AcademicSyllabusPageState extends State<AcademicSyllabusPage>
     final body = _buildSyllabusBody(context);
 
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(
-          title: const Text('全校排课查询'),
-          actions: [
-            IconButton(
-              tooltip: '筛选',
-              onPressed: _openFilterSheet,
-              icon: const Icon(Icons.filter_list),
-            ),
-          ],
-        ),
+      appBar: AppBar(
+        title: const Text('全校排课查询'),
+        actions: [
+          IconButton(
+            tooltip: '筛选',
+            onPressed: _openFilterSheet,
+            icon: const Icon(Icons.filter_list),
+          ),
+        ],
       ),
       body: body,
     );

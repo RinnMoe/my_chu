@@ -46,7 +46,7 @@ class PlatformEnvironment {
   }
 
   /// Determines the physical device family from the full display rather than
-  /// the current app window. This keeps an iPad/Android Pad classified as a
+  /// the current app window. This keeps an Android Pad classified as a
   /// tablet while it is in a narrow split window.
   static DeviceFamily deviceFamilyForContext(BuildContext context) {
     final view = View.of(context);

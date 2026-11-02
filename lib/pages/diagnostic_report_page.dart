@@ -9,7 +9,6 @@ import '../services/diagnostic_report_service.dart';
 import '../services/error_feedback_service.dart';
 import '../services/file_save_service.dart';
 import '../services/platform_environment.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 typedef DiagnosticSaveFile =
     Future<String?> Function({
@@ -223,32 +222,30 @@ class _DiagnosticReportPageState extends State<DiagnosticReportPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(
-          title: const Text('诊断信息'),
-          actions: [
-            IconButton(
-              tooltip: '复制全部',
-              onPressed: _copy,
-              icon: const Icon(Icons.copy_outlined),
-            ),
-            IconButton(
-              tooltip: '保存报告',
-              onPressed: _working ? null : _save,
-              icon: const Icon(Icons.save_alt_outlined),
-            ),
-            IconButton(
-              tooltip: '分享报告',
-              onPressed: _working ? null : _share,
-              icon: const Icon(Icons.share_outlined),
-            ),
-            IconButton(
-              tooltip: '清空诊断信息',
-              onPressed: _clear,
-              icon: const Icon(Icons.delete_outline),
-            ),
-          ],
-        ),
+      appBar: AppBar(
+        title: const Text('诊断信息'),
+        actions: [
+          IconButton(
+            tooltip: '复制全部',
+            onPressed: _copy,
+            icon: const Icon(Icons.copy_outlined),
+          ),
+          IconButton(
+            tooltip: '保存报告',
+            onPressed: _working ? null : _save,
+            icon: const Icon(Icons.save_alt_outlined),
+          ),
+          IconButton(
+            tooltip: '分享报告',
+            onPressed: _working ? null : _share,
+            icon: const Icon(Icons.share_outlined),
+          ),
+          IconButton(
+            tooltip: '清空诊断信息',
+            onPressed: _clear,
+            icon: const Icon(Icons.delete_outline),
+          ),
+        ],
       ),
       body: _buildBody(context),
     );

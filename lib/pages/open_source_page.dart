@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../widgets/apple_window_controls.dart';
 
 class OpenSourcePage extends StatelessWidget {
   const OpenSourcePage({super.key});
@@ -22,6 +21,7 @@ class OpenSourcePage extends StatelessWidget {
     _DependencyEntry('archive', '压缩包处理'),
     _DependencyEntry('file_selector', '文件选择'),
     _DependencyEntry('dynamic_color', '动态配色'),
+    _DependencyEntry('material_symbols_icons', '底栏图标字形'),
   ];
 
   Future<void> _openExternal(String url) async {
@@ -61,9 +61,7 @@ class OpenSourcePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('开源许可与致谢')),
-      ),
+      appBar: AppBar(title: const Text('开源许可与致谢')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [

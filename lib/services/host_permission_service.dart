@@ -200,9 +200,7 @@ class HostPermissionService {
   Future<HostPermissionFeatureResult> requestNotificationPermission({
     HostPermissionPurposePresenter? presentPurpose,
   }) {
-    if (kIsWeb ||
-        (_hostPlatform != HostPlatform.android &&
-            _hostPlatform != HostPlatform.apple)) {
+    if (kIsWeb || _hostPlatform != HostPlatform.android) {
       return Future.value(HostPermissionFeatureResult.unsupported);
     }
     return _serialize(
@@ -213,9 +211,7 @@ class HostPermissionService {
   }
 
   Future<bool> isNotificationPermissionGranted() async {
-    if (kIsWeb ||
-        (_hostPlatform != HostPlatform.android &&
-            _hostPlatform != HostPlatform.apple)) {
+    if (kIsWeb || _hostPlatform != HostPlatform.android) {
       return false;
     }
     try {
@@ -228,11 +224,9 @@ class HostPermissionService {
   Future<HostPermissionFeatureResult> requestQrScannerPermissions({
     HostPermissionPurposePresenter? presentPurpose,
   }) {
-    // QR scanning is a host capability on both supported mobile platforms.
-    // Keep web unsupported because mobile_scanner cannot access a camera there
-    // in the embedded app shell.
-    if (_hostPlatform != HostPlatform.android &&
-        _hostPlatform != HostPlatform.apple) {
+    // QR scanning is an Android host capability; HarmonyOS uses its own native
+    // scanner branch before reaching this method.
+    if (_hostPlatform != HostPlatform.android) {
       return Future.value(HostPermissionFeatureResult.unsupported);
     }
     return _serialize(

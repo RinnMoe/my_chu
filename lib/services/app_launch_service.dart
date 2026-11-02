@@ -14,7 +14,6 @@ class AppLaunchService {
     if (_initialized ||
         kIsWeb ||
         (defaultTargetPlatform != TargetPlatform.android &&
-            defaultTargetPlatform != TargetPlatform.iOS &&
             defaultTargetPlatform.name != 'ohos')) {
       return;
     }

@@ -211,9 +211,7 @@ class UsageAnalyticsService {
   static final Set<Future<void>> _pendingSdkEvents = {};
 
   static bool get _supportedPlatform =>
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS);
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   static Future<void> disableAndClear() async {
     _generation++;

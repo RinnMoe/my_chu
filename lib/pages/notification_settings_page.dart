@@ -5,7 +5,6 @@ import '../services/course_live_activity_service.dart';
 import '../services/time_reminder_service.dart';
 import '../services/host_permission_service.dart';
 import '../services/platform_compatibility_service.dart';
-import '../widgets/apple_window_controls.dart';
 import 'host_permission_purpose_overlay.dart';
 
 class NotificationSettingsPage extends StatefulWidget {
@@ -594,9 +593,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('时间提醒')),
-      ),
+      appBar: AppBar(title: const Text('时间提醒')),
       body:
           _error
               ? Center(

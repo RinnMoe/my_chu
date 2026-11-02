@@ -47,7 +47,6 @@ import 'academic_schedule_cell_colors.dart';
 import 'academic_schedule_appearance.dart';
 import 'academic_schedule_background.dart';
 import 'academic_schedule_style.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 typedef AcademicScheduleAccountKeyLoader = Future<String?> Function();
 typedef AcademicScheduleCalendarLoader =
@@ -997,93 +996,91 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
     late final Widget page;
     {
       page = Scaffold(
-        appBar: WindowControlsAwareAppBar(
-          child: AppBar(
-            centerTitle: false,
-            title: _buildAppBarTitle(context),
-            actions: [
-              if (_academicBackend == AcademicAffairsBackend.undergraduate)
-                Center(child: _buildScopeSelector(context)),
-              if (_refreshing)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Center(
-                    child: SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                )
-              else
-                SizedBox(
-                  key: _scheduleOptionsKey,
-                  child: PopupMenuButton<String>(
-                    tooltip: '课表选项',
-                    icon: const Icon(Icons.more_vert),
-                    onSelected: (value) {
-                      if (value == 'currentWeek') {
-                        _returnToCurrentWeek();
-                      } else if (value == 'showNonCurrent') {
-                        _toggleShowNonCurrent();
-                      } else if (value == 'hideWeekend') {
-                        _toggleHideWeekend();
-                      } else if (value == 'refresh') {
-                        unawaited(_refreshSchedule());
-                      } else if (value == 'export') {
-                        unawaited(_showExportMenu());
-                      } else if (value == 'addCourse') {
-                        unawaited(_openCourseEditor());
-                      } else if (value == 'restoreOriginal') {
-                        unawaited(_restoreOriginalSchedule());
-                      }
-                    },
-                    itemBuilder:
-                        (context) => [
-                          PopupMenuItem<String>(
-                            value: 'currentWeek',
-                            enabled: _currentPageIndex != null,
-                            child: const Text('返回当前周'),
-                          ),
-                          const PopupMenuDivider(),
-                          CheckedPopupMenuItem<String>(
-                            value: 'showNonCurrent',
-                            checked: _effectiveNonCurrent,
-                            child: const Text('显示非本周课程'),
-                          ),
-                          CheckedPopupMenuItem<String>(
-                            value: 'hideWeekend',
-                            checked: _visibleWeekdays.length == 5,
-                            child: const Text('不显示周末'),
-                          ),
-                          const PopupMenuDivider(),
-                          const PopupMenuItem<String>(
-                            value: 'export',
-                            child: Text('导出'),
-                          ),
-                          if (_scope == AcademicScheduleScope.personal)
-                            const PopupMenuItem<String>(
-                              value: 'addCourse',
-                              child: Text('添加课程'),
-                            ),
-                          if (_scope == AcademicScheduleScope.personal)
-                            const PopupMenuItem<String>(
-                              value: 'restoreOriginal',
-                              child: Text('恢复原始课表'),
-                            ),
-                          PopupMenuItem<String>(
-                            value: 'refresh',
-                            child: Text(
-                              _scope ==
-                                      AcademicScheduleScope.administrativeClass
-                                  ? '重新获取班级课表'
-                                  : '重新获取课程',
-                            ),
-                          ),
-                        ],
+        appBar: AppBar(
+          centerTitle: false,
+          title: _buildAppBarTitle(context),
+          actions: [
+            if (_academicBackend == AcademicAffairsBackend.undergraduate)
+              Center(child: _buildScopeSelector(context)),
+            if (_refreshing)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Center(
+                  child: SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                 ),
-            ],
-          ),
+              )
+            else
+              SizedBox(
+                key: _scheduleOptionsKey,
+                child: PopupMenuButton<String>(
+                  tooltip: '课表选项',
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: (value) {
+                    if (value == 'currentWeek') {
+                      _returnToCurrentWeek();
+                    } else if (value == 'showNonCurrent') {
+                      _toggleShowNonCurrent();
+                    } else if (value == 'hideWeekend') {
+                      _toggleHideWeekend();
+                    } else if (value == 'refresh') {
+                      unawaited(_refreshSchedule());
+                    } else if (value == 'export') {
+                      unawaited(_showExportMenu());
+                    } else if (value == 'addCourse') {
+                      unawaited(_openCourseEditor());
+                    } else if (value == 'restoreOriginal') {
+                      unawaited(_restoreOriginalSchedule());
+                    }
+                  },
+                  itemBuilder:
+                      (context) => [
+                        PopupMenuItem<String>(
+                          value: 'currentWeek',
+                          enabled: _currentPageIndex != null,
+                          child: const Text('返回当前周'),
+                        ),
+                        const PopupMenuDivider(),
+                        CheckedPopupMenuItem<String>(
+                          value: 'showNonCurrent',
+                          checked: _effectiveNonCurrent,
+                          child: const Text('显示非本周课程'),
+                        ),
+                        CheckedPopupMenuItem<String>(
+                          value: 'hideWeekend',
+                          checked: _visibleWeekdays.length == 5,
+                          child: const Text('不显示周末'),
+                        ),
+                        const PopupMenuDivider(),
+                        const PopupMenuItem<String>(
+                          value: 'export',
+                          child: Text('导出'),
+                        ),
+                        if (_scope == AcademicScheduleScope.personal)
+                          const PopupMenuItem<String>(
+                            value: 'addCourse',
+                            child: Text('添加课程'),
+                          ),
+                        if (_scope == AcademicScheduleScope.personal)
+                          const PopupMenuItem<String>(
+                            value: 'restoreOriginal',
+                            child: Text('恢复原始课表'),
+                          ),
+                        PopupMenuItem<String>(
+                          value: 'refresh',
+                          child: Text(
+                            _scope ==
+                                    AcademicScheduleScope.administrativeClass
+                                ? '重新获取班级课表'
+                                : '重新获取课程',
+                          ),
+                        ),
+                      ],
+                ),
+              ),
+          ],
         ),
         body: _appearanceBody(context, body),
       );

@@ -8,7 +8,6 @@ import '../../theme/app_palette.dart';
 import '../../services/user_error_message.dart';
 import 'classroom_usage_models.dart';
 import 'classroom_usage_service.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 typedef ClassroomBuildingsLoader =
     Future<List<RoomBuilding>> Function({bool force});
@@ -277,17 +276,15 @@ class _ClassroomUsagePageState extends State<ClassroomUsagePage>
     final body = _buildClassroomBody(context);
 
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(
-          title: const Text('空教室查询'),
-          actions: [
-            IconButton(
-              tooltip: '数据说明',
-              onPressed: _showDataNotice,
-              icon: const Icon(Icons.help_outline),
-            ),
-          ],
-        ),
+      appBar: AppBar(
+        title: const Text('空教室查询'),
+        actions: [
+          IconButton(
+            tooltip: '数据说明',
+            onPressed: _showDataNotice,
+            icon: const Icon(Icons.help_outline),
+          ),
+        ],
       ),
       body: body,
     );

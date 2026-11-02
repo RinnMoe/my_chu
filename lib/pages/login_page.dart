@@ -22,7 +22,6 @@ import '../capabilities/web_view_error_view.dart';
 import '../capabilities/web_view_rendering_policy.dart';
 import 'log_page.dart';
 import '../widgets/adaptive_login_scaffold.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 class LoginPage extends StatefulWidget {
   final VoidCallback onLoginSuccess;
@@ -344,7 +343,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
           text: '账号和密码会安全保存在本机，用于下次自动登录。',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        TextSpan(text: '你可以随时在「我的」中退出登录来清除。'),
+        TextSpan(text: '你可以随时在「选项」中退出登录来清除。'),
       ],
     ),
   );
@@ -809,20 +808,18 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
 
   Widget _buildWebFallback(ThemeData theme) {
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(
-          title: const Text('登录'),
-          centerTitle: true,
-          actions: [
-            DevOnly(
-              child: IconButton(
-                icon: const Icon(Icons.article_outlined),
-                tooltip: '查看日志',
-                onPressed: _openLogPage,
-              ),
+      appBar: AppBar(
+        title: const Text('登录'),
+        centerTitle: true,
+        actions: [
+          DevOnly(
+            child: IconButton(
+              icon: const Icon(Icons.article_outlined),
+              tooltip: '查看日志',
+              onPressed: _openLogPage,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       body: Center(
         child: Padding(

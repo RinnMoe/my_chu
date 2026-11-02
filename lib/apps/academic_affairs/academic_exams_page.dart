@@ -11,7 +11,6 @@ import '../../services/user_error_message.dart';
 import 'academic_affairs_models.dart';
 import 'academic_affairs_service.dart';
 import 'academic_affairs_widgets.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// 考试安排：考试安排、批次/状态筛选与关键词搜索。
 class AcademicExamsPage extends StatefulWidget {
@@ -193,9 +192,7 @@ class _AcademicExamsPageState extends State<AcademicExamsPage>
     );
 
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('考试安排')),
-      ),
+      appBar: AppBar(title: const Text('考试安排')),
       body: CampusProtectedContent(
         title: '考试安排',
         icon: Icons.event_note_outlined,

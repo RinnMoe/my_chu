@@ -3,32 +3,6 @@ import 'package:flutter/material.dart';
 import '../../services/ip_status_service.dart';
 import '../../widgets/adaptive_settings.dart';
 
-class ProfileSection extends StatelessWidget {
-  final String title;
-  final Widget child;
-
-  const ProfileSection({super.key, required this.title, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.titleSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        child,
-      ],
-    );
-  }
-}
-
 class ProfileSettingTile extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -57,7 +31,11 @@ class ProfileSettingTile extends StatelessWidget {
   }
 }
 
-class ProfileIdentityCard extends StatelessWidget {
+/// 账号分组首行：身份信息与当前网络环境。
+///
+/// 身份卡并入“账号”分组后不再单独占一张卡片，`ListTile` 的分栏与相邻设置项
+/// 对齐；网络状态作为尾随控件，点开同一个网络详情面板。
+class ProfileIdentityRow extends StatelessWidget {
   final bool loading;
   final bool loadFailed;
   final String? name;
@@ -68,7 +46,7 @@ class ProfileIdentityCard extends StatelessWidget {
   final VoidCallback? onRetryAccount;
   final VoidCallback? onOpenNetworkDetails;
 
-  const ProfileIdentityCard({
+  const ProfileIdentityRow({
     super.key,
     required this.loading,
     required this.loadFailed,
@@ -83,83 +61,55 @@ class ProfileIdentityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final identityCard = Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: _IdentityBody(this)),
-          const SizedBox(width: 12),
-          _NetworkStatusChip(
-            status: networkStatus,
-            loading: networkLoading,
-            onPressed: onOpenNetworkDetails,
-          ),
-        ],
-      ),
-    );
-    return Card(clipBehavior: Clip.antiAlias, child: identityCard);
-  }
-}
-
-class _IdentityBody extends StatelessWidget {
-  final ProfileIdentityCard card;
-
-  const _IdentityBody(this.card);
-
-  @override
-  Widget build(BuildContext context) {
     final materialTheme = Theme.of(context);
-    final titleStyle = materialTheme.textTheme.titleLarge?.copyWith(
+    final titleStyle = materialTheme.textTheme.titleMedium?.copyWith(
       fontWeight: FontWeight.w700,
     );
     final detailStyle = materialTheme.textTheme.bodySmall?.copyWith(
       color: materialTheme.colorScheme.onSurfaceVariant,
     );
     final retryWidget =
-        card.onRetryAccount == null
+        onRetryAccount == null
             ? null
-            : TextButton(
-              onPressed: card.onRetryAccount,
-              child: const Text('重试'),
-            );
-    if (card.loading) {
-      return const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _Skeleton(width: 160, height: 24),
-          SizedBox(height: 8),
-          _Skeleton(width: 112, height: 16),
-        ],
+            : TextButton(onPressed: onRetryAccount, child: const Text('重试'));
+    if (loading) {
+      return ListTile(
+        leading: const Icon(Icons.account_circle_outlined),
+        title: const _Skeleton(width: 160, height: 18),
+        subtitle: const _Skeleton(width: 112, height: 14),
+        trailing: _NetworkStatusChip(
+          status: networkStatus,
+          loading: networkLoading,
+          onPressed: onOpenNetworkDetails,
+        ),
       );
     }
-    if (card.loadFailed) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('账号信息暂不可用', style: materialTheme.textTheme.titleMedium),
-          if (retryWidget != null) retryWidget,
-        ],
+    if (loadFailed) {
+      return ListTile(
+        leading: const Icon(Icons.account_circle_outlined),
+        title: const Text('账号信息暂不可用'),
+        trailing: retryWidget,
       );
     }
     final accountLine = [
-      if (card.uid?.trim().isNotEmpty ?? false) card.uid!.trim(),
-      if (card.identity?.trim().isNotEmpty ?? false) card.identity!.trim(),
+      if (uid?.trim().isNotEmpty ?? false) uid!.trim(),
+      if (identity?.trim().isNotEmpty ?? false) identity!.trim(),
     ].join(' ');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          card.name ?? '未登录',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: titleStyle,
-        ),
-        if (accountLine.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text(accountLine, style: detailStyle),
-        ],
-      ],
+    return ListTile(
+      leading: const Icon(Icons.account_circle_outlined),
+      title: Text(
+        name ?? '未登录',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: titleStyle,
+      ),
+      subtitle:
+          accountLine.isEmpty ? null : Text(accountLine, style: detailStyle),
+      trailing: _NetworkStatusChip(
+        status: networkStatus,
+        loading: networkLoading,
+        onPressed: onOpenNetworkDetails,
+      ),
     );
   }
 }

@@ -18,7 +18,6 @@ import '../../capabilities/shuwei_request_proxy.dart';
 import '../../capabilities/web_view_rendering_policy.dart';
 import '../../capabilities/web_view_session_binding.dart';
 import '../../widgets/root_destination_active_scope.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// 教务系统网页版（WakeUp 兼容逻辑，带共享底栏）。
 ///
@@ -347,11 +346,9 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
       canGoBack: _canGoBack,
       onBack: _goBack,
       child: Scaffold(
-        appBar: WindowControlsAwareAppBar(
-          child: AppBar(
-            leading: const WebViewCloseButton(),
-            title: const Text('教务系统'),
-          ),
+        appBar: AppBar(
+          leading: const WebViewCloseButton(),
+          title: const Text('教务系统'),
         ),
         body: _buildWebViewContent(context),
         bottomNavigationBar: WebViewBottomBar(

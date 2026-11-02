@@ -5,7 +5,6 @@ import 'course_live_test_page.dart';
 
 import '../capabilities/dev_visibility.dart';
 import 'data_demo_page.dart';
-import 'package:mychu/widgets/apple_window_controls.dart';
 
 /// DEV 专用的开发调试工具入口。
 class DevToolsPage extends StatelessWidget {
@@ -14,9 +13,7 @@ class DevToolsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: WindowControlsAwareAppBar(
-        child: AppBar(title: const Text('调试工具')),
-      ),
+      appBar: AppBar(title: const Text('调试工具')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [

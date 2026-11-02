@@ -23,7 +23,7 @@ import "charging_pile_page.dart";
 import "charging_pile_service.dart";
 import "charging_pile_widgets.dart";
 
-const String _weishuiCampusId = chargingPileMapCampusId;
+
 
 /// 把 Repository 状态映射为地图要素。
 ///
@@ -92,14 +92,13 @@ class ChargingPileLayerProvider implements MapLayerProvider {
   Future<List<MapLayerFeature>> loadFeatures(
     MapLayerLoadRequest request,
   ) async {
-    if (request.campusId != _weishuiCampusId) return const <MapLayerFeature>[];
-    final catalog = _catalog ?? await (_locations?.call() ?? _repository.ensureCatalog());
+    final catalog =
+        _catalog ?? await (_locations?.call() ?? _repository.ensureCatalog());
     request.cancellation.throwIfCancelled();
     _catalog = catalog;
-    if (catalog.campusId != request.campusId) return const <MapLayerFeature>[];
     await _repository.ensureCacheRestored();
     request.cancellation.throwIfCancelled();
-    return _buildFeatures(catalog);
+    return _buildFeatures(catalog, request.campusId);
   }
 
   @override
@@ -129,7 +128,10 @@ class ChargingPileLayerProvider implements MapLayerProvider {
     // 手动刷新走 Repository 的按需刷新：跳过整批去重窗口，但仍受单设备冷却约束，
     // 不会因为反复点按形成请求洪峰。
     try {
-      await _repository.refreshIfStale(maxAge: Duration.zero);
+      await _repository.refreshIfStale(
+        maxAge: Duration.zero,
+        campusId: _campusId,
+      );
     } on ChargingPileException catch (error) {
       if (_disposed) return;
       logUserFacingError(
@@ -166,7 +168,7 @@ class ChargingPileLayerProvider implements MapLayerProvider {
       await _repository.ensureCacheRestored();
       if (!_active || _disposed || generation != _activationGeneration) return;
       _emitSnapshot();
-      await _repository.refreshIfStale();
+      await _repository.refreshIfStale(campusId: _campusId);
     } catch (error) {
       if (_disposed) return;
       logUserFacingError(
@@ -197,18 +199,26 @@ class ChargingPileLayerProvider implements MapLayerProvider {
 
   void _emitSnapshot() {
     final catalog = _catalog;
-    if (catalog == null || _updates.isClosed) return;
-    _updates.add(MapLayerFeatureUpdate.snapshot(_buildFeatures(catalog)));
+    final campusId = _campusId;
+    if (catalog == null || campusId == null || _updates.isClosed) return;
+    _updates.add(
+      MapLayerFeatureUpdate.snapshot(_buildFeatures(catalog, campusId)),
+    );
   }
 
-  List<MapLayerFeature> _buildFeatures(ChargingPileCatalogDocument catalog) {
-    if (catalog.campusId != _weishuiCampusId) return const <MapLayerFeature>[];
+  /// 只产出该校区自己的点位：目录里同时有渭水与校本部的桩，坐标相隔十几公里，
+  /// 混在一起会让另一校区的点全部落在视野外。
+  List<MapLayerFeature> _buildFeatures(
+    ChargingPileCatalogDocument catalog,
+    String campusId,
+  ) {
     final now = _now();
     final features = <MapLayerFeature>[];
     for (final device in catalog.mappableDevices) {
       final point = device.point;
       // 没有可靠位置的设备不编造坐标：直接不进入地图数据。
       if (point == null) continue;
+      if (device.campusId != campusId) continue;
       final state = _repository.stateFor(device.id);
       final freshness = _repository.freshnessFor(device.id);
       final area = device.area;
@@ -358,7 +368,7 @@ MapLayerDefinition chargingPileMapLayerDefinition({
     ownerAppId: chargingPileMapOwnerAppId,
     name: "共享充电桩",
     icon: Icons.ev_station_outlined,
-    campusIds: const <String>{_weishuiCampusId},
+    campusIds: chargingPileMapCampusIds,
     defaultVisible: false,
     priority: 10,
     aggregateBelowZoom: 16.2,

@@ -265,7 +265,7 @@ class _CampusLoadError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const message = '暂时无法加载校区，可以重试，或稍后在「我的」中设置。';
+    const message = '暂时无法加载校区，可以重试，或稍后在「选项」中设置。';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
