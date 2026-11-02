@@ -28,9 +28,4 @@ android/preview-key.properties
 .env*
 # Plugin-generated platform files
 android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
-ios/Flutter/Generated.xcconfig
-ios/Flutter/flutter_export_environment.sh
-ios/Flutter/ephemeral/
-ios/Runner/GeneratedPluginRegistrant.h
-ios/Runner/GeneratedPluginRegistrant.m
 .workbuddy-ai/
