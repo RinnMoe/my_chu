@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../capabilities/campus_places/campus_registry.dart';
 import '../../services/privacy_agreement_service.dart';
 import 'charging_pile_catalog_document.dart';
 import 'charging_pile_catalog_source.dart';
@@ -11,6 +12,26 @@ import 'charging_pile_catalog_source.dart';
 ///
 /// 站点新增桩位、改桩号、加分区时，**老版本 App 下一次启动就能跟上**，
 /// 不需要重新发版。任何一层失败都退回上一层，页面始终有数据可渲染。
+/// 用校区清单派生「站点分区前缀 → 本仓库校区 ID」的解析器。
+///
+/// 命中规则：前缀出现在某个校区的 display_name 或任一 alias 里。站点新增校区时，
+/// 只要它对应的校区已经在 `assets/maps/campuses.json` 里，这里就自动生效。
+ChargingPileCampusResolver chargingPileCampusResolverForRegistry(
+  Iterable<CampusEntry> campuses,
+) {
+  final entries = campuses.toList(growable: false);
+  return (String prefix) {
+    if (prefix.isEmpty) return null;
+    for (final campus in entries) {
+      if (campus.displayName.contains(prefix)) return campus.campusId;
+      for (final alias in campus.aliases) {
+        if (alias.contains(prefix)) return campus.campusId;
+      }
+    }
+    return null;
+  };
+}
+
 class ChargingPileCatalogService extends ChangeNotifier {
   factory ChargingPileCatalogService.shared() =>
       _shared ??= ChargingPileCatalogService();
@@ -47,6 +68,21 @@ class ChargingPileCatalogService extends ChangeNotifier {
   final DateTime Function() _now;
 
   ChargingPileCatalogDocument? _document;
+  Future<ChargingPileCampusResolver>? _campusResolver;
+
+  /// 用地图的校区清单派生「站点前缀 → 校区 ID」：只要分区前缀出现在某个校区的
+  /// display_name 或 aliases 里就算命中。站点新增校区时不用改客户端代码。
+  Future<ChargingPileCampusResolver> _resolver() {
+    return _campusResolver ??= () async {
+      try {
+        final registry = await CampusRegistryLoader().load();
+        return chargingPileCampusResolverForRegistry(registry.campuses);
+      } catch (_) {
+        // 清单读不出来时返回 null，交给内置表兜底。
+        return (String prefix) => null;
+      }
+    }();
+  }
   Future<ChargingPileCatalogDocument>? _loading;
   Future<void>? _refreshing;
   DateTime? _lastAttemptAt;
@@ -65,13 +101,14 @@ class ChargingPileCatalogService extends ChangeNotifier {
   }
 
   Future<ChargingPileCatalogDocument> _loadFirstSnapshot() async {
-    final cached = await _readCache();
+    final campusResolver = await _resolver();
+    final cached = await _readCache(campusResolver);
     if (cached != null) {
       _publish(cached);
       unawaited(refresh());
       return cached;
     }
-    final bundled = await _bundled.load();
+    final bundled = await _bundled.load(campusResolver: campusResolver);
     _publish(bundled.document);
     unawaited(refresh());
     return bundled.document;
@@ -107,7 +144,7 @@ class ChargingPileCatalogService extends ChangeNotifier {
     _lastAttemptAt = _now();
     try {
       if (!await _consent()) return;
-      final loaded = await _remote.load();
+      final loaded = await _remote.load(campusResolver: await _resolver());
       _failureCount = 0;
       // 指纹相同就不重写缓存、不触发重绘：绝大多数启动拉到的都是同一份。
       if (_document?.catalogVersion == loaded.document.catalogVersion) return;
@@ -120,7 +157,9 @@ class ChargingPileCatalogService extends ChangeNotifier {
     }
   }
 
-  Future<ChargingPileCatalogDocument?> _readCache() async {
+  Future<ChargingPileCatalogDocument?> _readCache(
+    ChargingPileCampusResolver campusResolver,
+  ) async {
     try {
       final preferences = await _preferences();
       final raw = preferences.getString(storageKey);
@@ -128,6 +167,7 @@ class ChargingPileCatalogService extends ChangeNotifier {
       return ChargingPileCatalogDocument.parse(
         raw,
         strictness: ChargingPileCatalogStrictness.tolerant,
+        campusResolver: campusResolver,
       );
     } on Object {
       // 缓存损坏或结构超前：丢弃并退回内置，下一次成功拉取会重写。

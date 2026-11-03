@@ -5,6 +5,9 @@ import 'package:crypto/crypto.dart';
 
 import 'charging_pile_models.dart';
 
+/// 把站点分区名的前缀（`渭水`）解析成本仓库的校区 ID；认不出返回 null。
+typedef ChargingPileCampusResolver = String? Function(String prefix);
+
 /// 目录文档解析失败的原因。上层据此区分「资源损坏」「版本过新」「单条脏数据」。
 enum ChargingPileCatalogFailure {
   /// JSON 本身无法解析。
@@ -70,24 +73,45 @@ class ChargingPileCatalogDocument {
   /// 宽容解析允许丢弃的单条脏数据比例上限；超过即整份拒绝。
   static const double _maxDroppedRatio = 0.1;
 
-  /// 站点不给校区字段时的兜底校区。
+  /// 目录为空、需要一个「随便哪个校区」时的兜底。
   static const String defaultCampusId = 'weishui';
 
-  /// 站点 `location` 前缀 → 本仓库校区 ID（对齐 `assets/maps/campuses.json`）。
+  /// 认不出校区的分区用它标记：这类设备进列表但不落图，绝不硬塞到某个校区底图上。
+  static const String unknownCampusId = '';
+
+  /// 内置兜底表：站点 `location` 前缀 → 本仓库校区 ID。
   ///
-  /// 源站把多个校区的桩放在同一份目录里，只靠分区名区分；地图是按校区加载的，
-  /// 所以这里按前缀派生。新增校区时补一行即可。
+  /// 正常路径是 [parse] 的 `campusResolver`，由校区清单（`assets/maps/campuses.json`
+  /// 的 display_name 与 aliases）动态匹配，站点新增校区时不用改代码。这张表只在
+  /// 清单读不出来时兜底。
   static const Map<String, String> campusByLocationPrefix = <String, String>{
-    '渭水-': 'weishui',
-    '北院-': 'beiyuan',
+    '渭水': 'weishui',
+    '北院': 'beiyuan',
+    '雁塔': 'yanta',
+    '小寨': 'xiaozhai',
   };
 
-  /// 由站点分区全名派生校区 ID；认不出的前缀落到 [defaultCampusId]。
-  static String campusIdFor(String location) {
-    for (final entry in campusByLocationPrefix.entries) {
-      if (location.startsWith(entry.key)) return entry.value;
-    }
-    return defaultCampusId;
+  /// 由站点分区全名（`渭水-北门`）派生校区 ID。
+  ///
+  /// 先问 [resolver]（通常是校区清单派生的匹配器），再退回内置表；都认不出时返回
+  /// [unknownCampusId]。**不能**回落到 [defaultCampusId]：那会把雁塔的桩画到渭水
+  /// 校区的底图上，比不显示更糟。
+  static String campusIdFor(
+    String location, {
+    ChargingPileCampusResolver? resolver,
+  }) {
+    final prefix = _prefixOf(location);
+    if (prefix.isEmpty) return unknownCampusId;
+    final resolved = resolver?.call(prefix);
+    if (resolved != null && resolved.isNotEmpty) return resolved;
+    return campusByLocationPrefix[prefix] ?? unknownCampusId;
+  }
+
+  /// `渭水-北门` → `渭水`。
+  static String _prefixOf(String location) {
+    final index = location.indexOf('-');
+    final prefix = (index < 0 ? location : location.substring(0, index)).trim();
+    return prefix;
   }
 
   /// 站点页脚版本（例如 `v2.67`），仅用于诊断与变更提示。
@@ -147,6 +171,7 @@ class ChargingPileCatalogDocument {
     String jsonText, {
     ChargingPileCatalogStrictness strictness =
         ChargingPileCatalogStrictness.strict,
+    ChargingPileCampusResolver? campusResolver,
   }) {
     final Object? decoded;
     try {
@@ -185,7 +210,7 @@ class ChargingPileCatalogDocument {
     final areas = <ChargingPileArea>[];
     final seenAreas = <String>{};
     for (final (index, raw) in rawAreas.indexed) {
-      final area = _parseArea(raw, '\$.areas[$index]');
+      final area = _parseArea(raw, '\$.areas[$index]', campusResolver);
       if (!seenAreas.add(area.areaId)) {
         if (strictness == ChargingPileCatalogStrictness.strict) {
           throw ChargingPileCatalogException(
@@ -305,7 +330,11 @@ class ChargingPileCatalogDocument {
     );
   }
 
-  static ChargingPileArea _parseArea(Object? raw, String path) {
+  static ChargingPileArea _parseArea(
+    Object? raw,
+    String path,
+    ChargingPileCampusResolver? campusResolver,
+  ) {
     final map = _asMap(raw, path);
     final location = _asString(map['location'], '$path.location');
     final key = _asString(map['key'], '$path.key');
@@ -320,7 +349,7 @@ class ChargingPileCatalogDocument {
       areaId: location,
       key: key ?? location,
       name: (name == null || name.isEmpty) ? location : name,
-      campusId: campusIdFor(location),
+      campusId: campusIdFor(location, resolver: campusResolver),
       statsKey: key,
     );
   }

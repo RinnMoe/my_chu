@@ -6,11 +6,11 @@
     "areas": "chd-charge/map-data.js#CHD_MAP.areas",
     "geometry": "chd-charge/map-amap.js#BM_GEO/CH_GEO/E_GEO/W_GEO/Z_GEO"
   },
-  "siteVersion": "v2.75",
-  "deviceSchema": 8,
+  "siteVersion": "v2.85",
+  "deviceSchema": 9,
   "coordSystem": "GCJ-02",
   "portsPerDevice": 4,
-  "total": 174,
+  "total": 177,
   "locationRenames": [
     [
       "物流服务中心",
@@ -20,7 +20,8 @@
   "locationAliases": [
     "渭水-物流服务中心",
     "渭水-住宅区",
-    "渭水-住宅区(校外)"
+    "渭水-住宅区(校外)",
+    "小寨-校区"
   ],
   "areas": [
     {
@@ -98,6 +99,19 @@
       "anchor": [
         108.95858,
         34.23394
+      ],
+      "precision": "schematic"
+    },
+    {
+      "key": "shuiyuan",
+      "name": "水利与环境学院",
+      "location": "雁塔-水利与环境学院",
+      "count": 3,
+      "layout": "line",
+      "src": "zm",
+      "anchor": [
+        108.958557,
+        34.225289
       ],
       "precision": "schematic"
     }
@@ -2189,6 +2203,42 @@
       "ports": 4,
       "lng": 108.95898,
       "lat": 34.234153,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLA29643",
+      "code": "Y-01",
+      "name": "雁塔 Y-01 号桩",
+      "area": "shuiyuan",
+      "location": "雁塔-水利与环境学院",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.958558,
+      "lat": 34.225242,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLA32300",
+      "code": "Y-02",
+      "name": "雁塔 Y-02 号桩",
+      "area": "shuiyuan",
+      "location": "雁塔-水利与环境学院",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.958558,
+      "lat": 34.225288,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLA29734",
+      "code": "Y-03",
+      "name": "雁塔 Y-03 号桩",
+      "area": "shuiyuan",
+      "location": "雁塔-水利与环境学院",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.958558,
+      "lat": 34.225335,
       "precision": "schematic"
     }
   ]

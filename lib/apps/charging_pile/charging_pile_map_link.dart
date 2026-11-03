@@ -15,8 +15,16 @@ const String chargingPileLayerId = "charging.piles";
 /// 所属业务应用 ID。
 const String chargingPileMapOwnerAppId = "feature.charging.pile";
 
-/// 充电桩图层覆盖的校区（源站当前只在这两个校区有点位）。
-const Set<String> chargingPileMapCampusIds = {"weishui", "beiyuan"};
+/// 充电桩图层覆盖的校区：应用认识的四个校区。
+///
+/// 源站会陆续接入新校区，分区到校区的归属由目录解析时的校区清单匹配决定，
+/// 这里给全集，避免新增校区后图层在对应地图上直接不出现。
+const Set<String> chargingPileMapCampusIds = {
+  "weishui",
+  "beiyuan",
+  "yanta",
+  "xiaozhai",
+};
 
 /// 打开校园地图、切到该设备所属校区、显示充电桩图层并聚焦该设备。
 Future<MapLayerOpenResult> openChargingPileOnMap(

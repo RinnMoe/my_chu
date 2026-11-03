@@ -8,10 +8,10 @@ import '../../capabilities/campus_map/campus_map_capability.dart';
 import '../../capabilities/campus_places/campus_registry.dart';
 import 'charging_pile_map_link.dart';
 import 'charging_pile_models.dart';
-import 'charging_pile_scan.dart';
 import 'charging_pile_service.dart';
 import 'charging_pile_stats.dart';
 import 'charging_pile_widgets.dart';
+import 'charging_pile_area_picker.dart';
 import 'charging_pile_credits.dart';
 
 enum _PileSort {
@@ -200,6 +200,8 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     setState(() {
       // An unmapped location keeps "all areas" so its card is not filtered away.
       _area = area == ChargingPileArea.unknown ? null : area;
+      // 校区跟着设备走，否则从校本部的设备跳进来会被当前校区过滤掉。
+      if (area.campusId.isNotEmpty) _campusId = area.campusId;
       _highlighted = deviceId;
     });
     await _revealDevice(device);
@@ -270,12 +272,20 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     return areas.where((area) => area.campusId == campusId).toList();
   }
 
-  void _selectCampus(String campusId) {
-    if (campusId == _activeCampusId) return;
+  /// 打开统一的校区/分区面板：选中的项同时决定校区与分区。
+  Future<void> _openAreaPicker() async {
+    final selection = await showChargingPileAreaPicker(
+      context,
+      areas: _repository.loadAreas(),
+      activeCampusId: _activeCampusId,
+      activeArea: _area,
+      campusLabel: _campusLabel,
+    );
+    if (!mounted || selection == null) return;
+    if (selection.campusId == _activeCampusId && selection.area == _area) return;
     setState(() {
-      _campusId = campusId;
-      // 分区属于校区，切校区后原来的分区不再适用。
-      _area = null;
+      _campusId = selection.campusId;
+      _area = selection.area;
     });
   }
 
@@ -342,17 +352,6 @@ class _ChargingPilePageState extends State<ChargingPilePage>
         );
       }
     }
-  }
-
-  void _selectArea(String value) {
-    final area =
-        value == 'all'
-            ? null
-            : _repository.loadAreas().singleWhere(
-              (area) => area.areaId == value,
-            );
-    if (area == _area) return;
-    setState(() => _area = area);
   }
 
   /// 排序与「只看空闲」共用的排序键：未知 -1、已满 0、空闲为插座数。
@@ -513,17 +512,6 @@ class _ChargingPilePageState extends State<ChargingPilePage>
         title: const Text('空闲充电桩'),
         actions: [
           IconButton(
-            tooltip: '扫码采设备号',
-            icon: const Icon(Icons.qr_code_scanner),
-            onPressed: () => showChargingPileScan(
-              context,
-              knownDeviceIds: {
-                for (final device in _repository.loadCatalog())
-                  device.id.toUpperCase(),
-              },
-            ),
-          ),
-          IconButton(
             tooltip: '一周回顾',
             icon: const Icon(Icons.insights_outlined),
             onPressed: () => showChargingPileStats(
@@ -564,88 +552,26 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                           children: [
                             Row(
                               children: [
-                                PopupMenuButton<String>(
-                                  tooltip: '切换校区',
-                                  initialValue: _activeCampusId,
-                                  onSelected: _selectCampus,
-                                  itemBuilder:
-                                      (context) => [
-                                        for (final id in _repository
-                                            .loadAreas()
-                                            .map((area) => area.campusId)
-                                            .toSet())
-                                          CheckedPopupMenuItem(
-                                            value: id,
-                                            checked: id == _activeCampusId,
-                                            child: Text(_campusLabel(id)),
-                                          ),
-                                      ],
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      minHeight: 48,
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(
-                                        left: 4,
-                                        right: 8,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            _campusLabel(_activeCampusId),
-                                            style: theme.textTheme.titleSmall
-                                                ?.copyWith(
-                                                  color:
-                                                      theme.colorScheme.primary,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                          ),
-                                          const Icon(
-                                            Icons.arrow_drop_down,
-                                            size: 20,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
                                 Expanded(
-                                  child: PopupMenuButton<String>(
-                                    tooltip: '选择分区',
-                                    initialValue: _area?.areaId ?? 'all',
-                                    onSelected: _selectArea,
-                                    itemBuilder:
-                                        (context) => [
-                                          CheckedPopupMenuItem(
-                                            value: 'all',
-                                            checked: _area == null,
-                                            child: const Text('全部分区'),
-                                          ),
-                                          ..._campusAreas.map(
-                                            (area) => CheckedPopupMenuItem(
-                                              value: area.areaId,
-                                              checked: _area == area,
-                                              child: Text(area.label),
-                                            ),
-                                          ),
-                                        ],
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: _openAreaPicker,
                                     child: ConstrainedBox(
                                       constraints: const BoxConstraints(
                                         minHeight: 48,
                                       ),
                                       child: Padding(
                                         padding: const EdgeInsets.symmetric(
-                                          vertical: 8,
+                                          horizontal: 4,
                                         ),
                                         child: Row(
                                           children: [
+                                            // 只显示分区名：校区已经在面板的胶囊里，
+                                            // 头部再复述一遍会让这一行读起来像两段信息。
                                             Flexible(
                                               child: Text(
                                                 _area?.label ?? '全部分区',
-                                                style: theme
-                                                    .textTheme
+                                                style: theme.textTheme
                                                     .titleMedium
                                                     ?.copyWith(
                                                       fontWeight:

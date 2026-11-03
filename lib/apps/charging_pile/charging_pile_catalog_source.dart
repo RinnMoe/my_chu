@@ -27,7 +27,11 @@ abstract class ChargingPileCatalogSource {
   /// 诊断用的来源标签（不进 UI 正文）。
   String get label;
 
-  Future<ChargingPileCatalogSnapshot> load();
+  /// [campusResolver] 用来把站点分区前缀映射到本仓库校区，见
+  /// [ChargingPileCatalogDocument.campusIdFor]。
+  Future<ChargingPileCatalogSnapshot> load({
+    ChargingPileCampusResolver? campusResolver,
+  });
 
   void close();
 }
@@ -43,10 +47,15 @@ class BundledChargingPileCatalogSource implements ChargingPileCatalogSource {
   String get label => 'bundled';
 
   @override
-  Future<ChargingPileCatalogSnapshot> load() async {
+  Future<ChargingPileCatalogSnapshot> load({
+    ChargingPileCampusResolver? campusResolver,
+  }) async {
     final text = await _bundle.loadString(ChargingPileCatalogDocument.assetPath);
     return ChargingPileCatalogSnapshot(
-      document: ChargingPileCatalogDocument.parse(text),
+      document: ChargingPileCatalogDocument.parse(
+        text,
+        campusResolver: campusResolver,
+      ),
       rawText: text,
     );
   }
@@ -80,7 +89,9 @@ class RemoteChargingPileCatalogSource implements ChargingPileCatalogSource {
   String get label => 'remote';
 
   @override
-  Future<ChargingPileCatalogSnapshot> load() async {
+  Future<ChargingPileCatalogSnapshot> load({
+    ChargingPileCampusResolver? campusResolver,
+  }) async {
     final response = await _http.get(_uri, timeout: timeout);
     if (response.statusCode != 200) {
       throw ChargingPileCatalogException(
@@ -103,6 +114,7 @@ class RemoteChargingPileCatalogSource implements ChargingPileCatalogSource {
       document: ChargingPileCatalogDocument.parse(
         text,
         strictness: ChargingPileCatalogStrictness.tolerant,
+        campusResolver: campusResolver,
       ),
       rawText: text,
     );
