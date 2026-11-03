@@ -16,6 +16,7 @@ import "../indoor_map.dart";
 import "../layers/layers.dart";
 import "mapbox_campus_map_view.dart";
 import "mapbox_layer_panel.dart";
+import "mapbox_lazy_loader.dart";
 import "mapbox_map_engine.dart";
 import "mapbox_offline_cache.dart";
 
@@ -84,6 +85,7 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
   String? _offlineCacheIdentity;
   String? _campusIdForLayers;
   Future<void>? _layerCampusSync;
+  bool _mapboxReady = false;
 
   @override
   void initState() {
@@ -128,7 +130,30 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
       );
     };
     _controller.addListener(_onState);
+    unawaited(_ensureMapbox());
     unawaited(_initializeController());
+  }
+
+  /// 地图页首次构建时才注册 Mapbox 插件，冷启动不再初始化原生 SDK。
+  Future<void> _ensureMapbox() async {
+    try {
+      await MapboxLazyLoader.ensureLoaded();
+    } catch (error) {
+      // 注册失败交给 MapWidget 的错误视图处理，不阻塞页面其余部分。
+      debugPrint("Mapbox plugin registration failed: ${error.runtimeType}");
+    }
+    if (!mounted) return;
+    setState(() => _mapboxReady = true);
+  }
+
+  Widget _buildMapView(BuildContext context) {
+    if (!_mapboxReady) {
+      return ColoredBox(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    return MapboxCampusMapView(engine: _engine);
   }
 
   Future<void> _initializeController() async {
@@ -574,7 +599,7 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
             Expanded(
               child:
                   mapReady
-                      ? MapboxCampusMapView(engine: _engine)
+                      ? _buildMapView(context)
                       : _StatusView(status: status),
             ),
           ],
@@ -693,7 +718,7 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
                   mapReady
                       ? KeyedSubtree(
                         key: const ValueKey('tablet-map-canvas'),
-                        child: MapboxCampusMapView(engine: _engine),
+                        child: _buildMapView(context),
                       )
                       : _StatusView(status: status),
             ),

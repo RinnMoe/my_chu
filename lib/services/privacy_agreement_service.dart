@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'privacy_policy_document.dart';
@@ -25,6 +26,15 @@ class PrivacyAgreementService {
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
   static const recordKey = 'privacy.agreement.acceptance';
+  static const String policyCheckedAtKey = 'privacy.agreement.checked_at';
+
+  /// 后台索引检查的节流窗口；冷启动不再同步等待协议源。
+  static const Duration policyRefreshTtl = Duration(hours: 24);
+
+  /// 测试注入的随包正文替身；为 null 时读取 `privacy/` 资源。
+  @visibleForTesting
+  static PrivacyPolicyDocument? debugBundledDocument;
+
   static int _requiredVersion = currentVersion;
 
   /// Local only. A cached document can never create acceptance.
@@ -71,26 +81,76 @@ class PrivacyAgreementService {
   static Future<bool> isAccepted() async =>
       await acceptedVersion() >= _requiredVersion;
 
-  /// Returns the exact snapshot requiring confirmation, or null to continue.
-  /// Call once per cold start; retries are explicit user actions.
-  static Future<PrivacyPolicyDocument?> prepareStartup() async {
-    _requiredVersion = currentVersion;
-    final accepted = await acceptedVersion();
-    PrivacyPolicyDocument? document;
+  /// 本地启动检查：只读本地已接受版本与随包/缓存正文，绝不联网，也不抛错。
+  ///
+  /// 返回需要用户确认的协议快照；返回 null 表示本地同意已覆盖当前版本，
+  /// 或本地暂时没有可用正文（此时启动继续，受保护动作仍由 [isAccepted] 拦截）。
+  static Future<PrivacyPolicyDocument?> prepareStartupLocal() async {
     try {
-      document = await PrivacyPolicyRepository.instance.refresh(
+      _requiredVersion = currentVersion;
+      final accepted = await acceptedVersion();
+      final document = await _loadLocalDocument();
+      if (document == null) return null;
+      if (document.version <= accepted) return null;
+      _requiredVersion = document.version;
+      return document;
+    } catch (_) {
+      // 本地状态损坏也不能阻断启动；受保护动作仍由 isAccepted 拦截。
+      return null;
+    }
+  }
+
+  /// 后台刷新协议索引；每次冷启动至多一次，失败静默返回 null。
+  ///
+  /// 只把“发现更高版本”当作结果；网络失败、回退或同版变更都不影响启动。
+  static Future<PrivacyPolicyDocument?> refreshInBackground({
+    bool force = false,
+    Duration ttl = policyRefreshTtl,
+  }) async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final last = preferences.getInt(policyCheckedAtKey) ?? 0;
+      if (!force && now - last < ttl.inMilliseconds) return null;
+      final accepted = await acceptedVersion();
+      final document = await PrivacyPolicyRepository.instance.refresh(
         acceptedVersion: accepted,
         acceptedHash: await acceptedHash(),
       );
+      await preferences.setInt(policyCheckedAtKey, now);
+      if (document.version <= accepted) return null;
+      _requiredVersion = document.version;
+      return document;
     } catch (_) {
-      if (accepted >= currentVersion) return null;
-      final cached = await PrivacyPolicyRepository.instance.cached();
-      if (cached.isNotEmpty) document = cached.first;
+      // 启动不因协议源不可用而失败；下一次冷启动或前台再试。
+      return null;
     }
-    if (document == null) throw StateError('Policy unavailable');
-    if (document.version <= accepted) return null;
-    _requiredVersion = document.version;
-    return document;
+  }
+
+  /// 本地可用的协议正文：优先随包资源，其次上次下载的缓存。
+  static Future<PrivacyPolicyDocument?> _loadLocalDocument() async {
+    final injected = debugBundledDocument;
+    if (injected != null) return injected;
+    try {
+      final index =
+          jsonDecode(await rootBundle.loadString('privacy/latest.json'))
+              as Map<String, dynamic>;
+      final path = index['path'];
+      final hash = index['sha256'];
+      if (index['schemaVersion'] != 1 || path is! String || hash is! String) {
+        throw const FormatException('Invalid bundled policy index');
+      }
+      final body = await rootBundle.loadString('privacy/$path');
+      return PrivacyPolicyDocument.decode(body, expectedHash: hash);
+    } catch (_) {
+      // 随包资源缺失或损坏时回退到已下载缓存。
+    }
+    try {
+      final cached = await PrivacyPolicyRepository.instance.cached();
+      return cached.isEmpty ? null : cached.first;
+    } catch (_) {
+      return null;
+    }
   }
 
   static Future<void> accept(PrivacyPolicyDocument document) async {
@@ -135,7 +195,10 @@ class PrivacyAgreementService {
   }
 
   @visibleForTesting
-  static void resetForTest() => _requiredVersion = currentVersion;
+  static void resetForTest() {
+    _requiredVersion = currentVersion;
+    debugBundledDocument = null;
+  }
 
   static Future<void> _migrateLegacyV7(SharedPreferences preferences) async {
     if (preferences.getBool(_legacyMigrationKey) == true) return;

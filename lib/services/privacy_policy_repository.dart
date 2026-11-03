@@ -132,6 +132,12 @@ class PrivacyPolicyRepository {
             previous.any((d) => d.version == version && d.hash != hash)) {
           throw const FormatException('Policy version rollback or mutation');
         }
+        for (final local in previous) {
+          if (local.version == version && local.hash == hash) {
+            // 索引与本地已校验正文一致：跳过正文下载，避免每次冷启动重复拉取。
+            return local;
+          }
+        }
         final body = await read(
           root.resolve('versions/$version.json'),
           expectedHash: hash,

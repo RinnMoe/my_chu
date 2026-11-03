@@ -69,6 +69,9 @@ flutter:
     - assets/images/feedback_wechat_qr.jpg
     - assets/splash/campus_building.png
     - assets/splash/campus_building_splash.png
+    # 随包协议索引与正文：首次安装或断网时本地展示，云端只负责发现更新。
+    - privacy/latest.json
+    - privacy/versions/
     # SDK-independent campus semantics used for first install and offline
     # startup. Mapbox owns basemap/style/tile/glyph/sprite resources.
     - assets/maps/campuses.json

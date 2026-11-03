@@ -333,94 +333,64 @@ class _AppShellState extends State<AppShell> {
 
   Future<void> _refresh() async {
     final generation = ++_restoreGeneration;
-    if (!await _requirePrivacyAgreement(generation)) return;
+    if (!await _requireLocalPrivacyAgreement(generation)) return;
     await HostAuthCoordinator.initialize();
     if (!mounted || generation != _restoreGeneration) return;
     setState(() => _ready = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && generation == _restoreGeneration) {
-        unawaited(HostAuthCoordinator.check());
-      }
+      if (!mounted || generation != _restoreGeneration) return;
+      unawaited(UsageAnalyticsService.initializeIfEnabled());
+      // 协议索引检查与身份探测都放到首帧之后，启动不再等待任何网络。
+      unawaited(_refreshPrivacyPolicy(generation));
+      unawaited(HostAuthCoordinator.check());
     });
   }
 
-  /// The basic privacy agreement precedes login, Main, analytics, and sessions.
-  Future<bool> _requirePrivacyAgreement(int generation) async {
+  /// 启动只做本地协议判定：随包/缓存正文加本地同意记录，不等待网络。
+  ///
+  /// 协议源不可用或本地正文损坏都不再阻断启动；受保护动作仍由
+  /// [PrivacyAgreementService.isAccepted] 与各会话层门禁拦截。
+  Future<bool> _requireLocalPrivacyAgreement(int generation) async {
     if (!mounted || generation != _restoreGeneration) return false;
     try {
-      final document = await PrivacyAgreementService.prepareStartup();
-      if (document != null) {
-        final acceptedVersion = await PrivacyAgreementService.acceptedVersion();
-        if (!mounted || generation != _restoreGeneration) return false;
-        final decision = await presentPrivacyAgreement(
-          context,
-          document,
-          isUpdate: acceptedVersion > 0,
-        );
-        if (decision != PrivacyAgreementDecision.accepted) {
-          await SystemNavigator.pop();
-          return false;
-        }
-        await PrivacyAgreementService.accept(document);
-      }
+      final document = await PrivacyAgreementService.prepareStartupLocal();
+      if (document == null) return true;
       if (!mounted || generation != _restoreGeneration) return false;
-      unawaited(UsageAnalyticsService.initializeIfEnabled());
+      final acceptedVersion = await PrivacyAgreementService.acceptedVersion();
+      if (!mounted || generation != _restoreGeneration) return false;
+      final decision = await presentPrivacyAgreement(
+        context,
+        document,
+        isUpdate: acceptedVersion > 0,
+      );
+      if (decision != PrivacyAgreementDecision.accepted) {
+        await SystemNavigator.pop();
+        return false;
+      }
+      await PrivacyAgreementService.accept(document);
       return true;
     } catch (error) {
-      AppLogger.warn('隐私协议流程失败 (${error.runtimeType})');
-      if (mounted && generation == _restoreGeneration) {
-        setState(() {
-          _ready = false;
-        });
-        _showAgreementRetry();
-      }
-      return false;
+      AppLogger.warn('隐私协议本地判定失败 (${error.runtimeType})');
+      return true;
     }
   }
 
-  void _showAgreementRetry() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      void retry() {
-        unawaited(_refresh());
-      }
-
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      if (messenger == null) {
-        unawaited(
-          showDialog<void>(
-            context: context,
-            builder:
-                (dialogContext) => AlertDialog(
-                  title: const Text('暂时无法继续'),
-                  content: const Text('无法加载用户协议，请检查网络后重试。'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      child: const Text('稍后'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(dialogContext).pop();
-                        retry();
-                      },
-                      child: const Text('重试'),
-                    ),
-                  ],
-                ),
-          ),
-        );
-      } else {
-        messenger
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: const Text('无法加载用户协议，请检查网络后重试。'),
-              action: SnackBarAction(label: '重试', onPressed: retry),
-            ),
-          );
-      }
-    });
+  /// 首帧后后台检查协议索引；只有发现更高版本才弹出确认。
+  Future<void> _refreshPrivacyPolicy(int generation) async {
+    final document = await PrivacyAgreementService.refreshInBackground();
+    if (document == null || !mounted || generation != _restoreGeneration) {
+      return;
+    }
+    final decision = await presentPrivacyAgreement(
+      context,
+      document,
+      isUpdate: true,
+    );
+    if (decision == PrivacyAgreementDecision.accepted) {
+      await PrivacyAgreementService.accept(document);
+    } else {
+      await SystemNavigator.pop();
+    }
   }
 
   @override
@@ -463,6 +433,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Future<void>? _resumeSessionCheck;
   bool _wasBackgrounded = false;
   Timer? _featurePolicyTimer;
+  Timer? _deferredBackgroundTimer;
+  Timer? _updateCheckTimer;
+  Timer? _reminderRefreshTimer;
   bool _rollcallRefreshPending = false;
   final GuidePreferences _guidePreferences = GuidePreferences();
 
@@ -484,9 +457,25 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     unawaited(AppLaunchService.initialize());
     _reloadTabs();
     _handleAppLaunch();
-    _syncDesktopWidgetSnapshot();
-    // Published safety policies are loaded after the agreement gate (MainScreen
-    // only exists then) and refreshed in the background.
+    // 普通更新进入“选项”栏目，只有强制升级弹窗；公告仍由首页 Focus 加载。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      TronclassRollcallStore.instance.start();
+      _syncDesktopWidgetSnapshot();
+      _deferredBackgroundTimer = Timer(
+        const Duration(milliseconds: 800),
+        _startDeferredBackgroundWork,
+      );
+      unawaited(_requestStartupPermissions());
+    });
+  }
+
+  /// 首帧后错峰启动后台任务，避免与首页数据争用网络与主线程。
+  void _startDeferredBackgroundWork() {
+    if (!mounted) return;
+    unawaited(RecentScheduleRepository.instance.refresh(force: false));
+    // Published safety policies are loaded after the first frame and refreshed
+    // in the background; the delayed start keeps tab discovery off the cold path.
     unawaited(RemoteFeaturePolicyService.instance.start());
     final policyInterval =
         RemoteFeaturePolicyService.instance.config.refreshInterval;
@@ -497,33 +486,28 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         (_) => unawaited(RemoteFeaturePolicyService.instance.refresh()),
       );
     }
-    // 普通更新进入“选项”栏目，只有强制升级弹窗；公告仍由首页 Focus 加载。
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) TronclassRollcallStore.instance.start();
-      if (mounted) {
-        unawaited(RecentScheduleRepository.instance.refresh(force: false));
-      }
-      if (mounted) unawaited(_runStartupChecksAndRequestHomePermissions());
-    });
   }
 
-  Future<void> _runStartupChecksAndRequestHomePermissions() async {
-    await _runStartupChecks();
+  Future<void> _requestStartupPermissions() async {
     if (!mounted) return;
     await hostPermissionService.requestInitialHomePermissions(
       presentPurpose:
           (purpose) => presentHostPermissionPurpose(context, purpose),
     );
     await _requestTimeReminderPermissions();
-    if (mounted) {
-      setState(() => _startupReady = true);
-      _handleAppLaunch();
-      // The first reconciliation is deliberately scheduled after the primary
-      // UI and its startup permission flow are usable. It only reads the
-      // host-owned, account-scoped data contract.
-      unawaited(TimeReminderService.refreshAll());
-      unawaited(CourseLiveActivityService.refreshForCurrentAccount());
-    }
+    if (!mounted) return;
+    setState(() => _startupReady = true);
+    _handleAppLaunch();
+    // 首页内容优先：更新检查与提醒重算都延后到首屏稳定之后。
+    _updateCheckTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) unawaited(presentAppUpdateCheck(context, forceRefresh: false));
+    });
+    _reminderRefreshTimer = Timer(const Duration(seconds: 2), () async {
+      if (!mounted) return;
+      await TimeReminderService.refreshAll();
+      if (!mounted) return;
+      await CourseLiveActivityService.refreshForCurrentAccount();
+    });
   }
 
   bool _requestingReminderPermissions = false;
@@ -614,10 +598,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _runStartupChecks() async {
-    await presentAppUpdateCheck(context, forceRefresh: true);
-  }
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -625,6 +605,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     HostAuthState.snapshot.removeListener(_onAuthSnapshotChanged);
     appCatalogNotifier.removeListener(_reloadTabs);
     _featurePolicyTimer?.cancel();
+    _deferredBackgroundTimer?.cancel();
+    _updateCheckTimer?.cancel();
+    _reminderRefreshTimer?.cancel();
     RemoteFeaturePolicyService.instance.revision.removeListener(_reloadTabs);
     AppLaunchService.revision.removeListener(_handleAppLaunch);
     RootNavigationService.revision.removeListener(_handleRootNavigationRequest);

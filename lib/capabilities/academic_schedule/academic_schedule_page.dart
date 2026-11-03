@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
 import 'package:mychu/widgets/dual_pane_placeholder.dart';
@@ -993,102 +994,13 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
       icon: Icons.calendar_month_outlined,
       builder: (_) => _buildBody(context),
     );
-    late final Widget page;
-    {
-      page = Scaffold(
-        appBar: AppBar(
-          centerTitle: false,
-          title: _buildAppBarTitle(context),
-          actions: [
-            if (_academicBackend == AcademicAffairsBackend.undergraduate)
-              Center(child: _buildScopeSelector(context)),
-            if (_refreshing)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Center(
-                  child: SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              )
-            else
-              SizedBox(
-                key: _scheduleOptionsKey,
-                child: PopupMenuButton<String>(
-                  tooltip: '课表选项',
-                  icon: const Icon(Icons.more_vert),
-                  onSelected: (value) {
-                    if (value == 'currentWeek') {
-                      _returnToCurrentWeek();
-                    } else if (value == 'showNonCurrent') {
-                      _toggleShowNonCurrent();
-                    } else if (value == 'hideWeekend') {
-                      _toggleHideWeekend();
-                    } else if (value == 'refresh') {
-                      unawaited(_refreshSchedule());
-                    } else if (value == 'export') {
-                      unawaited(_showExportMenu());
-                    } else if (value == 'addCourse') {
-                      unawaited(_openCourseEditor());
-                    } else if (value == 'restoreOriginal') {
-                      unawaited(_restoreOriginalSchedule());
-                    }
-                  },
-                  itemBuilder:
-                      (context) => [
-                        PopupMenuItem<String>(
-                          value: 'currentWeek',
-                          enabled: _currentPageIndex != null,
-                          child: const Text('返回当前周'),
-                        ),
-                        const PopupMenuDivider(),
-                        CheckedPopupMenuItem<String>(
-                          value: 'showNonCurrent',
-                          checked: _effectiveNonCurrent,
-                          child: const Text('显示非本周课程'),
-                        ),
-                        CheckedPopupMenuItem<String>(
-                          value: 'hideWeekend',
-                          checked: _visibleWeekdays.length == 5,
-                          child: const Text('不显示周末'),
-                        ),
-                        const PopupMenuDivider(),
-                        const PopupMenuItem<String>(
-                          value: 'export',
-                          child: Text('导出'),
-                        ),
-                        if (_scope == AcademicScheduleScope.personal)
-                          const PopupMenuItem<String>(
-                            value: 'addCourse',
-                            child: Text('添加课程'),
-                          ),
-                        if (_scope == AcademicScheduleScope.personal)
-                          const PopupMenuItem<String>(
-                            value: 'restoreOriginal',
-                            child: Text('恢复原始课表'),
-                          ),
-                        PopupMenuItem<String>(
-                          value: 'refresh',
-                          child: Text(
-                            _scope ==
-                                    AcademicScheduleScope.administrativeClass
-                                ? '重新获取班级课表'
-                                : '重新获取课程',
-                          ),
-                        ),
-                      ],
-                ),
-              ),
-          ],
-        ),
-        body: _appearanceBody(context, body),
-      );
-    }
-    return page;
+    return _appearancePage(context, body);
   }
 
-  Widget _appearanceBody(BuildContext context, Widget body) {
+  /// Paints the canvas and the optional background image behind the whole page
+  /// so a photo continues through the title bar instead of meeting a solid
+  /// app bar at a hard edge.
+  Widget _appearancePage(BuildContext context, Widget body) {
     final theme = Theme.of(context);
     final canvas = _appearance.canvas(theme.colorScheme);
     final custom =
@@ -1100,30 +1012,145 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
       theme.brightness == Brightness.dark,
     );
     final foreground = axis ?? readableScheduleForeground(canvas);
+    final image = _appearance.backgroundImage(
+      theme.brightness == Brightness.dark,
+    );
+    final hasImage = image != null;
+    final pageTheme =
+        custom == null && axis == null
+            ? theme
+            : theme.copyWith(
+              colorScheme: theme.colorScheme.copyWith(
+                surface: canvas,
+                onSurface: foreground,
+                onSurfaceVariant: foreground,
+              ),
+              textTheme: theme.textTheme.apply(
+                bodyColor: foreground,
+                displayColor: foreground,
+              ),
+              iconTheme: theme.iconTheme.copyWith(color: foreground),
+            );
     return AcademicScheduleAppearanceScope(
       appearance: _appearance,
       child: Theme(
-        data:
-            custom == null && axis == null
-                ? theme
-                : theme.copyWith(
-                  colorScheme: theme.colorScheme.copyWith(
-                    surface: canvas,
-                    onSurface: foreground,
-                    onSurfaceVariant: foreground,
-                  ),
-                  textTheme: theme.textTheme.apply(
-                    bodyColor: foreground,
-                    displayColor: foreground,
-                  ),
-                  iconTheme: theme.iconTheme.copyWith(color: foreground),
-                ),
+        data: pageTheme,
         child: AcademicScheduleBackground(
           color: canvas,
-          image: _appearance.backgroundImage(
-            theme.brightness == Brightness.dark,
+          image: image,
+          child: Builder(
+            builder:
+                (context) => Scaffold(
+                  backgroundColor: hasImage ? Colors.transparent : canvas,
+                  appBar: AppBar(
+                    centerTitle: false,
+                    backgroundColor: hasImage ? Colors.transparent : canvas,
+                    surfaceTintColor: hasImage ? Colors.transparent : null,
+                    elevation: hasImage ? 0 : null,
+                    scrolledUnderElevation: hasImage ? 0 : null,
+                    systemOverlayStyle:
+                        hasImage
+                            ? SystemUiOverlayStyle(
+                              statusBarColor: Colors.transparent,
+                              statusBarIconBrightness:
+                                  foreground.computeLuminance() > .5
+                                      ? Brightness.light
+                                      : Brightness.dark,
+                            )
+                            : null,
+                    flexibleSpace:
+                        hasImage
+                            ? AcademicScheduleHeaderFade(color: canvas)
+                            : null,
+                    title: _buildAppBarTitle(context),
+                    actions: [
+                      if (_academicBackend ==
+                          AcademicAffairsBackend.undergraduate)
+                        Center(child: _buildScopeSelector(context)),
+                      if (_refreshing)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: Center(
+                            child: SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          key: _scheduleOptionsKey,
+                          child: PopupMenuButton<String>(
+                            tooltip: '课表选项',
+                            icon: const Icon(Icons.more_vert),
+                            onSelected: (value) {
+                              if (value == 'currentWeek') {
+                                _returnToCurrentWeek();
+                              } else if (value == 'showNonCurrent') {
+                                _toggleShowNonCurrent();
+                              } else if (value == 'hideWeekend') {
+                                _toggleHideWeekend();
+                              } else if (value == 'refresh') {
+                                unawaited(_refreshSchedule());
+                              } else if (value == 'export') {
+                                unawaited(_showExportMenu());
+                              } else if (value == 'addCourse') {
+                                unawaited(_openCourseEditor());
+                              } else if (value == 'restoreOriginal') {
+                                unawaited(_restoreOriginalSchedule());
+                              }
+                            },
+                            itemBuilder:
+                                (context) => [
+                                  PopupMenuItem<String>(
+                                    value: 'currentWeek',
+                                    enabled: _currentPageIndex != null,
+                                    child: const Text('返回当前周'),
+                                  ),
+                                  const PopupMenuDivider(),
+                                  CheckedPopupMenuItem<String>(
+                                    value: 'showNonCurrent',
+                                    checked: _effectiveNonCurrent,
+                                    child: const Text('显示非本周课程'),
+                                  ),
+                                  CheckedPopupMenuItem<String>(
+                                    value: 'hideWeekend',
+                                    checked: _visibleWeekdays.length == 5,
+                                    child: const Text('不显示周末'),
+                                  ),
+                                  const PopupMenuDivider(),
+                                  const PopupMenuItem<String>(
+                                    value: 'export',
+                                    child: Text('导出'),
+                                  ),
+                                  if (_scope == AcademicScheduleScope.personal)
+                                    const PopupMenuItem<String>(
+                                      value: 'addCourse',
+                                      child: Text('添加课程'),
+                                    ),
+                                  if (_scope == AcademicScheduleScope.personal)
+                                    const PopupMenuItem<String>(
+                                      value: 'restoreOriginal',
+                                      child: Text('恢复原始课表'),
+                                    ),
+                                  PopupMenuItem<String>(
+                                    value: 'refresh',
+                                    child: Text(
+                                      _scope ==
+                                              AcademicScheduleScope
+                                                  .administrativeClass
+                                          ? '重新获取班级课表'
+                                          : '重新获取课程',
+                                    ),
+                                  ),
+                                ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  body: body,
+                ),
           ),
-          child: body,
         ),
       ),
     );
@@ -1744,38 +1771,17 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
   }
 
   Future<void> _showWeekPicker() async {
-    final pageCount = _pageCount;
-    final selectedPage = _selectedPageIndex;
-    final currentPage = _currentPageIndex;
-
     final selected = await showModalBottomSheet<int>(
       context: context,
       showDragHandle: true,
       builder:
-          (sheetContext) => SafeArea(
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: pageCount,
-              itemBuilder: (context, index) {
-                final isAllItem = index == 0;
-                final isHolidayItem = _isHoliday && index == _holidayPageIndex;
-                final title =
-                    isAllItem
-                        ? '全部'
-                        : isHolidayItem
-                        ? '假期'
-                        : '第$index周';
-                return ListTile(
-                  title: Text(title),
-                  subtitle:
-                      index == currentPage
-                          ? Text(isHolidayItem ? '当前' : '本周')
-                          : null,
-                  trailing:
-                      index == selectedPage ? const Icon(Icons.check) : null,
-                  onTap: () => Navigator.of(sheetContext).pop(index),
-                );
-              },
+          (_) => SafeArea(
+            child: _WeekPickerSheet(
+              pageCount: _pageCount,
+              selectedPage: _selectedPageIndex,
+              currentPage: _currentPageIndex,
+              holidayPageIndex: _holidayPageIndex,
+              isHoliday: _isHoliday,
             ),
           ),
     );
@@ -2598,6 +2604,76 @@ typedef _ScheduleCellTapCallback =
       >
       mergeSources,
     });
+
+/// Week picker that opens at the week the timetable is already showing instead
+/// of always starting from the first week.
+class _WeekPickerSheet extends StatefulWidget {
+  const _WeekPickerSheet({
+    required this.pageCount,
+    required this.selectedPage,
+    required this.currentPage,
+    required this.holidayPageIndex,
+    required this.isHoliday,
+  });
+
+  final int pageCount;
+  final int selectedPage;
+  final int? currentPage;
+  final int holidayPageIndex;
+  final bool isHoliday;
+
+  @override
+  State<_WeekPickerSheet> createState() => _WeekPickerSheetState();
+}
+
+class _WeekPickerSheetState extends State<_WeekPickerSheet> {
+  final GlobalKey _selectedKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _revealSelectedPage());
+  }
+
+  /// Centers the selected page once the sheet has been laid out; scrolling is
+  /// clamped at both ends, so the first weeks stay at the top.
+  void _revealSelectedPage() {
+    final context = _selectedKey.currentContext;
+    if (!mounted || context == null) return;
+    Scrollable.ensureVisible(context, alignment: .5);
+  }
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    child: Column(
+      children: [
+        for (var index = 0; index < widget.pageCount; index++)
+          _buildWeekTile(context, index),
+      ],
+    ),
+  );
+
+  Widget _buildWeekTile(BuildContext context, int index) {
+    final isAllItem = index == 0;
+    final isHolidayItem = widget.isHoliday && index == widget.holidayPageIndex;
+    final title =
+        isAllItem
+            ? '全部'
+            : isHolidayItem
+            ? '假期'
+            : '第$index周';
+    return ListTile(
+      key: index == widget.selectedPage ? _selectedKey : null,
+      title: Text(title),
+      subtitle:
+          index == widget.currentPage
+              ? Text(isHolidayItem ? '当前' : '本周')
+              : null,
+      trailing: index == widget.selectedPage ? const Icon(Icons.check) : null,
+      onTap: () => Navigator.of(context).pop(index),
+    );
+  }
+}
 
 /// One rendered timetable view: a fixed weekday/date header on top of a
 /// vertically scrollable period grid. Horizontal paging is owned by the

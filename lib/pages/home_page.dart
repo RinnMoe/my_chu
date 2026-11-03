@@ -287,17 +287,18 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
       if (!DemoDataService.instance.enabled) {
         unawaited(_preloadPortalPersonalData());
       }
+      // 焦点、天气与教学周互不依赖：并行启动，避免教学周网络串行阻塞首屏内容。
+      unawaited(_loadHomeFocus());
+      unawaited(_loadWeather());
+      if (account != null &&
+          !PortalIdentityService.hasDisplayName(account.name)) {
+        unawaited(_refreshAccountName(account, generation));
+      }
       await _refreshTeachingWeek();
       if (!_isCurrentRequest(generation, _bootstrapGeneration) ||
           accountKey != (_account?.accountKey ?? 'anonymous')) {
         return;
       }
-      if (account != null &&
-          !PortalIdentityService.hasDisplayName(account.name)) {
-        unawaited(_refreshAccountName(account, generation));
-      }
-      unawaited(_loadHomeFocus());
-      unawaited(_loadWeather());
     } catch (error) {
       if (!_isCurrentRequest(generation, _bootstrapGeneration)) {
         return;

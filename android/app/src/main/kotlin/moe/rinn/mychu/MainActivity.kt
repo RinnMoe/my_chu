@@ -3,6 +3,7 @@ package moe.rinn.mychu
 import android.content.ContentValues
 import android.content.ActivityNotFoundException
 import android.content.ClipData
+import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -32,21 +33,29 @@ class MainActivity : FlutterActivity() {
     private val EXTERNAL_APP_LAUNCHER_CHANNEL = "mychu/external_app_launcher"
     private val APP_LAUNCH_CHANNEL = "mychu/app_launch"
     private val DESKTOP_WIDGET_CHANNEL = "mychu/desktop_widgets"
+    private val MAPBOX_LAZY_CHANNEL = "mychu/mapbox_lazy"
     private var appLaunchChannel: MethodChannel? = null
     private var pendingTargetAppId: Any? = null
     private var pendingWidgetLaunchRequest: String? = null
     private var temporalChangeChannel: TemporalChangeChannel? = null
     private var courseLiveChannel: CourseLiveActivityChannel? = null
     private var mapboxLogMessenger: MapboxLogMessenger? = null
+    private var mapboxPluginRegistered = false
     private var appUpdateChannel: AppUpdateChannel? = null
     private val desktopWidgetScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val desktopWidgetUpdateMutex = Mutex()
 
+    /**
+     * 关闭 Flutter 的自动插件注册，改由 [MyChuPluginRegistrant] 注册除 Mapbox
+     * 之外的插件。Mapbox 原生 SDK 初始化约 300 ms，改为首次打开地图时再注册。
+     */
+    override fun provideFlutterEngine(context: Context): FlutterEngine? {
+        return FlutterEngine(context, null, false)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        super.configureFlutterEngine(flutterEngine)
-        mapboxLogMessenger = MapboxLogMessenger(flutterEngine.dartExecutor.binaryMessenger).also {
-            com.mapbox.maps.mapbox_maps.LoggingController.setup(it)
-        }
+        // 不能调用 super：它会注册 GeneratedPluginRegistrant 中的全部插件（含 Mapbox）。
+        MyChuPluginRegistrant.registerWith(flutterEngine)
         appUpdateChannel?.dispose()
         appUpdateChannel = AppUpdateChannel(applicationContext, flutterEngine)
         PlatformCompatibilityChannel.register(this, flutterEngine)
@@ -111,6 +120,17 @@ class MainActivity : FlutterActivity() {
                     result.notImplemented()
                 }
             }
+        }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            MAPBOX_LAZY_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            if (call.method != "ensure") {
+                result.notImplemented()
+                return@setMethodCallHandler
+            }
+            ensureMapboxPlugin(flutterEngine)
+            result.success(true)
         }
         handleLaunchIntent(intent)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
@@ -232,6 +252,36 @@ class MainActivity : FlutterActivity() {
                 result.success(false)
             }
         }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun runMapboxStartupInitializer(name: String) {
+        try {
+            val component = Class.forName(name) as Class<androidx.startup.Initializer<Any>>
+            androidx.startup.AppInitializer.getInstance(applicationContext)
+                .initializeComponent(component)
+        } catch (error: Throwable) {
+            android.util.Log.w("MyCHU", "Mapbox initializer $name failed", error)
+        }
+    }
+
+    /**
+     * 首次打开地图时注册 Mapbox 插件并接管其日志后端。
+     * 必须运行在主线程；重复调用只注册一次。
+     */
+    private fun ensureMapboxPlugin(flutterEngine: FlutterEngine) {
+        if (mapboxPluginRegistered) return
+        mapboxPluginRegistered = true
+        // Manifest 移除了 androidx.startup 的 Mapbox initializer，这里在首次
+        // 打开地图时补做同样的初始化（依赖顺序：Common 先于 Maps）。
+        // 用反射是为了不把 Mapbox 的 initializer 变成 App 的编译期依赖。
+        runMapboxStartupInitializer("com.mapbox.common.MapboxSDKCommonInitializer")
+        runMapboxStartupInitializer("com.mapbox.maps.loader.MapboxMapsInitializer")
+        flutterEngine.plugins.add(com.mapbox.maps.mapbox_maps.MapboxMapsPlugin())
+        mapboxLogMessenger =
+            MapboxLogMessenger(flutterEngine.dartExecutor.binaryMessenger).also {
+                com.mapbox.maps.mapbox_maps.LoggingController.setup(it)
+            }
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -49,6 +49,10 @@ class AuthLifecycleService {
   @visibleForTesting
   static void Function(String accountKey)? debugWarmup;
 
+  /// 生产环境延后预热，避免和首屏 Focus 争用网络；测试在 debugReset 中清零。
+  @visibleForTesting
+  static Duration warmupDelay = const Duration(seconds: 2);
+
   /// Test seam for exercising the profile sign-out page without real host
   /// cleanup. Production callers leave this unset.
   @visibleForTesting
@@ -58,6 +62,7 @@ class AuthLifecycleService {
   static void debugReset() {
     debugWarmup = null;
     debugSignOut = null;
+    warmupDelay = Duration.zero;
   }
 
   static Future<AuthLifecycleResult> restore() => _restore(warmUp: true);
@@ -151,8 +156,19 @@ class AuthLifecycleService {
   /// Starts non-blocking account-scoped warm-up after local account restore
   /// and the privacy gate. Requests still validate and recover credentials
   /// through CampusSession when a service is actually used.
+  ///
+  /// 首屏与首页 Focus 优先：预热换票延后两秒，避免和首屏数据争用网络与
+  /// 同一服务的换票单飞槽位。测试注入的 [debugWarmup] 保持同步执行。
   static void warmUpPersistedAccount(String accountKey) {
-    _startCoreWarmup(accountKey);
+    if (debugWarmup != null || warmupDelay <= Duration.zero) {
+      _startCoreWarmup(accountKey);
+      return;
+    }
+    unawaited(
+      Future<void>.delayed(warmupDelay).then((_) {
+        _startCoreWarmup(accountKey);
+      }),
+    );
   }
 
   /// Clears platform WebView cookies before the UI enters interactive login.

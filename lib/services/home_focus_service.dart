@@ -211,6 +211,12 @@ class HomeFocusService {
   final PublicHolidayProvider? _publicHolidayProvider;
   final DateTime Function() _clock;
 
+  /// 首页焦点是首屏可见内容：任一来源超过截止时间就先用部分结果渲染，
+  /// 后续下拉或定时刷新再补齐。没有这个上限时，一个慢接口会把骨架拖到
+  /// 其 HTTP 超时（连接 8 秒/请求 12 秒）。
+  static const Duration _primarySourceDeadline = Duration(milliseconds: 1500);
+  static const Duration _secondarySourceDeadline = Duration(milliseconds: 1200);
+
   Future<HomeFocusSnapshot> load(
     String accountKey, {
     bool force = false,
@@ -230,22 +236,25 @@ class HomeFocusService {
           evaluateAlerts: evaluateAlerts,
           now: now,
           earlyClassTiming: earlyClassTiming,
-        ),
+        ).timeout(_primarySourceDeadline),
         code: 'home.focus.today.failed',
         message: '首页今日焦点加载失败',
       ),
       _capture(
-        _noticesLoader,
+        () => _noticesLoader().timeout(_secondarySourceDeadline),
         code: 'home.focus.notices.failed',
         message: '首页公告焦点加载失败',
       ),
       _capture(
-        () => _loadPublicHolidayItems(now, force: force),
+        () => _loadPublicHolidayItems(
+          now,
+          force: force,
+        ).timeout(_secondarySourceDeadline),
         code: 'home.focus.public_holidays.failed',
         message: '首页公共节假日焦点加载失败',
       ),
       _capture(
-        () => _announcementsLoader(force),
+        () => _announcementsLoader(force).timeout(_secondarySourceDeadline),
         code: 'home.focus.app_announcements.failed',
         message: '首页应用公告焦点加载失败',
       ),
