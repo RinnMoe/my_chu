@@ -4,11 +4,9 @@ class AppUpdatePackage {
     required this.version,
     required this.versionCode,
     required this.downloadUrl,
-    this.deltaManifestUrl,
   });
 
   final String version;
   final int versionCode;
   final String downloadUrl;
-  final String? deltaManifestUrl;
 }

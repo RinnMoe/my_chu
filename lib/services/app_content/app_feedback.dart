@@ -1,12 +1,13 @@
 /// 用户反馈的统一领域模型与提交结果语义。
 ///
-/// 长度上限与 Fenfa 公开接口一致；Supabase 迁移不改变用户可见的输入约束。
+/// 长度上限即 Supabase 提交约束：表 CHECK 与 Edge Function 使用同一口径，
+/// 用户可见的输入限制不随数据源变化。
 const kFeedbackMaxContentLength = 4000;
 const kFeedbackWithDiagnosticsMaxContentLength = 2700;
 const kFeedbackMaxDiagnosticLength = 1200;
 const kFeedbackMaxContactLength = 255;
 
-/// 反馈分类；对应两种后端的 `category` 字段。
+/// 反馈分类；对应 Supabase `category` 字段。
 enum AppFeedbackCategory { bug, suggestion, other }
 
 extension AppFeedbackCategoryValue on AppFeedbackCategory {
@@ -42,7 +43,7 @@ class AppFeedbackDraft {
 
 /// 提交结果不确定：请求可能已经在服务端写入，只是客户端没有收到响应。
 ///
-/// 调用方不得因此自动重试或改投其他后端；只有用户主动再次提交时才复用同一
+/// 调用方不得因此自动重试或改投其他目标；只有用户主动再次提交时才复用同一
 /// 幂等请求 ID 重发，由服务端去重。
 class FeedbackSubmissionUnknownException implements Exception {
   const FeedbackSubmissionUnknownException([this.cause]);
@@ -54,4 +55,14 @@ class FeedbackSubmissionUnknownException implements Exception {
 
   @override
   String toString() => 'FeedbackSubmissionUnknownException';
+}
+
+/// 本次构建没有可用的远程内容服务（未编译 Supabase 连接）。
+class AppContentUnavailableException implements Exception {
+  const AppContentUnavailableException();
+
+  static const String userMessage = '当前版本没有可用的在线服务，请改用正式发布版本。';
+
+  @override
+  String toString() => 'AppContentUnavailableException';
 }

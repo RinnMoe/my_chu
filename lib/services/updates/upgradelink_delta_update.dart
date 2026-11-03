@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../capabilities/app_update/app_update_coordinator.dart';
 import '../../capabilities/app_update/app_update_gate.dart';
 import '../../capabilities/app_update/app_update_native.dart';
 import '../../capabilities/app_update/app_update_patch_plan.dart';
@@ -13,6 +12,17 @@ import 'update_offer.dart';
 
 /// Free space kept beyond the rebuilt target APK and the patch itself.
 const int upgradelinkDeltaStorageMargin = 32 * 1024 * 1024;
+
+/// Private transport for one update artifact: it never lands in public storage.
+typedef PrivateUpdateDownload =
+    Future<InAppDownloadedFile> Function({
+      required Uri url,
+      required File destination,
+      required int maxBytes,
+      bool Function()? shouldContinue,
+      required AppUpdatePhase phase,
+      ValueChanged<InAppDownloadProgress>? onProgress,
+    });
 
 const InAppDownloadException _cancelled = InAppDownloadException(
   InAppDownloadErrorType.cancelled,

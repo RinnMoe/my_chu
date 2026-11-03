@@ -7,7 +7,6 @@ import '../host_platform.dart';
 import '../host_version.dart';
 import '../logger_service.dart';
 import '../public_http_client.dart';
-import '../privacy_agreement_service.dart';
 import '../supabase/supabase_privacy_gate.dart';
 import 'announcement_repository.dart';
 import 'app_announcement.dart';
@@ -21,18 +20,17 @@ import 'supabase/supabase_feedback_repository.dart';
 ///
 /// 职责：
 /// - 遵守“应用远程服务”开关；
-/// - 公告的短时缓存、单飞与失败降级；
+/// - 公告的短时缓存、单飞与失败空结果；
 /// - 反馈的长度校验、单次提交与幂等键生命周期；
 /// - 公告的平台/版本定向过滤。
 ///
-/// 数据源由 [AppContentBackendConfig] 在构建期决定。公告读取失败可以回退到
-/// Fenfa；反馈提交固定单一目标，结果不确定时不自动改投其他后端。
+/// 数据源只有 Supabase，由 [AppContentBackendConfig] 在构建期决定：连接不可用
+/// 时公告为空、反馈不可提交。公告读取失败返回空；反馈固定单一目标，结果不确定
+/// 时不自动重试。
 class AppContentService {
   AppContentService({
-    required AnnouncementRepository announcementRepository,
-    required FeedbackRepository feedbackRepository,
-    AnnouncementRepository? fallbackAnnouncementRepository,
-    this.backend = AppContentBackend.fenfa,
+    AnnouncementRepository? announcementRepository,
+    FeedbackRepository? feedbackRepository,
     Future<bool> Function()? consentCheck,
     Future<bool> Function()? isRemoteServicesEnabled,
     ValueListenable<int>? remoteServicesRevision,
@@ -43,12 +41,7 @@ class AppContentService {
     this.announcementTtl = const Duration(minutes: 5),
   }) : _announcementRepository = announcementRepository,
        _feedbackRepository = feedbackRepository,
-       _fallbackAnnouncementRepository = fallbackAnnouncementRepository,
-       _consentCheck =
-           consentCheck ??
-           (backend == AppContentBackend.supabase
-               ? SupabasePrivacyGate.isAccepted
-               : PrivacyAgreementService.isAccepted),
+       _consentCheck = consentCheck ?? SupabasePrivacyGate.isAccepted,
        _isEnabled =
            isRemoteServicesEnabled ?? AppRemoteServicesService.isEnabled,
        _revision = remoteServicesRevision ?? AppRemoteServicesService.revision,
@@ -69,17 +62,15 @@ class AppContentService {
     String Function()? requestIdGenerator,
   }) {
     final selection = config.resolve();
-    final endpoint = selection.supabase;
-    if (!selection.isSupabase || endpoint == null) {
+    final endpoint = selection.endpoint;
+    if (!selection.isAvailable || endpoint == null) {
       final degradedReason = selection.degradedReason;
-      // 默认后端就是 Supabase，因此“没有配置项目”是正常构建形态而非异常；
-      // 只有配置存在却不可用时才值得告警。
+      // “没有配置项目”是本地或开源构建的正常形态；只有配置存在却不可用时
+      // 才值得告警。
       if (degradedReason != null && degradedReason != 'missing_url') {
-        AppLogger.warn('应用内容数据源配置已降级为 Fenfa（$degradedReason）');
+        AppLogger.warn('应用内容数据源配置不可用（$degradedReason）');
       }
       return AppContentService(
-        announcementRepository: FenfaAnnouncementRepository(),
-        feedbackRepository: FenfaFeedbackRepository(),
         consentCheck: consentCheck,
         isRemoteServicesEnabled: isRemoteServicesEnabled,
         remoteServicesRevision: remoteServicesRevision,
@@ -89,17 +80,10 @@ class AppContentService {
         requestIdGenerator: requestIdGenerator,
       );
     }
-    final fallbackLabel = selection.announcementFallbackEnabled ? '开启' : '关闭';
-    AppLogger.info('应用内容数据源：Supabase（公告回退$fallbackLabel）');
+    AppLogger.info('应用内容数据源：Supabase');
     return AppContentService(
-      backend: AppContentBackend.supabase,
       announcementRepository: SupabaseAnnouncementRepository(config: endpoint),
       feedbackRepository: SupabaseFeedbackRepository(config: endpoint),
-      // 只读操作允许回退；反馈永不跨后端回退。
-      fallbackAnnouncementRepository:
-          selection.announcementFallbackEnabled
-              ? FenfaAnnouncementRepository()
-              : null,
       consentCheck: consentCheck,
       isRemoteServicesEnabled: isRemoteServicesEnabled,
       remoteServicesRevision: remoteServicesRevision,
@@ -115,12 +99,10 @@ class AppContentService {
     AppContentBackendConfig.shared,
   );
 
-  final AppContentBackend backend;
   final Duration announcementTtl;
 
-  final AnnouncementRepository _announcementRepository;
-  final FeedbackRepository _feedbackRepository;
-  final AnnouncementRepository? _fallbackAnnouncementRepository;
+  final AnnouncementRepository? _announcementRepository;
+  final FeedbackRepository? _feedbackRepository;
   final Future<bool> Function() _isEnabled;
   final Future<bool> Function() _consentCheck;
 
@@ -148,6 +130,12 @@ class AppContentService {
       _resetAnnouncementCache();
       return const [];
     }
+    final repository = _announcementRepository;
+    if (repository == null) {
+      // 本次构建没有远程内容服务：清掉可能残留的缓存，保持“没有公告”的一致状态。
+      _resetAnnouncementCache();
+      return const [];
+    }
     final fetchedAt = _announcementsFetchedAt;
     final cached = _cachedAnnouncements;
     if (!force &&
@@ -161,7 +149,7 @@ class AppContentService {
     if (running != null && _inFlightAnnouncementsRevision == revision) {
       return running;
     }
-    final future = _fetchAnnouncements(revision);
+    final future = _fetchAnnouncements(repository, revision);
     _inFlightAnnouncements = future;
     _inFlightAnnouncementsRevision = revision;
     try {
@@ -174,25 +162,16 @@ class AppContentService {
     }
   }
 
-  Future<List<AppAnnouncement>> _fetchAnnouncements(int revision) async {
+  Future<List<AppAnnouncement>> _fetchAnnouncements(
+    AnnouncementRepository repository,
+    int revision,
+  ) async {
     try {
-      final items = await _announcementRepository.fetchAnnouncements();
+      final items = await repository.fetchAnnouncements();
       return _commitAnnouncements(items, revision);
     } catch (error) {
-      AppLogger.warn('应用公告读取失败（已降级：${_describe(error)}）');
-      final fallback = _fallbackAnnouncementRepository;
-      if (fallback == null ||
-          !await _canRequest() ||
-          _revision.value != revision) {
-        return const [];
-      }
-      try {
-        final items = await fallback.fetchAnnouncements();
-        return _commitAnnouncements(items, revision);
-      } catch (fallbackError) {
-        AppLogger.warn('应用公告回退读取失败（已降级：${_describe(fallbackError)}）');
-        return const [];
-      }
+      AppLogger.warn('应用公告读取失败（已忽略：${_describe(error)}）');
+      return const [];
     }
   }
 
@@ -249,12 +228,16 @@ class AppContentService {
 
   /// 提交匿名反馈。
   ///
-  /// 单次提交固定一个后端：网络中断或 5xx 时抛出
-  /// [FeedbackSubmissionUnknownException]，不自动重试、不改投 Fenfa。
+  /// 单次提交固定一个目标：网络中断或 5xx 时抛出
+  /// [FeedbackSubmissionUnknownException]，不自动重试、不改投其他目标。
   /// 用户主动重试同一份草稿时复用同一幂等请求 ID，由服务端去重。
   Future<void> submitFeedback(AppFeedbackDraft draft) async {
     if (!await _canRequest()) {
       throw const AppRemoteServicesDisabledException();
+    }
+    final repository = _feedbackRepository;
+    if (repository == null) {
+      throw const AppContentUnavailableException();
     }
     final normalized = _normalizeDraft(draft);
     if (_feedbackInFlight) {
@@ -269,10 +252,7 @@ class AppContentService {
             : _requestIdGenerator();
     _pendingFeedbackRequest = _PendingFeedbackRequest(fingerprint, requestId);
     try {
-      await _feedbackRepository.submitFeedback(
-        normalized,
-        requestId: requestId,
-      );
+      await repository.submitFeedback(normalized, requestId: requestId);
       _pendingFeedbackRequest = null;
     } on FeedbackSubmissionUnknownException {
       // 结果未知：保留幂等键，用户主动重试时复用。

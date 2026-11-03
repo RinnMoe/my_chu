@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../services/updates/app_update_service.dart';
 import '../services/updates/update_offer.dart';
-import 'fenfa_dialogs.dart' show FenfaUpdateDialog;
+import 'app_update_dialog.dart';
 
 bool _forcingUpdate = false;
 
@@ -115,11 +115,12 @@ class _MandatoryUpdateDialogState extends State<_MandatoryUpdateDialog>
   }
 
   @override
-  Widget build(BuildContext context) => FenfaUpdateDialog(
-    release: _offer.dialogRelease,
+  Widget build(BuildContext context) => AppUpdateDialog(
+    version: _offer.package.version,
+    notes: _offer.notes,
     force: true,
     onUpdate:
-        (_, progress) =>
+        (progress) =>
             widget.updates.download(preferDelta: true, onProgress: progress),
   );
 }

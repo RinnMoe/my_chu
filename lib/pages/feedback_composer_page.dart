@@ -176,6 +176,12 @@ class _FeedbackComposerPageState extends State<FeedbackComposerPage> {
         _busy = false;
         _error = AppRemoteServicesDisabledException.userMessage;
       });
+    } on AppContentUnavailableException {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = AppContentUnavailableException.userMessage;
+      });
     } on FeedbackSubmissionUnknownException {
       if (!mounted) return;
       setState(() {

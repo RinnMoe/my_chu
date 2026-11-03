@@ -13,7 +13,7 @@
       ]
     },
     {
-      "name": "MyCHU Debug (UL only, Fenfa content)",
+      "name": "MyCHU Debug (UL only, no content)",
       "request": "launch",
       "type": "dart",
       "flutterMode": "debug",

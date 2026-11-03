@@ -39,7 +39,7 @@ class PublicHttpDownloadResponse {
 
 /// 面向“公开、免登录”HTTP 服务的共享客户端。
 ///
-/// 现有 `WeatherService` / `IpStatusService` 与 Fenfa 等无凭证公开接口统一
+/// 现有 `WeatherService` / `IpStatusService` 等无凭证公开接口统一
 /// 走本客户端，与账号会话层（`CampusSession`）完全隔离：不携带 Cookie、不依赖
 /// 登录态，也不参与凭证换票。
 class PublicHttpClient {

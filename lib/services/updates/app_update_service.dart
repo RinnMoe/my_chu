@@ -2,14 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../capabilities/app_installer/app_installer.dart';
-import '../../capabilities/app_update/app_update_coordinator.dart';
 import '../../capabilities/app_update/app_update_gate.dart';
 import '../../capabilities/app_update/app_update_patch_plan.dart';
 import '../../capabilities/in_app_download/in_app_download.dart';
 import '../app_remote_services_service.dart';
-import '../fenfa/fenfa_service.dart';
 import '../host_version.dart';
-import '../logger_service.dart';
 import '../platform_compatibility_service.dart';
 import '../privacy_agreement_service.dart';
 import 'update_offer.dart';
@@ -26,12 +23,11 @@ enum UpdateCheckState {
 }
 
 /// Shared, account-free state for startup, About and the Profile update section.
-/// Fenfa announcements/feedback and its public update API remain independent.
+///
+/// 更新只有一个来源：UpgradeLink。缺少构建参数时整体停用，不再回退任何来源。
 class AppUpdateService extends ChangeNotifier {
   AppUpdateService({
     UpgradeLinkClient? upgradeLink,
-    FenfaService? fenfa,
-    AppUpdateCoordinator? coordinator,
     UpgradeLinkDeltaPlanner? deltaPlanner,
     UpgradeLinkDeltaRunner? deltaRunner,
     Future<int> Function()? localBuild,
@@ -43,8 +39,6 @@ class AppUpdateService extends ChangeNotifier {
     Future<bool> Function(InAppDownloadedFile)? install,
     bool observePolicy = true,
   }) : _upgradeLink = upgradeLink ?? UpgradeLinkClient(),
-       _fenfa = fenfa ?? FenfaService.shared,
-       _coordinator = coordinator ?? AppUpdateCoordinator(),
        _deltaPlanner =
            deltaPlanner ??
            UpgradeLinkDeltaPlanner(
@@ -70,8 +64,6 @@ class AppUpdateService extends ChangeNotifier {
 
   static final shared = AppUpdateService();
   final UpgradeLinkClient _upgradeLink;
-  final FenfaService _fenfa;
-  final AppUpdateCoordinator _coordinator;
   final UpgradeLinkDeltaPlanner _deltaPlanner;
   final UpgradeLinkDeltaRunner _deltaRunner;
   final Future<int> Function() _localBuild;
@@ -157,6 +149,15 @@ class AppUpdateService extends ChangeNotifier {
         _emit();
         return;
       }
+      if (!_upgradeLink.config.isConfigured) {
+        // 没有构建参数就没有更新通道；停用而不是把检查当成失败。
+        if (_disposed || epoch != _epoch) return;
+        state = UpdateCheckState.disabled;
+        offer = null;
+        delta = null;
+        _emit();
+        return;
+      }
       state = UpdateCheckState.checking;
       error = null;
       _emit();
@@ -166,58 +167,26 @@ class AppUpdateService extends ChangeNotifier {
       if (!await _current(epoch)) return;
       localVersionCode = code;
       localVersion = version;
-      UpdateOffer? result;
-      var useFenfa = !_upgradeLink.config.isConfigured;
-      if (!useFenfa) {
-        try {
-          final name = await _packageName();
-          if (!await _current(epoch)) return;
-          // Debug keeps its own installation, but checks the official release
-          // stream using the same Android version-code convention as Release.
-          final debugReleaseCheck =
-              kDebugMode && name == 'moe.rinn.mychu.debug';
-          final officialPackage = debugReleaseCheck ? 'moe.rinn.mychu' : name;
-          final updateCode = debugReleaseCheck ? 2000 + code : code;
-          localVersionCode = updateCode;
-          // A patch may only be merged against the installed binary of the
-          // production package in an official release build; Debug reads the
-          // same stream but must never ask for one.
-          final patchCapable =
-              !debugReleaseCheck &&
-              _deltaCapable() &&
-              officialPackage == 'moe.rinn.mychu';
-          result = await _upgradeLink.check(
-            versionCode: updateCode,
-            packageName: officialPackage,
-            patchCapable: patchCapable,
-          );
-        } catch (error) {
-          // Only an unavailable/invalid source falls back. "No update" is
-          // authoritative and must not resurrect a release from another source.
-          useFenfa = true;
-          AppLogger.recordSafeFailure(
-            code: 'update.ul.fallback',
-            domain: 'update',
-            message: '更新服务暂不可用，已切换备用来源',
-            error: error,
-          );
-        }
-      }
+      final name = await _packageName();
       if (!await _current(epoch)) return;
-      if (useFenfa) {
-        final legacy = await _fenfa.checkForUpdate();
-        if (!await _current(epoch)) return;
-        if (legacy.outcome == FenfaCheckOutcome.unavailable) {
-          throw const FormatException('Update sources unavailable');
-        }
-        if (legacy.release != null &&
-            {
-              FenfaCheckOutcome.normalUpdate,
-              FenfaCheckOutcome.forceUpdate,
-            }.contains(legacy.outcome)) {
-          result = UpdateOffer.fromFenfa(legacy.release!);
-        }
-      }
+      // Debug keeps its own installation, but checks the official release
+      // stream using the same Android version-code convention as Release.
+      final debugReleaseCheck = kDebugMode && name == 'moe.rinn.mychu.debug';
+      final officialPackage = debugReleaseCheck ? 'moe.rinn.mychu' : name;
+      final updateCode = debugReleaseCheck ? 2000 + code : code;
+      localVersionCode = updateCode;
+      // A patch may only be merged against the installed binary of the
+      // production package in an official release build; Debug reads the
+      // same stream but must never ask for one.
+      final patchCapable =
+          !debugReleaseCheck &&
+          _deltaCapable() &&
+          officialPackage == 'moe.rinn.mychu';
+      final result = await _upgradeLink.check(
+        versionCode: updateCode,
+        packageName: officialPackage,
+        patchCapable: patchCapable,
+      );
       if (!await _current(epoch)) return;
       offer = result;
       delta = null;
@@ -230,12 +199,11 @@ class AppUpdateService extends ChangeNotifier {
           result == null
               ? UpdateCheckState.current
               : UpdateCheckState.available;
-      if (result != null &&
-          (result.provider == UpdateProvider.fenfa ||
-              result.nativeDelta != null)) {
+      if (result != null && result.nativeDelta != null) {
+        final candidate = result;
         planning = true;
         _planning = (_planning ?? Future<void>.value()).then(
-          (_) => _plan(result!, epoch),
+          (_) => _plan(candidate, epoch),
         );
       }
       _emit();
@@ -252,9 +220,7 @@ class AppUpdateService extends ChangeNotifier {
     try {
       if (!await _current(epoch) || !identical(offer, candidate)) return;
       final AppUpdateDelta? match;
-      if (candidate.provider == UpdateProvider.fenfa) {
-        match = await _coordinator.matchingPatch(candidate.package);
-      } else if (candidate.nativeDelta != null) {
+      if (candidate.nativeDelta != null) {
         match = await _deltaPlanner.readiness(
           candidate,
           installedVersionCode: localVersionCode,
@@ -314,39 +280,30 @@ class AppUpdateService extends ChangeNotifier {
         onProgress?.call(item);
       }
 
-      final bool opened;
-      if (selected.provider == UpdateProvider.fenfa) {
-        opened = await _fenfa.downloadAndInstall(
-          selected.fenfaRelease!,
-          preferDelta: preferDelta,
-          onProgress: report,
-        );
-      } else {
-        final planned = delta;
-        final attemptDelta =
-            preferDelta && selected.nativeDelta != null && planned != null;
-        opened = await _upgradeLink.downloadAndInstall(
-          selected,
-          localVersionCode: localVersionCode,
-          shouldContinue: () => !_disposed && epoch == _epoch,
-          install: _install,
-          isAllowed:
-              () async => await _current(epoch) && identical(offer, selected),
-          onProgress: report,
-          tryDelta:
-              attemptDelta
-                  ? () => _deltaRunner.attempt(
-                    selected,
-                    installedVersionCode: localVersionCode,
-                    shouldContinue: () => !_disposed && epoch == _epoch,
-                    isAllowed:
-                        () async =>
-                            await _current(epoch) && identical(offer, selected),
-                    onProgress: report,
-                  )
-                  : null,
-        );
-      }
+      final planned = delta;
+      final attemptDelta =
+          preferDelta && selected.nativeDelta != null && planned != null;
+      final opened = await _upgradeLink.downloadAndInstall(
+        selected,
+        localVersionCode: localVersionCode,
+        shouldContinue: () => !_disposed && epoch == _epoch,
+        install: _install,
+        isAllowed:
+            () async => await _current(epoch) && identical(offer, selected),
+        onProgress: report,
+        tryDelta:
+            attemptDelta
+                ? () => _deltaRunner.attempt(
+                  selected,
+                  installedVersionCode: localVersionCode,
+                  shouldContinue: () => !_disposed && epoch == _epoch,
+                  isAllowed:
+                      () async =>
+                          await _current(epoch) && identical(offer, selected),
+                  onProgress: report,
+                )
+                : null,
+      );
       if (!_disposed && epoch == _epoch) {
         installerOpened = opened;
         if (!opened) error = '无法打开安装程序，请重试';

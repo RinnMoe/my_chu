@@ -22,9 +22,10 @@ enum UpgradeLinkPatchAlgorithm {
 
 /// Native HDiffPatch patch metadata from one `POST /v1/apk/upgrade` response.
 ///
-/// This is deliberately its own model: the native UpgradeLink API is not the
-/// Fenfa `.delta.json` sidecar and must never be interpreted as one. The target
-/// APK's size and digest are not repeated here — they are the response's own
+/// This is deliberately its own model: the native API's patch description is
+/// the only patch metadata this client consumes and must never be
+/// reinterpreted as a separately published sidecar manifest. The target APK's
+/// size and digest are not repeated here — they are the response's own
 /// `urlFileSize`/`urlFileMd5` full-package fields, kept as the single source of
 /// truth on [UpdateOffer].
 ///

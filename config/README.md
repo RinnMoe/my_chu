@@ -3,7 +3,7 @@
 1. Copy `config/upgradelink.example.json` to `.local/upgradelink.json` and fill in
    the official UL application key and API AccessKey/SecretKey. `.local/` is ignored.
    Never put admin, storage or APK signing credentials in this file.
-2. VS Code: choose **MyCHU Debug (UL release stream)**. Android Studio: choose
+2. VS Code: choose **MyCHU Debug (UL + Supabase)**. Android Studio: choose
    the shared **MyCHU Debug** run configuration. Both pass the same JSON to Flutter.
 3. CLI: run `pwsh -File <scripts-dir>/run_debug.ps1 -Device <id>` or
    `pwsh -File <scripts-dir>/build_android_release.ps1 -Channel official`.
@@ -21,7 +21,8 @@
 Debug queries the official UL release stream (build 15 maps to Android code 2015).
 The downloaded official APK installs as the official app; it does not replace Debug.
 A missing configuration fails the supplied Debug/Official build commands. Preview
-may omit it and use Fenfa. API/network failure still allows the existing Fenfa fallback.
+may omit it; update checks are then disabled. API or network failure is reported
+as a failed check instead of falling back to another service.
 
 UL credentials are embedded in the APK and can be extracted. Keep them out of Git
 and logs, and keep upload/publish routes blocked at the public API origin.
@@ -37,11 +38,12 @@ UpgradeLink configuration. Both modules share `MYCHU_SUPABASE_URL` and
 `MYCHU_SUPABASE_PUBLISHABLE_KEY`; legacy `MYCHU_SUPABASE_ANON_KEY` remains a fallback
 only when the canonical key is absent. Never provide service_role or secret keys.
 
-Announcements/feedback use Supabase since 1.3.0 whenever a project connection is present;
-a build without connection settings uses Fenfa, so nothing changes until a project is
-configured. There is no separate backend switch: drop the connection to roll back.
-`MYCHU_ANNOUNCEMENT_FALLBACK` controls read fallback only. Feedback never switches
-backends after an uncertain submission. Policies sync independently of the optional
+Announcements/feedback use Supabase since 1.3.0 whenever a project connection is present.
+There is no separate backend switch: a build without connection settings disables remote
+content entirely, so announcements are empty and feedback cannot be submitted.
+`MYCHU_ANNOUNCEMENT_FALLBACK` was removed with the Fenfa retirement in 1.4.0 and is no
+longer read or validated. Feedback is never re-sent to another target after an uncertain
+submission. Policies sync independently of the optional
 remote-services preference, after agreement acceptance. Missing connection settings
 prevent network requests but retain cached restrictions and high-risk fail-closed rules.
 Both modules read the same connection file; do not maintain a second one. Deployment and consent prerequisites:
@@ -59,10 +61,9 @@ and keeps remote services on; there is no build switch. Supabase Anonymous Sign-
 must be enabled for participation. Setup steps are in the private community
 guide (`doc/integrations/feedback_community.md`).
 
-The local test configuration selects Supabase content, with Fenfa announcement fallback
-retained. `tool/run_debug.ps1` loads the optional
+The local test configuration selects Supabase content. `tool/run_debug.ps1` loads the optional
 `.local/supabase.json` after the UL file, or accepts `-SupabaseConfigFile`.
-IDE has Supabase dual-track and Fenfa content rollback profiles; the latter keeps
-the same project connection and overrides only the content backend. Official release
+IDE has `UL + Supabase` and `UL only` profiles; the latter passes only the UL file,
+so remote content stays off. Official release
 configuration is not automatically changed. Deployment and rollback steps are in the
 private integration guide (`doc/integrations/supabase_integration.md`).

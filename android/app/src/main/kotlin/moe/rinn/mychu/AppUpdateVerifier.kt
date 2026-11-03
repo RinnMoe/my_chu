@@ -19,9 +19,10 @@ enum class HashAlgorithm(val jcaName: String, val hexLength: Int) {
 }
 
 /**
- * Framework-free update checks shared by both update protocols: Fenfa deltas
- * publish SHA-256 while UpgradeLink publishes MD5 only. Kept independent of
- * Context/PackageManager so the rules stay unit testable on the JVM.
+ * Framework-free update checks shared by the native update path: UpgradeLink
+ * publishes MD5 only, while the same engine can also verify the SHA-256 digests
+ * produced by the delta tooling. Kept independent of Context/PackageManager so
+ * the rules stay unit testable on the JVM.
  */
 object AppUpdateVerifier {
     /** Headroom beyond the rebuilt APK for the installer's own copies. */

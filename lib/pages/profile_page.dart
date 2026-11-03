@@ -24,7 +24,7 @@ import 'appearance_theme_page.dart';
 import 'campus_settings_sheet.dart';
 import 'channel_account_page.dart';
 import 'feedback_community_page.dart';
-import 'fenfa_dialogs.dart' show showAppRemoteServicesDisabledMessage;
+import 'app_update_dialog.dart' show showAppRemoteServicesDisabledMessage;
 import 'notification_settings_page.dart';
 import 'page_preferences_page.dart';
 import 'profile/profile_widgets.dart';

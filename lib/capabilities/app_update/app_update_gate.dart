@@ -8,8 +8,8 @@ import '../../services/privacy_agreement_service.dart';
 /// Eligibility is a build fact, consent and the remote-service switch are
 /// asynchronous policy, and the revision pairs both policy signals so a caller
 /// can detect that the answer changed while it was awaiting something else.
-/// They live here so the Fenfa coordinator, the native UpgradeLink planner and
-/// the shared service cannot drift into three subtly different definitions.
+/// They live here so the native UpgradeLink planner and the shared service
+/// cannot drift into two subtly different definitions.
 abstract final class AppUpdateGate {
   /// Only an official Android release may merge a patch against the installed
   /// base APK, and only those builds may offer the native route at all.

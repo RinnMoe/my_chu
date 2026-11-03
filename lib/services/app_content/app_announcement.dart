@@ -2,8 +2,8 @@ import 'package:flutter/foundation.dart';
 
 /// 应用公告的统一领域模型。
 ///
-/// Fenfa 与 Supabase 两种数据源都收敛到该模型，首页 Focus 聚合与公告展示只
-/// 依赖它，不感知后端字段名或传输格式。
+/// Supabase 数据源收敛到该模型，首页 Focus 聚合与公告展示只依赖它，
+/// 不感知后端字段名或传输格式。
 @immutable
 class AppAnnouncement {
   const AppAnnouncement({
@@ -22,7 +22,7 @@ class AppAnnouncement {
   final String title;
   final String content;
 
-  /// 越大越靠前；Fenfa 数据源没有该字段时统一为 0。
+  /// 越大越靠前；数据源没有该字段时统一为 0。
   final int priority;
   final DateTime? publishedAt;
 

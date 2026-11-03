@@ -227,7 +227,6 @@ class UpgradeLinkClient {
     }
     final targetMd5 = checksum.toLowerCase();
     return UpdateOffer(
-      provider: UpdateProvider.upgradeLink,
       package: AppUpdatePackage(
         version: version,
         versionCode: code,
@@ -337,16 +336,12 @@ class UpgradeLinkClient {
     bool Function()? shouldContinue,
     Future<InAppDownloadedFile?> Function()? tryDelta,
   }) async {
-    assert(
-      offer.provider == UpdateProvider.upgradeLink &&
-          offer.sizeBytes != null &&
-          offer.nativeMd5 != null,
-    );
+    assert(offer.sizeBytes != null && offer.nativeMd5 != null);
     // This existing FileProvider root is grantable to the Android installer.
     final root = await Directory(
       '${(await _temporaryDirectory()).path}/app_updates',
     ).create(recursive: true);
-    // As with the Fenfa transaction, retain installer inputs for one day.
+    // Retain installer inputs for one day so a retried install reuses the APK.
     // Only our expired task directories are eligible; never follow links.
     try {
       await for (final entity in root.list(followLinks: false)) {

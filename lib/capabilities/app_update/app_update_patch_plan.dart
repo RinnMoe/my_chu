@@ -2,10 +2,10 @@ import 'package:flutter/foundation.dart';
 
 /// Content hash algorithms the pinned Android native engine can verify.
 ///
-/// Fenfa sidecar manifests publish SHA-256; the native UpgradeLink APK API only
-/// publishes MD5. Both are real upstream-provided digests, so the host engine
-/// takes the algorithm explicitly instead of silently reinterpreting one as the
-/// other.
+/// The UpgradeLink APK API only publishes MD5. The host engine still takes the
+/// algorithm explicitly instead of assuming one, so the same native path can
+/// also verify the SHA-256 digests produced by the delta tooling and the smoke
+/// fixture, and no digest is ever reinterpreted as another algorithm.
 enum AppUpdateHashAlgorithm {
   sha256('sha256'),
   md5('md5');
@@ -67,16 +67,18 @@ class AppUpdatePatchPlan {
 
   /// Exact distributed base APK digest when the protocol publishes one.
   ///
-  /// Fenfa requires an exact match. The native UpgradeLink API publishes no
-  /// base digest at all, so it stays null there and the host falls back to
-  /// proving the installed bytes did not change since inspection.
+  /// The native UpgradeLink API publishes no base digest, so the production
+  /// path leaves this null and the host falls back to proving the installed
+  /// bytes did not change since inspection. The field stays because the native
+  /// engine must reject a patch whose base digest does not match whenever a
+  /// source does publish one.
   final String? baseSha256;
 }
 
 /// Transport-neutral delta availability for the update UI.
 ///
-/// Fenfa and native UpgradeLink both produce this; only the sizes are exposed
-/// so no protocol model leaks into the page layer.
+/// The native delta path produces this; only the sizes are exposed so no
+/// protocol model leaks into the page layer.
 @immutable
 class AppUpdateDelta {
   const AppUpdateDelta({required this.patchSize, required this.targetSize});

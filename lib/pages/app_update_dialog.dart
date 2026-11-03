@@ -4,60 +4,37 @@ import 'package:flutter/material.dart';
 
 import '../capabilities/in_app_download/in_app_download.dart';
 import '../services/app_remote_services_service.dart';
-import '../services/fenfa/fenfa_models.dart';
 import 'app_update_progress.dart';
 
 /// 更新弹窗用户选择。
-enum FenfaUpdateChoice { updateNow, later }
+enum AppUpdateChoice { updateNow, later }
 
-typedef FenfaUpdateAction =
-    Future<bool> Function(
-      FenfaRelease release,
-      ValueChanged<InAppDownloadProgress> onProgress,
-    );
-
-/// 展示更新弹窗。
-///
-/// [force] 为 true 时不可关闭（barrierDismissible=false + PopScope 禁返回），
-/// 只允许「立即更新」；打开下载后弹窗保持，阻止继续使用旧版本。
-/// 普通更新返回用户选择；强制更新模式下弹窗持续存在，不返回。
-Future<FenfaUpdateChoice?> presentFenfaUpdateDialog(
-  BuildContext context, {
-  required FenfaRelease release,
-  required bool force,
-  required FenfaUpdateAction onUpdate,
-}) {
-  final dialog = FenfaUpdateDialog(
-    release: release,
-    force: force,
-    onUpdate: onUpdate,
-  );
-
-  return showDialog<FenfaUpdateChoice>(
-    context: context,
-    barrierDismissible: !force,
-    builder: (_) => dialog,
-  );
-}
+typedef AppUpdateAction =
+    Future<bool> Function(ValueChanged<InAppDownloadProgress> onProgress);
 
 /// 更新弹窗内容。
-class FenfaUpdateDialog extends StatefulWidget {
-  final FenfaRelease release;
+///
+/// [force] 为 true 时不可关闭（PopScope 禁返回），只允许「立即更新」；打开
+/// 下载后弹窗保持，阻止继续使用旧版本。
+class AppUpdateDialog extends StatefulWidget {
+  final String version;
+  final String notes;
   final bool force;
-  final FenfaUpdateAction onUpdate;
+  final AppUpdateAction onUpdate;
 
-  const FenfaUpdateDialog({
+  const AppUpdateDialog({
     super.key,
-    required this.release,
+    required this.version,
+    required this.notes,
     required this.force,
     required this.onUpdate,
   });
 
   @override
-  State<FenfaUpdateDialog> createState() => _FenfaUpdateDialogState();
+  State<AppUpdateDialog> createState() => _AppUpdateDialogState();
 }
 
-class _FenfaUpdateDialogState extends State<FenfaUpdateDialog> {
+class _AppUpdateDialogState extends State<AppUpdateDialog> {
   bool _running = false;
   InAppDownloadProgress? _progress;
 
@@ -68,13 +45,13 @@ class _FenfaUpdateDialogState extends State<FenfaUpdateDialog> {
       _progress = null;
     });
     try {
-      final ok = await widget.onUpdate(widget.release, (progress) {
+      final ok = await widget.onUpdate((progress) {
         if (mounted) setState(() => _progress = progress);
       });
       if (!mounted) return;
       if (ok) {
         if (!widget.force) {
-          Navigator.of(context).pop(FenfaUpdateChoice.updateNow);
+          Navigator.of(context).pop(AppUpdateChoice.updateNow);
         }
         // 强制更新：系统安装程序打开后弹窗保持，阻止继续使用旧版本。
         return;
@@ -112,15 +89,15 @@ class _FenfaUpdateDialogState extends State<FenfaUpdateDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'v${widget.release.version}',
+                'v${widget.version}',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 12),
-              if (widget.release.changelog.isNotEmpty)
+              if (widget.notes.isNotEmpty)
                 Text(
-                  widget.release.changelog,
+                  widget.notes,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),
@@ -166,8 +143,7 @@ class _FenfaUpdateDialogState extends State<FenfaUpdateDialog> {
               onPressed:
                   _running
                       ? null
-                      : () =>
-                          Navigator.of(context).pop(FenfaUpdateChoice.later),
+                      : () => Navigator.of(context).pop(AppUpdateChoice.later),
               child: const Text('稍后'),
             ),
           FilledButton(
