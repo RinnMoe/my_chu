@@ -730,6 +730,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.1.1"
+  liquid_glass_widgets:
+    dependency: "direct main"
+    description:
+      name: liquid_glass_widgets
+      sha256: "959da0600b5f9e582f45f975858dea0f060d66d2752243227b3320195b40b179"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.16.1"
   mapbox_maps_flutter:
     dependency: "direct main"
     description:
@@ -1288,4 +1296,4 @@ packages:
     version: "0.2.4"
 sdks:
   dart: ">=3.10.0 <4.0.0"
-  flutter: ">=3.38.0"
+  flutter: ">=3.41.0"

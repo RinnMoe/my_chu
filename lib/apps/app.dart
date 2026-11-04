@@ -148,6 +148,9 @@ class AppMetadata {
     if (iconCodePoint == Icons.camera_alt_outlined.codePoint) {
       return Icons.camera_alt_outlined;
     }
+    if (iconCodePoint == Icons.monitor_weight_outlined.codePoint) {
+      return Icons.monitor_weight_outlined;
+    }
     return Icons.extension_outlined;
   }
 

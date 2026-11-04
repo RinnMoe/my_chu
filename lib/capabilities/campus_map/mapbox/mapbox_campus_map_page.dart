@@ -2,6 +2,7 @@ import "dart:async";
 
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:liquid_glass_widgets/liquid_glass_widgets.dart";
 
 import "../../campus_places/campus_places.dart";
 import "../../external_navigation/external_navigation.dart";
@@ -86,6 +87,7 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
   String? _campusIdForLayers;
   Future<void>? _layerCampusSync;
   bool _mapboxReady = false;
+  bool _controllerInitialized = false;
 
   @override
   void initState() {
@@ -131,7 +133,6 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
     };
     _controller.addListener(_onState);
     unawaited(_ensureMapbox());
-    unawaited(_initializeController());
   }
 
   /// 地图页首次构建时才注册 Mapbox 插件，冷启动不再初始化原生 SDK。
@@ -144,6 +145,9 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
     }
     if (!mounted) return;
     setState(() => _mapboxReady = true);
+    // 控制器初始化会调用 MapboxOptions 等 Pigeon 通道，必须等插件注册完成；
+    // 之前与 ensureLoaded 并行启动会先打空通道，导致地图一直黑屏。
+    unawaited(_initializeController());
   }
 
   Widget _buildMapView(BuildContext context) {
@@ -157,6 +161,8 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
   }
 
   Future<void> _initializeController() async {
+    if (_controllerInitialized) return;
+    _controllerInitialized = true;
     final campusId = await campusSettingsService.read();
     if (!mounted) return;
     await _controller.initialize(preferredCampusId: campusId);
@@ -1170,16 +1176,63 @@ class MapboxMapControls extends StatelessWidget {
     bool enabled = true,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: enabled ? onPressed : null,
-      icon: child ?? Icon(icon),
-      style: IconButton.styleFrom(
-        backgroundColor: colorScheme.surface,
-        disabledBackgroundColor: colorScheme.surface,
-        disabledForegroundColor: colorScheme.primary,
-        shape: const CircleBorder(),
-        fixedSize: const Size(44, 44),
+    // 玻璃只提供材质，颜色仍由 M3 角色决定。地图是持续重绘的平台视图（Mapbox
+    // 默认 VD 托管），premium 的纹理捕获采不到它，所以这里用 standard 的实时
+    // BackdropFilter；观感靠 tint、边缘辉光、高光与模糊建立，没有折射。
+    //
+    // tint 必须带上 surface 的色阶：深色模式下 onSurface 是浅色，若玻璃只有
+    // 一层很淡的薄膜，浅色图标压在浅色地图上几乎不可见。surface@62% 时深色
+    // 模式约 5:1、浅色模式约 15:1，两种模式都能读。
+    //
+    // 玻璃必须画成背景层、图标单独叠在上面：作为 `child` 传入时，从其他页面
+    // push 进入本页后玻璃会盖住图标（useOwnLayer 与滚动容器都无关），表现为
+    // 只剩半透明圆盘、图标时有时无。Stack 明确固定了层次。
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GlassContainer(
+              quality: GlassQuality.standard,
+              platformViewBackdrop: true,
+              shape: const LiquidOval(),
+              settings: LiquidGlassSettings(
+                thickness: 20,
+                blur: 16,
+                glassColor: colorScheme.surface.withValues(alpha: 0.62),
+                lightIntensity: 0.85,
+                glowIntensity: 1,
+                platformViewFallbackColor: colorScheme.surface.withValues(
+                  alpha: 0.94,
+                ),
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          // 局部 Material 只负责水波纹：玻璃在它下面，默认的 Scaffold Material
+          // 在玻璃更下方，按压反馈会被玻璃挡住。
+          Positioned.fill(
+            child: Material(
+              type: MaterialType.transparency,
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: IconButton(
+                tooltip: tooltip,
+                onPressed: enabled ? onPressed : null,
+                icon: child ?? Icon(icon),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  disabledBackgroundColor: Colors.transparent,
+                  foregroundColor: colorScheme.onSurface,
+                  disabledForegroundColor: colorScheme.primary,
+                  shape: const CircleBorder(),
+                  fixedSize: const Size(44, 44),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
