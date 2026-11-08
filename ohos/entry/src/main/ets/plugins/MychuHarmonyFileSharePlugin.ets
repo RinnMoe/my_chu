@@ -16,7 +16,7 @@ import fs from '@ohos.file.fs';
 
 const CHANNEL_NAME = 'mychu/file_save';
 
-/** MyCHU adapter for sharing a file through the HarmonyOS system panel. */
+/** MyCHU adapter for sharing files or text through the system panel. */
 export default class MychuHarmonyFileSharePlugin
   implements FlutterPlugin, AbilityAware, MethodCallHandler {
   private channel: MethodChannel | null = null;
@@ -48,6 +48,30 @@ export default class MychuHarmonyFileSharePlugin
   }
 
   async onMethodCall(call: MethodCall, result: MethodResult): Promise<void> {
+    if (call.method === 'shareText') {
+      const ability = this.ability;
+      const text = call.argument('text') as string;
+      if (ability === null || typeof text !== 'string' || text.trim().length === 0) {
+        result.success(false);
+        return;
+      }
+      try {
+        const data = new systemShare.SharedData({
+          utd: uniformTypeDescriptor.UniformDataType.TEXT,
+          content: text,
+        });
+        const controller = new systemShare.ShareController(data);
+        await controller.show(ability.context as common.UIAbilityContext, {
+          selectionMode: systemShare.SelectionMode.SINGLE,
+          previewMode: systemShare.SharePreviewMode.DEFAULT,
+        });
+        result.success(true);
+      } catch (_) {
+        result.success(false);
+      }
+      return;
+    }
+
     if (call.method !== 'shareFile') {
       result.notImplemented();
       return;

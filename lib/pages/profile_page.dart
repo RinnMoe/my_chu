@@ -1,5 +1,4 @@
 import '../capabilities/host_login.dart';
-import '../capabilities/qq_group_join_capability.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
@@ -9,7 +8,7 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../models/account.dart';
 import '../services/auth_service.dart';
-import '../services/app_remote_services_service.dart';
+import '../services/file_save_service.dart';
 import '../services/auth_lifecycle_service.dart';
 import '../services/ip_status_service.dart';
 import '../services/logger_service.dart';
@@ -25,8 +24,6 @@ import 'app_update_prompts.dart';
 import 'appearance_theme_page.dart';
 import 'campus_settings_sheet.dart';
 import 'channel_account_page.dart';
-import 'feedback_community_page.dart';
-import 'app_update_dialog.dart' show showAppRemoteServicesDisabledMessage;
 import 'notification_settings_page.dart';
 import 'page_preferences_page.dart';
 import 'profile/profile_widgets.dart';
@@ -35,15 +32,7 @@ class ProfilePage extends StatefulWidget {
   final VoidCallback onSignedOut;
   final AppUpdateService? updates;
 
-  /// 加群调起可注入，测试不需要真实的系统 QQ。
-  final QqGroupJoinCapability qqGroup;
-
-  const ProfilePage({
-    super.key,
-    required this.onSignedOut,
-    this.updates,
-    this.qqGroup = const QqGroupJoinCapability(),
-  });
+  const ProfilePage({super.key, required this.onSignedOut, this.updates});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -199,25 +188,14 @@ class _ProfilePageState extends State<ProfilePage>
     Navigator.push(context, MaterialPageRoute<void>(builder: (_) => page));
   }
 
-  Future<void> _openFeedback() async {
-    if (!await AppRemoteServicesService.isEnabled()) {
-      if (mounted) showAppRemoteServicesDisabledMessage(context);
-      return;
-    }
-    if (mounted) _push(const FeedbackCommunityPage());
-  }
-
-  /// 调起手机 QQ 加群；QQ 不可用时提示群号，避免入口变成死路。
-  Future<void> _joinQqGroup() async {
-    final opened = await widget.qqGroup.joinGroup();
-    if (!mounted || opened) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          '未能唤起 QQ，可在 QQ 中搜索群号 ${QqGroupJoinCapability.groupNumber}',
-        ),
-      ),
+  Future<void> _shareApp() async {
+    final opened = await FileSaveService.shareText(
+      text: '点击下载MyCHU: https://mychu.rinn.moe',
     );
+    if (!mounted || opened) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('未能打开系统分享，请重试')));
   }
 
   Future<void> _confirmSignOut() async {
@@ -387,15 +365,9 @@ class _ProfilePageState extends State<ProfilePage>
                     onTap: () => _push(const AboutPage()),
                   ),
                   ProfileSettingTile(
-                    icon: Icons.feedback_outlined,
-                    title: '建言献策',
-                    onTap: _openFeedback,
-                  ),
-                  ProfileSettingTile(
-                    icon: Icons.groups_outlined,
-                    title: 'QQ交流群',
-                    trailingValue: QqGroupJoinCapability.groupNumber,
-                    onTap: _joinQqGroup,
+                    icon: Icons.share_outlined,
+                    title: '分享本应用',
+                    onTap: _shareApp,
                   ),
                 ],
               ),

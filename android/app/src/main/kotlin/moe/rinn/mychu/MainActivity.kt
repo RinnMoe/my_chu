@@ -171,6 +171,9 @@ class MainActivity : FlutterActivity() {
                     return@setMethodCallHandler
                 }
                 result.success(openFileExternally(path, fileName))
+            } else if (call.method == "shareText") {
+                val text = call.argument<String>("text")
+                result.success(!text.isNullOrBlank() && shareTextExternally(text))
             } else if (call.method == "shareFile") {
                 val path = call.argument<String>("path")
                 val fileName = call.argument<String>("fileName")
@@ -367,6 +370,22 @@ class MainActivity : FlutterActivity() {
         }
         return try {
             startActivity(Intent.createChooser(intent, "选择打开方式"))
+            true
+        } catch (_: ActivityNotFoundException) {
+            false
+        } catch (_: SecurityException) {
+            false
+        }
+    }
+
+    /** Opens Android's system share sheet without retaining the Activity. */
+    private fun shareTextExternally(text: String): Boolean {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        return try {
+            startActivity(Intent.createChooser(intent, null))
             true
         } catch (_: ActivityNotFoundException) {
             false

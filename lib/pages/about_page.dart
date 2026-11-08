@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../capabilities/dev_visibility.dart';
+import '../capabilities/qq_group_join_capability.dart';
+import '../services/app_remote_services_service.dart';
+import 'app_update_dialog.dart' show showAppRemoteServicesDisabledMessage;
+import 'appreciation_page.dart';
 import 'diagnostic_report_page.dart';
 import 'developer_tools_hub_page.dart';
+import 'feedback_community_page.dart';
 import 'open_source_page.dart';
 import 'privacy_settings_page.dart';
 
@@ -22,15 +27,37 @@ Widget _aboutArtwork({required double width, required double height}) {
   );
 }
 
-/// 关于页：正式诊断、协议与开源信息，以及 Debug 构建下的开发工具。
+/// 关于页：项目交流、赞赏、诊断、协议与开源信息。
 class AboutPage extends StatefulWidget {
-  const AboutPage({super.key});
+  const AboutPage({super.key, this.qqGroup = const QqGroupJoinCapability()});
+
+  final QqGroupJoinCapability qqGroup;
 
   @override
   State<AboutPage> createState() => _AboutPageState();
 }
 
 class _AboutPageState extends State<AboutPage> {
+  Future<void> _openFeedback() async {
+    if (!await AppRemoteServicesService.isEnabled()) {
+      if (mounted) showAppRemoteServicesDisabledMessage(context);
+      return;
+    }
+    if (mounted) _pushPage((_) => const FeedbackCommunityPage());
+  }
+
+  Future<void> _joinQqGroup() async {
+    final opened = await widget.qqGroup.joinGroup();
+    if (!mounted || opened) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          '未能唤起 QQ，可在 QQ 中搜索群号 ${QqGroupJoinCapability.groupNumber}',
+        ),
+      ),
+    );
+  }
+
   void _openDeveloperTools() {
     _pushPage((_) => const DeveloperToolsHubPage());
   }
@@ -82,6 +109,28 @@ class _AboutPageState extends State<AboutPage> {
           child: Column(
             children: [
               ListTile(
+                leading: const Icon(Icons.feedback_outlined),
+                title: const Text('建言献策'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _openFeedback,
+              ),
+              const Divider(height: 1, indent: 56),
+              ListTile(
+                leading: const Icon(Icons.groups_outlined),
+                title: const Text('QQ交流群'),
+                subtitle: const Text(QqGroupJoinCapability.groupNumber),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _joinQqGroup,
+              ),
+              const Divider(height: 1, indent: 56),
+              ListTile(
+                leading: const Icon(Icons.volunteer_activism_outlined),
+                title: const Text('赞赏'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _pushPage((_) => const AppreciationPage()),
+              ),
+              const Divider(height: 1, indent: 56),
+              ListTile(
                 leading: const Icon(Icons.analytics_outlined),
                 title: const Text('诊断信息'),
                 subtitle: const Text('预览、保存或分享已隐去个人信息的诊断报告'),
@@ -129,9 +178,6 @@ class _AboutPageState extends State<AboutPage> {
         ),
       ],
     );
-    return Scaffold(
-      appBar: AppBar(title: const Text('关于')),
-      body: body,
-    );
+    return Scaffold(appBar: AppBar(title: const Text('关于')), body: body);
   }
 }

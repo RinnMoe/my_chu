@@ -164,6 +164,19 @@ class FileSaveService {
     }
   }
 
+  /// Opens the system share sheet with plain text; true means it was opened.
+  static Future<bool> shareText({required String text}) async {
+    if (text.trim().isEmpty) return false;
+    try {
+      return await _channel.invokeMethod<bool>('shareText', {'text': text}) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
   static String _tempFileName(String fileName) {
     final dot = fileName.lastIndexOf('.');
     final stem = dot > 0 ? fileName.substring(0, dot) : fileName;

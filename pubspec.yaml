@@ -71,6 +71,7 @@ flutter:
     - assets/experiment_course_selection/CHUSYXKhelper.user.js
     - assets/images/yundaren_socket.jpg
     - assets/images/feedback_wechat_qr.jpg
+    - assets/images/appreciation_wechat.png
     - assets/splash/campus_building.png
     - assets/splash/campus_building_splash.png
     # 随包协议索引与正文：首次安装或断网时本地展示，云端只负责发现更新。
