@@ -145,7 +145,7 @@ jobs:
               config = json.loads(os.environ.get('UL_CONFIG_JSON', ''))
           except ValueError:
               raise SystemExit('Configure MYCHU_UPGRADELINK_CONFIG_JSON in the android-release environment.')
-          keys = ('MYCHU_UPGRADELINK_APK_KEY', 'MYCHU_UPGRADELINK_ACCESS_KEY', 'MYCHU_UPGRADELINK_SECRET_KEY')
+          keys = ('MYCHU_UPGRADELINK_APK_KEY',)
           if not isinstance(config, dict) or any(not isinstance(config.get(k), str) or not config[k].strip() for k in keys):
               raise SystemExit('Incomplete native UpgradeLink build configuration.')
           for k in keys:

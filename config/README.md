@@ -1,7 +1,7 @@
 # Android build configuration
 
 1. Copy `config/upgradelink.example.json` to `.local/upgradelink.json` and fill in
-   the official UL application key and API AccessKey/SecretKey. `.local/` is ignored.
+   the official public UL channel key (`apkKey`). App 1.4.1+ uses anonymous requests. `.local/` is ignored.
    Never put admin, storage or APK signing credentials in this file.
 2. VS Code: choose **MyCHU Debug (UL + Supabase)**. Android Studio: choose
    the shared **MyCHU Debug** run configuration. Both pass the same JSON to Flutter.
@@ -24,8 +24,8 @@ A missing configuration fails the supplied Debug/Official build commands. Previe
 may omit it; update checks are then disabled. API or network failure is reported
 as a failed check instead of falling back to another service.
 
-UL credentials are embedded in the APK and can be extracted. Keep them out of Git
-and logs, and keep upload/publish routes blocked at the public API origin.
+Existing JSON files may retain legacy AccessKey/SecretKey fields. App 1.4.1+ reads
+the origin and channel key and sends anonymous requests to the same protocol endpoints.
 Mapbox public token may be supplied by MAPBOX_PUBLIC_ACCESS_TOKEN (CLI) or included
 in the local JSON under that key (IDE); the Mapbox downloads secret stays in the environment.
 

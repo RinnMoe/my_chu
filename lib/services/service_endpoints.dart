@@ -231,6 +231,7 @@ class CampusServiceEndpoints {
   static const tronclassMobileBase = 'https://mobile2.chd.edu.cn';
   static const classroomRecordingBase = 'https://zlb.chd.edu.cn';
   static const sportsPortalBase = 'https://stuh5.chd.edu.cn';
+  static const experimentCourseSelectionBase = 'http://chdsyxk.chd.edu.cn:8088';
   static const academicAffairsBase = 'http://bkjw.chd.edu.cn';
   static const graduateAcademicAffairsBase = 'https://yjs.chd.edu.cn';
   static const campusAppBase = 'https://gwwzxy.chd.edu.cn';
@@ -275,6 +276,15 @@ class CampusServiceEndpoints {
     '$classroomRecordingBase/jy-mobile-resourcemanage-ui/',
   );
   static final sportsPortalHomeUri = Uri.parse('$sportsPortalBase/');
+  static final experimentCourseSelectionHomeUri = Uri.parse(
+    '$experimentCourseSelectionBase/apk/App/Customer/index/index.html',
+  );
+  static final experimentCourseSelectionLoginUri = Uri.parse(
+    '$experimentCourseSelectionBase/caslogin.aspx',
+  );
+  static final experimentCourseSelectionSignInUri = Uri.parse(
+    '$experimentCourseSelectionBase/apk/App/login/login.html',
+  );
   static final classroomRecordingLiveListUri = Uri.parse(
     '$classroomRecordingHomeUri#/liveList',
   );
@@ -440,6 +450,7 @@ class CampusServiceEndpoints {
     'mobile2.chd.edu.cn': CampusServices.tronclassMobile,
     'zlb.chd.edu.cn': CampusServices.classroomRecording,
     'stuh5.chd.edu.cn': CampusServices.sportsPortal,
+    'chdsyxk.chd.edu.cn': CampusServices.experimentCourseSelection,
     'bkjw.chd.edu.cn': CampusServices.academicAffairs,
     'yjs.chd.edu.cn': CampusServices.graduateAcademicAffairs,
     'gwwzxy.chd.edu.cn': CampusServices.campusApp,
@@ -513,6 +524,16 @@ class CampusServiceEndpoints {
       host: 'zlb.chd.edu.cn',
       startUri: classroomRecordingHomeUri,
       seedUri: classroomRecordingHomeUri,
+      webViewBootstrapMode: WebViewBootstrapMode.browserRelay,
+    ),
+    // 首页是公开壳层。由浏览器打开页面上的统一身份入口完成站点会话。
+    CampusServiceDefinition(
+      id: CampusServices.experimentCourseSelection,
+      host: 'chdsyxk.chd.edu.cn',
+      port: 8088,
+      startUri: experimentCourseSelectionLoginUri,
+      seedUri: experimentCourseSelectionHomeUri,
+      allowedPaths: const ['/apk', '/caslogin.aspx'],
       webViewBootstrapMode: WebViewBootstrapMode.browserRelay,
     ),
     // 长大体育：根页由静态 SPA 发起统一身份 OAuth，宿主播种根身份并辅助完成授权页。
@@ -746,6 +767,7 @@ class CampusServiceEndpoints {
       CampusServiceId(value: 'tronclass-mobile') => '畅课移动端服务',
       CampusServiceId(value: 'classroom-recording') => '课堂实录服务',
       CampusServiceId(value: 'sports-portal') => '长大体育服务',
+      CampusServiceId(value: 'experiment-course-selection') => '实验选课服务',
       CampusServiceId(value: 'academic-affairs') => '教务服务',
       CampusServiceId(value: 'graduate-academic-affairs') => '研究生教务服务',
       CampusServiceId(value: 'campus-app') => '校园应用服务',

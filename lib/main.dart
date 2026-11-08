@@ -12,6 +12,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import 'capabilities/time_reminder_registry.dart';
 import 'capabilities/authenticated_web_view_capability.dart';
@@ -93,7 +94,14 @@ void _bootstrap() {
   );
   unawaited(AppLaunchService.initialize());
   TemporalChangeService.initialize();
-  runApp(const MyApp());
+  runApp(
+    // 玻璃控件按应用主题而不是系统明暗解析亮度：主题与系统设置不一致时，玻璃的
+    // 阴影和描边不会消失。材质参数仍由 AppGlassMaterial 统一提供。
+    LiquidGlassWidgets.wrap(
+      child: const MyApp(),
+      brightnessResolver: Theme.maybeBrightnessOf,
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -334,6 +342,12 @@ class _AppShellState extends State<AppShell> {
   Future<void> _refresh() async {
     final generation = ++_restoreGeneration;
     if (!await _requireLocalPrivacyAgreement(generation)) return;
+    final glassAllowed = await PrivacyAgreementService.isAccepted();
+    if (!mounted || generation != _restoreGeneration) return;
+    if (glassAllowed) {
+      await LiquidGlassWidgets.initialize(enablePerformanceMonitor: false);
+    }
+    if (!mounted || generation != _restoreGeneration) return;
     await HostAuthCoordinator.initialize();
     if (!mounted || generation != _restoreGeneration) return;
     setState(() => _ready = true);

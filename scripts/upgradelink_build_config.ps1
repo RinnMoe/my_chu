@@ -12,9 +12,9 @@ function Get-UpgradeLinkBuildConfig {
         throw 'UL configuration must be a JSON object.'
     }
     if ($config -isnot [pscustomobject]) { throw 'UL configuration must be a JSON object.' }
-    foreach ($key in @('MYCHU_UPGRADELINK_APK_KEY', 'MYCHU_UPGRADELINK_ACCESS_KEY', 'MYCHU_UPGRADELINK_SECRET_KEY')) {
+    foreach ($key in @('MYCHU_UPGRADELINK_APK_KEY')) {
         if ($config.$key -isnot [string] -or [string]::IsNullOrWhiteSpace($config.$key)) {
-            throw 'UL configuration requires nonempty application and API keys.'
+            throw 'UL configuration requires a nonempty application channel key.'
         }
     }
     $origin = $null

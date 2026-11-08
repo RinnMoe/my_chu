@@ -38,36 +38,3 @@ class AcademicScheduleBackground extends StatelessWidget {
     ],
   );
 }
-
-/// Fades the canvas out of the title bar so a background photo continues into
-/// the app bar instead of meeting a solid color at a hard horizontal edge.
-///
-/// It fills the app bar (including the status bar inset) and ends fully
-/// transparent at the bottom edge, where the timetable canvas begins.
-class AcademicScheduleHeaderFade extends StatelessWidget {
-  const AcademicScheduleHeaderFade({super.key, required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => IgnorePointer(
-    // AppBar hands its flexible space loose constraints, so the gradient has
-    // to claim the full app bar box explicitly.
-    child: SizedBox.expand(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              color.withValues(alpha: .92),
-              color.withValues(alpha: .58),
-              color.withValues(alpha: 0),
-            ],
-            stops: const [0, .58, 1],
-          ),
-        ),
-      ),
-    ),
-  );
-}

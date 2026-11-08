@@ -2,6 +2,7 @@ import "dart:async";
 
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 import "package:liquid_glass_widgets/liquid_glass_widgets.dart";
 
 import "../../campus_places/campus_places.dart";
@@ -10,6 +11,7 @@ import "../../../services/campus_settings_service.dart";
 import "../../../services/host_platform.dart";
 import "../../../pages/host_permission_purpose_overlay.dart";
 import "../../../services/platform_environment.dart";
+import "../../../widgets/glass_surface.dart";
 import "../campus_map_controller.dart";
 import "../campus_map_models.dart";
 import "../campus_user_location.dart";
@@ -18,6 +20,7 @@ import "../layers/layers.dart";
 import "mapbox_campus_map_view.dart";
 import "mapbox_layer_panel.dart";
 import "mapbox_lazy_loader.dart";
+import "mapbox_map_chrome.dart";
 import "mapbox_map_engine.dart";
 import "mapbox_offline_cache.dart";
 
@@ -78,6 +81,7 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
   late final MapLayerManager _layerManager;
   bool _ownsLayerManager = false;
   final TextEditingController _search = TextEditingController();
+  final FocusNode _searchFocus = FocusNode(debugLabel: "campus-map-search");
 
   bool _destinationApplied = false;
   bool _layerFocusApplied = false;
@@ -485,6 +489,14 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
         entry.definition.interaction.showsDetailCard;
   }
 
+  /// 顶部搜索 chrome：手机与平板共用同一实例配置。
+  Widget _buildChrome() => MapboxMapChrome(
+    asRootTab: widget.asRootTab,
+    searchController: _search,
+    searchFocusNode: _searchFocus,
+    onSearch: _resolve,
+  );
+
   Widget _buildLayerCard() {
     final entry = _layerManager.selectedEntry!;
     return MapLayerFeatureCard(
@@ -540,13 +552,28 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
                   _placesService.campusById(selection.campusId)?.displayName,
             );
 
+    final brightness = Theme.of(context).brightness;
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        automaticallyImplyLeading: !widget.asRootTab,
-        title: const Text("校园地图"),
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        // 地图页没有 AppBar，状态栏图标不会自动跟随主题切换；画布是沉浸式的，
+        // 按当前主题决定明暗，避免浅色地图上出现浅色图标。
+        value: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness:
+              brightness == Brightness.dark
+                  ? Brightness.light
+                  : Brightness.dark,
+          statusBarBrightness: brightness,
+        ),
+        child: _buildMapBody(
+          context,
+          mapReady,
+          presentation,
+          status,
+          indoorView,
+        ),
       ),
-      body: _buildMapBody(context, mapReady, presentation, status, indoorView),
     );
   }
 
@@ -574,41 +601,27 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
     final placeCardVisible =
         presentation != null && presentation.showInfoCard && !_layerCardVisible;
     final cardVisible = placeCardVisible || _layerCardVisible;
-    final floorSelectorBottom = cardVisible ? 116.0 : 12.0;
+    // 玻璃底栏浮在地图上，底部浮层让出底栏高度。
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final floorSelectorBottom =
+        (cardVisible ? 116.0 : 12.0) + bottomInset;
+    // 顶部右上角是一个默认收起的玻璃圆形放大镜，展开后压在地图上；右侧控件从
+    // chrome 下方开始，避免被展开后的搜索栏盖住。
+    final chromeTop = MediaQuery.paddingOf(context).top + 8;
+    final controlsTop = chromeTop + MapboxMapChrome.heightFor(context) + 8;
     return Stack(
       children: [
-        Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _search,
-                      decoration: const InputDecoration(
-                        hintText: "支持教室编号查询",
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      onSubmitted: _resolve,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: () => _resolve(_search.text),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child:
-                  mapReady
-                      ? _buildMapView(context)
-                      : _StatusView(status: status),
-            ),
-          ],
+        Positioned.fill(
+          child:
+              mapReady
+                  ? _buildMapView(context)
+                  : _StatusView(status: status),
+        ),
+        Positioned(
+          left: 12,
+          right: 12,
+          top: chromeTop,
+          child: _buildChrome(),
         ),
         if (indoorView != null)
           AnimatedPositioned(
@@ -625,8 +638,10 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
           ),
         Positioned(
           right: 12,
-          top: 76,
-          bottom: _layerCardVisible ? 160 : (cardVisible ? 100 : 12),
+          top: controlsTop,
+          bottom: _layerCardVisible
+              ? 160 + bottomInset
+              : (cardVisible ? 100 + bottomInset : 12 + bottomInset),
           width: 48,
           child: Align(
             alignment: Alignment.bottomCenter,
@@ -648,7 +663,7 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
           Positioned(
             left: 8,
             right: 8,
-            bottom: 8,
+            bottom: 8 + bottomInset,
             child: MapPlaceInfoCard(
               presentation: presentation,
               onClear: _clearSelection,
@@ -657,7 +672,12 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
             ),
           ),
         if (_layerCardVisible)
-          Positioned(left: 8, right: 8, bottom: 8, child: _buildLayerCard()),
+          Positioned(
+            left: 8,
+            right: 8,
+            bottom: 8 + bottomInset,
+            child: _buildLayerCard(),
+          ),
       ],
     );
   }
@@ -677,46 +697,11 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
             (constraints.maxWidth - 24).clamp(0.0, 360.0).toDouble();
         final cardVisible =
             (selectedPresentation?.showInfoCard == true) || _layerCardVisible;
+        final bottomInset = MediaQuery.paddingOf(context).bottom;
         final cardWidth =
             (constraints.maxWidth - 32).clamp(0.0, 520.0).toDouble();
         final cardLeft = (constraints.maxWidth - cardWidth) / 2;
-        final search = DecoratedBox(
-          key: const ValueKey('tablet-map-search'),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.16),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _search,
-                    decoration: const InputDecoration(
-                      hintText: "支持教室编号查询",
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    onSubmitted: _resolve,
-                  ),
-                ),
-                IconButton(
-                  tooltip: "搜索地点",
-                  onPressed: () => _resolve(_search.text),
-                  icon: const Icon(Icons.search),
-                ),
-              ],
-            ),
-          ),
-        );
+        final chromeTop = MediaQuery.paddingOf(context).top + 12;
         return Stack(
           children: [
             Positioned.fill(
@@ -728,13 +713,21 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
                       )
                       : _StatusView(status: status),
             ),
-            Positioned(left: 12, top: 12, width: searchWidth, child: search),
+            Positioned(
+              left: 12,
+              top: chromeTop,
+              width: searchWidth,
+              child: KeyedSubtree(
+                key: const ValueKey('tablet-map-chrome'),
+                child: _buildChrome(),
+              ),
+            ),
             if (indoorView != null)
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOut,
                 left: 12,
-                bottom: cardVisible ? 116 : 16,
+                bottom: cardVisible ? 116 + bottomInset : 16 + bottomInset,
                 child: IndoorFloorSelector(
                   state: indoorView,
                   onFloorSelected:
@@ -746,8 +739,8 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeOut,
               right: 16,
-              top: 12,
-              bottom: cardVisible ? 116 : 16,
+              top: chromeTop,
+              bottom: cardVisible ? 116 + bottomInset : 16 + bottomInset,
               width: 48,
               child: Align(
                 alignment: Alignment.bottomCenter,
@@ -772,7 +765,7 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
               Positioned(
                 left: cardLeft,
                 width: cardWidth,
-                bottom: 12,
+                bottom: 12 + bottomInset,
                 child: KeyedSubtree(
                   key: const ValueKey('tablet-map-selection'),
                   child:
@@ -808,6 +801,7 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
         ..dispose();
     }
     _search.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 }
@@ -1139,17 +1133,16 @@ class MapboxMapControls extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _button(context, Icons.layers_outlined, "地图图层", onLayers),
+        _button(Icons.layers_outlined, "地图图层", onLayers),
         const SizedBox(height: 8),
-        _button(context, Icons.location_city, "选择校区", onCampus),
+        _button(Icons.location_city, "选择校区", onCampus),
         const SizedBox(height: 8),
-        _button(context, Icons.add, "放大", onZoomIn, enabled: mapReady),
+        _button(Icons.add, "放大", onZoomIn, enabled: mapReady),
         const SizedBox(height: 8),
-        _button(context, Icons.remove, "缩小", onZoomOut, enabled: mapReady),
+        _button(Icons.remove, "缩小", onZoomOut, enabled: mapReady),
         const SizedBox(height: 8),
         locating
             ? _button(
-              context,
               Icons.my_location,
               "定位中",
               onLocate,
@@ -1160,80 +1153,26 @@ class MapboxMapControls extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             )
-            : _button(
-              context, Icons.my_location, "定位", onLocate, enabled: mapReady,
-            ),
+            : _button(Icons.my_location, "定位", onLocate, enabled: mapReady),
       ],
     );
   }
 
   Widget _button(
-    BuildContext context,
     IconData icon,
     String tooltip,
     VoidCallback onPressed, {
     Widget? child,
     bool enabled = true,
   }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    // 玻璃只提供材质，颜色仍由 M3 角色决定。地图是持续重绘的平台视图（Mapbox
-    // 默认 VD 托管），premium 的纹理捕获采不到它，所以这里用 standard 的实时
-    // BackdropFilter；观感靠 tint、边缘辉光、高光与模糊建立，没有折射。
-    //
-    // tint 必须带上 surface 的色阶：深色模式下 onSurface 是浅色，若玻璃只有
-    // 一层很淡的薄膜，浅色图标压在浅色地图上几乎不可见。surface@62% 时深色
-    // 模式约 5:1、浅色模式约 15:1，两种模式都能读。
-    //
-    // 玻璃必须画成背景层、图标单独叠在上面：作为 `child` 传入时，从其他页面
-    // push 进入本页后玻璃会盖住图标（useOwnLayer 与滚动容器都无关），表现为
-    // 只剩半透明圆盘、图标时有时无。Stack 明确固定了层次。
-    return SizedBox(
+    return AppGlassButton(
       width: 44,
       height: 44,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: GlassContainer(
-              quality: GlassQuality.standard,
-              platformViewBackdrop: true,
-              shape: const LiquidOval(),
-              settings: LiquidGlassSettings(
-                thickness: 20,
-                blur: 16,
-                glassColor: colorScheme.surface.withValues(alpha: 0.62),
-                lightIntensity: 0.85,
-                glowIntensity: 1,
-                platformViewFallbackColor: colorScheme.surface.withValues(
-                  alpha: 0.94,
-                ),
-              ),
-              child: const SizedBox.expand(),
-            ),
-          ),
-          // 局部 Material 只负责水波纹：玻璃在它下面，默认的 Scaffold Material
-          // 在玻璃更下方，按压反馈会被玻璃挡住。
-          Positioned.fill(
-            child: Material(
-              type: MaterialType.transparency,
-              shape: const CircleBorder(),
-              clipBehavior: Clip.antiAlias,
-              child: IconButton(
-                tooltip: tooltip,
-                onPressed: enabled ? onPressed : null,
-                icon: child ?? Icon(icon),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  disabledBackgroundColor: Colors.transparent,
-                  foregroundColor: colorScheme.onSurface,
-                  disabledForegroundColor: colorScheme.primary,
-                  shape: const CircleBorder(),
-                  fixedSize: const Size(44, 44),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      shape: const LiquidOval(),
+      mapBackdrop: true,
+      tooltip: tooltip,
+      onPressed: enabled ? onPressed : null,
+      child: child ?? Icon(icon),
     );
   }
 }

@@ -311,6 +311,31 @@ class _ThemeSettings extends StatelessWidget {
                 );
               },
             ),
+            heading('底栏样式'),
+            Material(
+              color: scheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
+              child: SettingResetRegion(
+                onReset:
+                    () => _change(
+                      context,
+                      () => themePreferencesNotifier
+                          .setFloatingBottomBarEnabled(false),
+                    ),
+                child: SwitchListTile(
+                  key: const ValueKey('floating-bottom-bar-setting'),
+                  title: const Text('悬浮底栏样式'),
+                  value: preferences.floatingBottomBarEnabled,
+                  onChanged:
+                      (enabled) => _change(
+                        context,
+                        () => themePreferencesNotifier
+                            .setFloatingBottomBarEnabled(enabled),
+                      ),
+                ),
+              ),
+            ),
             if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) ...[
               heading('交互'),
               Material(

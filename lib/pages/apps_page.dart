@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../widgets/app_glass_app_bar.dart';
+
 import '../apps/app.dart';
 import '../apps/app_service.dart';
 import '../capabilities/skeleton_block.dart';
@@ -68,30 +70,40 @@ class _AppsPageState extends State<AppsPage> {
   @override
   Widget build(BuildContext context) {
     final page = Scaffold(
-      appBar: AppBar(title: const Text('功能')),
-      body: SafeArea(bottom: false, child: _buildCatalogBody()),
+      extendBodyBehindAppBar: true,
+      appBar: const AppGlassAppBar(title: Text('功能')),
+      // 顶部留白由滚动内容承担，页面才能滚到玻璃标题栏后面。
+      body: SafeArea(
+        top: false,
+        bottom: false,
+        child: _buildCatalogBody(context),
+      ),
     );
     return page;
   }
 
-  Widget _buildCatalogBody() {
+  Widget _buildCatalogBody(BuildContext context) {
+    // 玻璃标题栏与底栏浮在内容上，滚动留白跟随两条栏的高度。
+    final mediaQuery = MediaQuery.of(context);
+    final topInset = mediaQuery.padding.top + kToolbarHeight + 8;
+    final bottomInset = mediaQuery.padding.bottom;
     if (_loading) {
-      return const SingleChildScrollView(
-        key: PageStorageKey<String>('feature-catalog-loading'),
-        padding: EdgeInsets.fromLTRB(16, 8, 16, 24),
-        child: _AppsSkeleton(),
+      return SingleChildScrollView(
+        key: const PageStorageKey<String>('feature-catalog-loading'),
+        padding: EdgeInsets.fromLTRB(16, topInset, 16, 24 + bottomInset),
+        child: const _AppsSkeleton(),
       );
     }
     if (_apps.isEmpty) {
-      return const SingleChildScrollView(
-        key: PageStorageKey<String>('feature-catalog-empty'),
-        padding: EdgeInsets.fromLTRB(16, 8, 16, 24),
-        child: _HintRow(icon: Icons.apps_outlined, text: '暂无已添加功能'),
+      return SingleChildScrollView(
+        key: const PageStorageKey<String>('feature-catalog-empty'),
+        padding: EdgeInsets.fromLTRB(16, topInset, 16, 24 + bottomInset),
+        child: const _HintRow(icon: Icons.apps_outlined, text: '暂无已添加功能'),
       );
     }
     return SingleChildScrollView(
       key: const PageStorageKey<String>('feature-catalog-category'),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: EdgeInsets.fromLTRB(16, topInset, 16, 24 + bottomInset),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: _buildCategoryChildren(),

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../services/platform_environment.dart';
+import '../services/theme_service.dart';
 import 'adaptive_navigation_item.dart';
 import 'material_navigation_shell.dart';
 
@@ -10,7 +11,7 @@ export 'adaptive_navigation_item.dart';
 ///
 /// The host remains the single owner of tab identity, selected state, lazy page
 /// instances and account/session lifetime. Navigation adapts to device and
-/// window size while keeping the Material 3 presentation on every platform.
+/// window size and the user's bottom bar preference.
 class AdaptiveNavigationScaffold extends StatelessWidget {
   final List<AdaptiveNavigationItem> items;
   final int selectedIndex;
@@ -41,14 +42,20 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
     final deviceFamily = deviceFamilyOverride ?? environment.deviceFamily;
     final windowClass = windowClassOverride ?? environment.windowClass;
 
-    return MaterialNavigationShell(
-      items: items,
-      selectedIndex: selectedIndex,
-      onSelected: onSelected,
-      deviceFamily: deviceFamily,
-      windowClass: windowClass,
-      navigationRegionKey: navigationRegionKey,
+    return ValueListenableBuilder<ThemePreferences>(
+      valueListenable: themePreferencesNotifier,
       child: child,
+      builder:
+          (context, preferences, body) => MaterialNavigationShell(
+            items: items,
+            selectedIndex: selectedIndex,
+            onSelected: onSelected,
+            deviceFamily: deviceFamily,
+            windowClass: windowClass,
+            floatingBottomBar: preferences.floatingBottomBarEnabled,
+            navigationRegionKey: navigationRegionKey,
+            child: body!,
+          ),
     );
   }
 }

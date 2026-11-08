@@ -1,7 +1,7 @@
 name: mychu
 description: 长安大学第三方校园助手
 publish_to: 'none'
-version: 1.4.0+22
+version: 1.4.1+23
 
 environment:
   sdk: ^3.7.0
@@ -41,7 +41,7 @@ dependencies:
   pointycastle: ^3.9.1
   # Official Mapbox renderer + hosted basemap/style/tile delivery.
   mapbox_maps_flutter: ^2.28.0
-  # 地图操作按钮的玻璃材质（fragment shader，Android 走 Impeller）。
+  # 宿主玻璃材质与原生液态交互，地图按钮在支持着色器时使用完整折射管线。
   # 上游约两天一个版本且 2.0 计划改动默认档，钉死精确版本避免自动升级破改。
   liquid_glass_widgets: 1.16.1
   file_selector: ^1.1.0
@@ -68,6 +68,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/experiment_course_selection/CHUSYXKhelper.user.js
     - assets/images/yundaren_socket.jpg
     - assets/images/feedback_wechat_qr.jpg
     - assets/splash/campus_building.png

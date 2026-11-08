@@ -26,6 +26,9 @@ class CampusServices {
   static const tronclassMobile = CampusServiceId('tronclass-mobile');
   static const classroomRecording = CampusServiceId('classroom-recording');
   static const sportsPortal = CampusServiceId('sports-portal');
+  static const experimentCourseSelection = CampusServiceId(
+    'experiment-course-selection',
+  );
   static const academicAffairs = CampusServiceId('academic-affairs');
   static const graduateAcademicAffairs = CampusServiceId(
     'graduate-academic-affairs',
@@ -46,6 +49,7 @@ class CampusServices {
     tronclassMobile,
     classroomRecording,
     sportsPortal,
+    experimentCourseSelection,
     academicAffairs,
     graduateAcademicAffairs,
     campusApp,

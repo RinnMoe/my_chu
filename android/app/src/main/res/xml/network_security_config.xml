@@ -4,6 +4,10 @@
          exceptions below exact-host only; never widen this to chd.edu.cn. -->
     <base-config cleartextTrafficPermitted="false" />
     <domain-config cleartextTrafficPermitted="true">
+        <!-- The experiment course selection APK frontend is HTTP-only. -->
+        <domain includeSubdomains="false">chdsyxk.chd.edu.cn</domain>
+    </domain-config>
+    <domain-config cleartextTrafficPermitted="true">
         <!-- EAMS still serves the legacy HTTP entry point. -->
         <domain includeSubdomains="false">bkjw.chd.edu.cn</domain>
     </domain-config>

@@ -870,10 +870,12 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
         (_visibleHomeFocus?.items.isNotEmpty ?? false) ||
         TronclassRollcallStore.instance.error != null ||
         credentialSyncVisible;
+    // 玻璃底栏浮在内容上，滚动留白跟随底栏高度，避免最后一项被遮住。
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     final slivers = <Widget>[
       SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 64),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 64 + bottomInset),
         sliver: SliverList.list(
           children: [
             _GreetingHeader(

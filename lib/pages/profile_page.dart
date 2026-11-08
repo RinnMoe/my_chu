@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../models/account.dart';
 import '../services/auth_service.dart';
@@ -17,6 +18,7 @@ import '../services/campus_settings_service.dart';
 import '../services/updates/app_update_service.dart';
 import '../widgets/adaptive_confirmation_dialog.dart';
 import '../widgets/adaptive_settings.dart';
+import '../widgets/glass_surface.dart';
 import 'about_page.dart';
 import 'app_update_section.dart';
 import 'app_update_prompts.dart';
@@ -270,11 +272,35 @@ class _ProfilePageState extends State<ProfilePage>
 
   @override
   Widget build(BuildContext context) {
+    // 玻璃底栏浮在内容上，滚动留白跟随底栏高度。
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
     final content = CustomScrollView(
       slivers: [
-        const SliverAppBar.medium(pinned: true, title: Text('选项')),
+        SliverAppBar(
+          pinned: true,
+          expandedHeight: 112,
+          toolbarHeight: 64,
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          forceMaterialTransparency: true,
+          // 折叠标题栏用玻璃做背景；标题仍走 M3 排版，滚动时内容从玻璃后穿过。
+          flexibleSpace: AppGlassSurface(
+            shape: const LiquidRoundedRectangle(borderRadius: 0),
+            bottomFadeExtent: 32,
+            child: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+              expandedTitleScale: 1,
+              title: Text(
+                '选项',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
+          ),
+        ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+          padding: EdgeInsets.fromLTRB(16, 4, 16, 24 + bottomInset),
           sliver: SliverList.list(
             children: [
               AppUpdateSection(key: _updateCardKey, service: widget.updates),

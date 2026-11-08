@@ -13,6 +13,7 @@ import 'classroom_usage/classroom_usage_app.dart';
 import 'smart_socket_yundaren/smart_socket_yundaren_app.dart';
 import 'classroom_recording/classroom_recording_app.dart';
 import 'commuter_bus/commuter_bus_app.dart';
+import 'experiment_course_selection/experiment_course_selection_app.dart';
 import 'fitness_test/fitness_test_app.dart';
 import 'library/library_app.dart';
 import 'parcel_identity_code/parcel_identity_code_app.dart';
@@ -50,6 +51,7 @@ class AppRegistry {
     commuterBusApp,
     libraryApp,
     academicWebApp,
+    experimentCourseSelectionApp,
     qualityAssuranceApp,
     portalPersonalApp,
     portalNoticesApp,

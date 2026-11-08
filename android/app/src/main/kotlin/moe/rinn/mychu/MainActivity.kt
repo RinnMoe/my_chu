@@ -53,6 +53,9 @@ class MainActivity : FlutterActivity() {
         return FlutterEngine(context, null, false)
     }
 
+    // provideFlutterEngine 的引擎默认由外部管理；这里每次自建，必须随 Activity 销毁。
+    override fun shouldDestroyEngineWithHost(): Boolean = true
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         // 不能调用 super：它会注册 GeneratedPluginRegistrant 中的全部插件（含 Mapbox）。
         MyChuPluginRegistrant.registerWith(flutterEngine)

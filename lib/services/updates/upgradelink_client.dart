@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -13,7 +12,7 @@ import '../public_http_client.dart';
 import 'upgradelink_delta.dart';
 import 'update_offer.dart';
 
-/// Native UpgradeLink credentials are supplied by the private build configuration.
+/// The update origin and public channel key are supplied by build configuration.
 class UpgradeLinkConfig {
   const UpgradeLinkConfig({
     this.baseUrl = const String.fromEnvironment(
@@ -21,30 +20,16 @@ class UpgradeLinkConfig {
       defaultValue: 'https://mychu.rinn.moe/update',
     ),
     this.apkKey = const String.fromEnvironment('MYCHU_UPGRADELINK_APK_KEY'),
-    this.accessKey = const String.fromEnvironment(
-      'MYCHU_UPGRADELINK_ACCESS_KEY',
-    ),
-    this.secretKey = const String.fromEnvironment(
-      'MYCHU_UPGRADELINK_SECRET_KEY',
-    ),
   });
   final String baseUrl;
   final String apkKey;
-  final String accessKey;
-  final String secretKey;
-  bool get isConfigured =>
-      baseUrl.isNotEmpty &&
-      apkKey.isNotEmpty &&
-      accessKey.isNotEmpty &&
-      secretKey.isNotEmpty;
+  bool get isConfigured => baseUrl.isNotEmpty && apkKey.isNotEmpty;
 
   /// Resolves one UpgradeLink path under the configured base URL.
   ///
   /// A path prefix is allowed so the same client works against both the legacy
   /// root host (`https://update.rinn.moe`) and the unified domain
-  /// (`https://mychu.rinn.moe/update`). The signature always covers the logical
-  /// path (`/v1/apk/upgrade`), never the prefixed public path, so both entry
-  /// points share one preimage.
+  /// (`https://mychu.rinn.moe/update`). Both expose the same anonymous protocol.
   Uri endpoint(String path) {
     final origin = Uri.parse(baseUrl);
     if (origin.scheme != 'https' ||
@@ -68,61 +53,23 @@ class UpgradeLinkClient {
     this.config = const UpgradeLinkConfig(),
     PublicHttpClient? httpClient,
     DateTime Function()? now,
-    String Function()? nonce,
     Future<Directory> Function()? temporaryDirectory,
   }) : _http = httpClient ?? PublicHttpClient(),
        _now = now ?? DateTime.now,
-       _nonce = nonce ?? _randomNonce,
        _temporaryDirectory = temporaryDirectory ?? getTemporaryDirectory;
   final UpgradeLinkConfig config;
   final PublicHttpClient _http;
   final DateTime Function() _now;
-  final String Function() _nonce;
   final Future<Directory> Function() _temporaryDirectory;
-  static String _randomNonce() {
-    final random = Random.secure();
-    return List.generate(
-      16,
-      (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
-    ).join();
-  }
-
   Future<Map<String, dynamic>> _post(
     String path,
     Map<String, dynamic> payload,
   ) async {
     if (!config.isConfigured) {
-      throw const FormatException('UpgradeLink credentials unavailable');
+      throw const FormatException('UpgradeLink configuration unavailable');
     }
     final endpoint = config.endpoint(path);
-    final timestamp = _now().toUtc().toIso8601String();
-    final nonce = _nonce();
-    final fields = <String, String>{
-      'body': jsonEncode(payload),
-      'nonce': nonce,
-      'secretKey': config.secretKey,
-      'timestamp': timestamp,
-      // Logical path only: the server verifies this preimage regardless of the
-      // public hostname or path prefix the request travelled through.
-      'url': path,
-    };
-    final keys = fields.keys.toList()..sort();
-    final signature =
-        md5
-            .convert(
-              utf8.encode(keys.map((key) => '$key=${fields[key]}').join('&')),
-            )
-            .toString();
-    final response = await _http.postJson(
-      endpoint,
-      body: payload,
-      headers: {
-        'X-AccessKey': config.accessKey,
-        'X-Timestamp': timestamp,
-        'X-Nonce': nonce,
-        'X-Signature': signature,
-      },
-    );
+    final response = await _http.postJson(endpoint, body: payload);
     if (response.statusCode != 200 || response.bodyBytes.length > 64 * 1024) {
       throw const FormatException('UpgradeLink unavailable');
     }

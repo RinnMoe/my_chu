@@ -40,6 +40,7 @@ class ThemePreferences {
     this.dynamicColorSupported = false,
     this.predictiveBackEnabled = true,
     this.pureBlackEnabled = false,
+    this.floatingBottomBarEnabled = false,
   });
 
   final AppThemeMode mode;
@@ -48,6 +49,7 @@ class ThemePreferences {
   final bool dynamicColorSupported;
   final bool predictiveBackEnabled;
   final bool pureBlackEnabled;
+  final bool floatingBottomBarEnabled;
 
   bool get useDynamicColors => dynamicColorEnabled && dynamicColorSupported;
 
@@ -58,9 +60,12 @@ class ThemePreferences {
     bool? dynamicColorSupported,
     bool? predictiveBackEnabled,
     bool? pureBlackEnabled,
+    bool? floatingBottomBarEnabled,
   }) {
     return ThemePreferences(
       pureBlackEnabled: pureBlackEnabled ?? this.pureBlackEnabled,
+      floatingBottomBarEnabled:
+          floatingBottomBarEnabled ?? this.floatingBottomBarEnabled,
       mode: mode ?? this.mode,
       seedColor: seedColor ?? this.seedColor,
       dynamicColorEnabled: dynamicColorEnabled ?? this.dynamicColorEnabled,
@@ -97,6 +102,8 @@ class ThemePreferencesNotifier extends ValueNotifier<ThemePreferences> {
 
     value = value.copyWith(
       pureBlackEnabled: prefs.getBool('theme_pure_black') ?? false,
+      floatingBottomBarEnabled:
+          prefs.getBool('theme_floating_bottom_bar') ?? false,
       mode: AppThemeMode.fromStorage(storedMode),
       seedColor:
           prefs.getInt('theme_seed_color') == null
@@ -122,6 +129,14 @@ class ThemePreferencesNotifier extends ValueNotifier<ThemePreferences> {
       throw StateError('theme_write_failed');
     }
     value = value.copyWith(pureBlackEnabled: enabled);
+  }
+
+  Future<void> setFloatingBottomBarEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!await prefs.setBool('theme_floating_bottom_bar', enabled)) {
+      throw StateError('theme_write_failed');
+    }
+    value = value.copyWith(floatingBottomBarEnabled: enabled);
   }
 
   Future<void> setMode(AppThemeMode mode) async {

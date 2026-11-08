@@ -4,10 +4,12 @@ import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
@@ -30,6 +32,8 @@ import '../../services/teaching_schedule_service.dart';
 import '../../services/temporal_change_service.dart';
 import '../east8_time.dart';
 import '../../services/platform_environment.dart';
+import '../../widgets/glass_surface.dart';
+import '../../theme/app_glass.dart';
 import '../../widgets/adaptive_action_sheet.dart';
 import '../../widgets/adaptive_confirmation_dialog.dart';
 import '../../widgets/adaptive_feedback.dart';
@@ -1003,10 +1007,9 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
   Widget _appearancePage(BuildContext context, Widget body) {
     final theme = Theme.of(context);
     final canvas = _appearance.canvas(theme.colorScheme);
-    final custom =
-        theme.brightness == Brightness.dark
-            ? _appearance.darkBackground
-            : _appearance.lightBackground;
+    final custom = theme.brightness == Brightness.dark
+        ? _appearance.darkBackground
+        : _appearance.lightBackground;
     final axis = _appearance.style.ink(
       ScheduleInk.axis,
       theme.brightness == Brightness.dark,
@@ -1016,21 +1019,20 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
       theme.brightness == Brightness.dark,
     );
     final hasImage = image != null;
-    final pageTheme =
-        custom == null && axis == null
-            ? theme
-            : theme.copyWith(
-              colorScheme: theme.colorScheme.copyWith(
-                surface: canvas,
-                onSurface: foreground,
-                onSurfaceVariant: foreground,
-              ),
-              textTheme: theme.textTheme.apply(
-                bodyColor: foreground,
-                displayColor: foreground,
-              ),
-              iconTheme: theme.iconTheme.copyWith(color: foreground),
-            );
+    final pageTheme = custom == null && axis == null
+        ? theme
+        : theme.copyWith(
+            colorScheme: theme.colorScheme.copyWith(
+              surface: canvas,
+              onSurface: foreground,
+              onSurfaceVariant: foreground,
+            ),
+            textTheme: theme.textTheme.apply(
+              bodyColor: foreground,
+              displayColor: foreground,
+            ),
+            iconTheme: theme.iconTheme.copyWith(color: foreground),
+          );
     return AcademicScheduleAppearanceScope(
       appearance: _appearance,
       child: Theme(
@@ -1039,122 +1041,86 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
           color: canvas,
           image: image,
           child: Builder(
-            builder:
-                (context) => Scaffold(
+            builder: (context) {
+              final topInset = MediaQuery.paddingOf(context).top + 60;
+              return AnnotatedRegion<SystemUiOverlayStyle>(
+                value: SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: foreground.computeLuminance() > .5
+                      ? Brightness.light
+                      : Brightness.dark,
+                  statusBarBrightness: Theme.of(context).brightness,
+                ),
+                child: Scaffold(
                   backgroundColor: hasImage ? Colors.transparent : canvas,
-                  appBar: AppBar(
-                    centerTitle: false,
-                    backgroundColor: hasImage ? Colors.transparent : canvas,
-                    surfaceTintColor: hasImage ? Colors.transparent : null,
-                    elevation: hasImage ? 0 : null,
-                    scrolledUnderElevation: hasImage ? 0 : null,
-                    systemOverlayStyle:
-                        hasImage
-                            ? SystemUiOverlayStyle(
-                              statusBarColor: Colors.transparent,
-                              statusBarIconBrightness:
-                                  foreground.computeLuminance() > .5
-                                      ? Brightness.light
-                                      : Brightness.dark,
-                            )
-                            : null,
-                    flexibleSpace:
-                        hasImage
-                            ? AcademicScheduleHeaderFade(color: canvas)
-                            : null,
-                    title: _buildAppBarTitle(context),
-                    actions: [
-                      if (_academicBackend ==
-                          AcademicAffairsBackend.undergraduate)
-                        Center(child: _buildScopeSelector(context)),
-                      if (_refreshing)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Center(
-                            child: SizedBox.square(
-                              dimension: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                        )
-                      else
-                        SizedBox(
-                          key: _scheduleOptionsKey,
-                          child: PopupMenuButton<String>(
-                            tooltip: '课表选项',
-                            icon: const Icon(Icons.more_vert),
-                            onSelected: (value) {
-                              if (value == 'currentWeek') {
-                                _returnToCurrentWeek();
-                              } else if (value == 'showNonCurrent') {
-                                _toggleShowNonCurrent();
-                              } else if (value == 'hideWeekend') {
-                                _toggleHideWeekend();
-                              } else if (value == 'refresh') {
-                                unawaited(_refreshSchedule());
-                              } else if (value == 'export') {
-                                unawaited(_showExportMenu());
-                              } else if (value == 'addCourse') {
-                                unawaited(_openCourseEditor());
-                              } else if (value == 'restoreOriginal') {
-                                unawaited(_restoreOriginalSchedule());
-                              }
-                            },
-                            itemBuilder:
-                                (context) => [
-                                  PopupMenuItem<String>(
-                                    value: 'currentWeek',
-                                    enabled: _currentPageIndex != null,
-                                    child: const Text('返回当前周'),
-                                  ),
-                                  const PopupMenuDivider(),
-                                  CheckedPopupMenuItem<String>(
-                                    value: 'showNonCurrent',
-                                    checked: _effectiveNonCurrent,
-                                    child: const Text('显示非本周课程'),
-                                  ),
-                                  CheckedPopupMenuItem<String>(
-                                    value: 'hideWeekend',
-                                    checked: _visibleWeekdays.length == 5,
-                                    child: const Text('不显示周末'),
-                                  ),
-                                  const PopupMenuDivider(),
-                                  const PopupMenuItem<String>(
-                                    value: 'export',
-                                    child: Text('导出'),
-                                  ),
-                                  if (_scope == AcademicScheduleScope.personal)
-                                    const PopupMenuItem<String>(
-                                      value: 'addCourse',
-                                      child: Text('添加课程'),
-                                    ),
-                                  if (_scope == AcademicScheduleScope.personal)
-                                    const PopupMenuItem<String>(
-                                      value: 'restoreOriginal',
-                                      child: Text('恢复原始课表'),
-                                    ),
-                                  PopupMenuItem<String>(
-                                    value: 'refresh',
-                                    child: Text(
-                                      _scope ==
-                                              AcademicScheduleScope
-                                                  .administrativeClass
-                                          ? '重新获取班级课表'
-                                          : '重新获取课程',
-                                    ),
-                                  ),
-                                ],
+                  body: ClipRect(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Padding(
+                            padding: EdgeInsets.only(top: topInset),
+                            child: body,
                           ),
                         ),
-                    ],
+                        if (_loading && _schedule != null)
+                          Positioned.fill(
+                            child: _ScheduleLoadingOverlay(
+                              label:
+                                  _scope ==
+                                      AcademicScheduleScope.administrativeClass
+                                  ? '正在加载班级课表…'
+                                  : '正在加载课表…',
+                            ),
+                          ),
+                        Positioned(
+                          left: 12,
+                          right: 12,
+                          top: MediaQuery.paddingOf(context).top + 8,
+                          child: _buildHeadbar(),
+                        ),
+                      ],
+                    ),
                   ),
-                  body: body,
                 ),
+              );
+            },
           ),
         ),
       ),
     );
   }
+
+  /// 课表页没有 AppBar：学期、周次、范围与更多菜单各自是一块玻璃。
+  Widget _buildHeadbar() => Row(
+    children: [
+      _buildMaterialSemesterButton(),
+      const SizedBox(width: 8),
+      _buildWeekTitle(),
+      const Spacer(),
+      if (_academicBackend == AcademicAffairsBackend.undergraduate) ...[
+        _buildScopeSelector(),
+        const SizedBox(width: 8),
+      ],
+      if (_refreshing)
+        const SizedBox.square(
+          dimension: 44,
+          child: Center(
+            child: SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        )
+      else
+        AppGlassButton(
+          key: _scheduleOptionsKey,
+          width: 44,
+          tooltip: '课表选项',
+          onPressed: _showOptionsSheet,
+          child: const Icon(Icons.more_vert),
+        ),
+    ],
+  );
 
   bool _canShowScheduleInspector(double width) {
     final days = _visibleWeekdays.length;
@@ -1164,8 +1130,13 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
 
   Widget _buildBody(BuildContext context) => LayoutBuilder(
     builder:
-        (context, constraints) =>
-            _buildBodyForWidth(context, constraints.maxWidth),
+        (context, constraints) => Padding(
+          // 玻璃底栏浮在内容上，课表网格整体上移，避免最后一行被遮住。
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.paddingOf(context).bottom,
+          ),
+          child: _buildBodyForWidth(context, constraints.maxWidth),
+        ),
   );
 
   Widget _buildBodyForWidth(BuildContext context, double width) {
@@ -1177,20 +1148,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
     Widget buildScheduleStack() {
       return KeyedSubtree(
         key: const ValueKey('academic-schedule-canvas'),
-        child: Stack(
-          children: [
-            Positioned.fill(child: _buildContent(context)),
-            if (_loading && _schedule != null)
-              Positioned.fill(
-                child: _ScheduleLoadingOverlay(
-                  label:
-                      _scope == AcademicScheduleScope.administrativeClass
-                          ? '正在加载班级课表…'
-                          : '正在加载课表…',
-                ),
-              ),
-          ],
-        ),
+        child: _buildContent(context),
       );
     }
 
@@ -1294,88 +1252,38 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
     unawaited(_changeScope(nextScope));
   }
 
-  Widget _buildAppBarTitle(BuildContext context) => FittedBox(
-    fit: BoxFit.scaleDown,
-    alignment: Alignment.centerLeft,
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          key: _scheduleSemesterKey,
-          child: _buildMaterialSemesterButton(),
-        ),
-        const SizedBox(width: 4),
-        SizedBox(key: _scheduleWeekKey, child: _buildWeekTitle()),
-      ],
-    ),
-  );
-
-  Widget _buildScopeSelector(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final currentScopeLabel =
-        _scope == AcademicScheduleScope.personal ? '个人' : '班级';
-    final nextScopeLabel =
-        _scope == AcademicScheduleScope.personal ? '班级' : '个人';
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          key: _scheduleScopeKey,
-          child: Semantics(
-            button: true,
-            label: '当前为$currentScopeLabel课表，点击切换到$nextScopeLabel课表',
-            child: Tooltip(
-              message: '切换到$nextScopeLabel课表',
-              child: Material(
-                color: colors.surfaceContainerHighest.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(999),
-                child: InkWell(
-                  key: const ValueKey('academic-schedule-scope-selector'),
-                  borderRadius: BorderRadius.circular(999),
-                  onTap: _loading || _refreshing ? null : _toggleScope,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          currentScopeLabel,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.labelMedium?.copyWith(
-                            color: colors.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(width: 2),
-                        Icon(
-                          Icons.swap_horiz,
-                          size: 15,
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+  Widget _buildScopeSelector() {
+    final current = _scope == AcademicScheduleScope.personal ? '个人' : '班级';
+    final next = _scope == AcademicScheduleScope.personal ? '班级' : '个人';
+    return KeyedSubtree(
+      key: _scheduleScopeKey,
+      child: AppGlassButton(
+        key: const ValueKey('academic-schedule-scope-selector'),
+        tooltip: '当前为$current课表，点击切换到$next课表',
+        onPressed: _loading || _refreshing ? null : _toggleScope,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(current, style: Theme.of(context).textTheme.labelMedium),
+              const SizedBox(width: 2),
+              const Icon(Icons.swap_horiz, size: 15),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
   Widget _buildMaterialSemesterButton() {
     final label = _semesterDisplayLabel;
-    return IconButton(
+    return AppGlassButton(
+      width: 44,
       key: const ValueKey('academic-schedule-semester-selector'),
       tooltip: '选择学期：${label.inline}',
       onPressed: _loading || _refreshing ? null : _showSemesterPicker,
-      icon: FittedBox(
+      child: FittedBox(
         fit: BoxFit.scaleDown,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1405,16 +1313,13 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
 
   Widget _buildWeekTitle() {
     final label = _weekDisplayLabel.semanticLabel;
-    return Semantics(
-      button: true,
-      child: Tooltip(
-        message: '选择周次：$label',
-        child: InkWell(
-          key: const ValueKey('academic-schedule-week-selector'),
-          borderRadius: BorderRadius.circular(8),
-          onTap: _schedule == null ? null : _showWeekPicker,
-          child: Text(label),
-        ),
+    return AppGlassButton(
+      key: const ValueKey('academic-schedule-week-selector'),
+      tooltip: '选择周次：$label',
+      onPressed: _schedule == null ? null : _showWeekPicker,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Text(label),
       ),
     );
   }
@@ -1443,6 +1348,123 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
       secondary: '周',
       semanticLabel: '第$week周',
     );
+  }
+
+  Future<void> _showOptionsSheet() async {
+    final isClassSchedule = _scope == AcademicScheduleScope.administrativeClass;
+    final action = await showModalBottomSheet<_ScheduleMenuAction>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * .8,
+      ),
+      builder:
+          (sheetContext) => SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+              ListTile(
+                leading: const Icon(Icons.today_outlined),
+                title: const Text('返回当前周'),
+                enabled: _currentPageIndex != null,
+                onTap:
+                    _currentPageIndex == null
+                        ? null
+                        : () => Navigator.pop(
+                          sheetContext,
+                          _ScheduleMenuAction.currentWeek,
+                        ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.visibility_outlined),
+                title: const Text('显示非本周课程'),
+                trailing: _effectiveNonCurrent ? const Icon(Icons.check) : null,
+                onTap:
+                    () => Navigator.pop(
+                      sheetContext,
+                      _ScheduleMenuAction.showNonCurrent,
+                    ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.weekend_outlined),
+                title: const Text('不显示周末'),
+                trailing:
+                    _visibleWeekdays.length == 5 ? const Icon(Icons.check) : null,
+                onTap:
+                    () => Navigator.pop(
+                      sheetContext,
+                      _ScheduleMenuAction.hideWeekend,
+                    ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.ios_share_outlined),
+                title: const Text('导出'),
+                onTap:
+                    () => Navigator.pop(
+                      sheetContext,
+                      _ScheduleMenuAction.export,
+                    ),
+              ),
+              if (_scope == AcademicScheduleScope.personal) ...[
+                ListTile(
+                  leading: const Icon(Icons.add_circle_outline),
+                  title: const Text('添加课程'),
+                  onTap:
+                      () => Navigator.pop(
+                        sheetContext,
+                        _ScheduleMenuAction.addCourse,
+                      ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.restore),
+                  title: const Text('恢复原始课表'),
+                  onTap:
+                      () => Navigator.pop(
+                        sheetContext,
+                        _ScheduleMenuAction.restoreOriginal,
+                      ),
+                ),
+              ],
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: Text(
+                  isClassSchedule ? '重新获取班级课表' : '重新获取课程',
+                ),
+                onTap:
+                    () => Navigator.pop(
+                      sheetContext,
+                      _ScheduleMenuAction.refresh,
+                    ),
+              ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          ),
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case _ScheduleMenuAction.currentWeek:
+        _returnToCurrentWeek();
+      case _ScheduleMenuAction.showNonCurrent:
+        _toggleShowNonCurrent();
+      case _ScheduleMenuAction.hideWeekend:
+        _toggleHideWeekend();
+      case _ScheduleMenuAction.export:
+        unawaited(_showExportMenu());
+      case _ScheduleMenuAction.addCourse:
+        unawaited(_openCourseEditor());
+      case _ScheduleMenuAction.restoreOriginal:
+        unawaited(_restoreOriginalSchedule());
+      case _ScheduleMenuAction.refresh:
+        unawaited(_refreshSchedule());
+    }
   }
 
   void _toggleShowNonCurrent() {
@@ -1846,6 +1868,9 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
                     visibleWeekdays.length,
               );
               final pager = PageView.builder(
+                // Keep vertical overflow visible behind the fixed page chrome.
+                // The page-level ClipRect still clips at the screen edges.
+                clipBehavior: Clip.none,
                 key: ValueKey('schedule-pager-$_controllerGeneration'),
                 controller: _weekController,
                 itemCount: _pageCount,
@@ -1863,9 +1888,6 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
                       columnWidth: columnWidth,
                       periodHeight: periodHeight,
                       visibleWeekdays: visibleWeekdays,
-                      highlightToday: false,
-                      todayWeekday: _clock().weekday,
-                      weekStartDate: null,
                       selectedWeek: null,
                       teachingSchedule: teachingScheduleFor(_scheduleMode),
                       isClassSchedule: isClassSchedule,
@@ -1890,9 +1912,6 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
                       columnWidth: columnWidth,
                       periodHeight: periodHeight,
                       visibleWeekdays: visibleWeekdays,
-                      highlightToday: false,
-                      todayWeekday: _clock().weekday,
-                      weekStartDate: _currentCalendarWeek?.startDate,
                       selectedWeek: null,
                       teachingSchedule: teachingScheduleFor(_scheduleMode),
                       isClassSchedule: isClassSchedule,
@@ -1916,9 +1935,6 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
                     columnWidth: columnWidth,
                     periodHeight: periodHeight,
                     visibleWeekdays: visibleWeekdays,
-                    highlightToday: week == _currentScheduleWeek,
-                    todayWeekday: _clock().weekday,
-                    weekStartDate: _weekStartDate(week),
                     selectedWeek: week,
                     teachingSchedule: teachingScheduleFor(_scheduleMode),
                     isClassSchedule: isClassSchedule,
@@ -1932,7 +1948,76 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
                   );
                 },
               );
-              return pager;
+              final topInset = MediaQuery.paddingOf(context).top + 60;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(child: pager),
+                  Positioned(
+                    top: -topInset,
+                    left: 0,
+                    right: 0,
+                    height: topInset + 44,
+                    child: const IgnorePointer(child: _ScheduleTopGlass()),
+                  ),
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 44,
+                    child: IgnorePointer(
+                      child: AnimatedBuilder(
+                        animation: _weekController,
+                        builder: (context, _) {
+                          final page =
+                              _weekController.positions.length == 1 &&
+                                      _weekController
+                                          .position
+                                          .hasContentDimensions
+                                  ? _weekController.page ?? _visiblePage.toDouble()
+                                  : _visiblePage.toDouble();
+                          final direction =
+                              Directionality.of(context) == TextDirection.rtl
+                                  ? -1.0
+                                  : 1.0;
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              for (
+                                var index = math.max(0, page.floor());
+                                index <= math.min(_pageCount - 1, page.ceil());
+                                index++
+                              )
+                                Positioned(
+                                  top: 0,
+                                  left:
+                                      (index - page) *
+                                      constraints.maxWidth *
+                                      direction,
+                                  width: constraints.maxWidth,
+                                  child: _ScheduleWeekHeader(
+                                    visibleWeekdays: visibleWeekdays,
+                                    columnWidth: columnWidth,
+                                    weekStartDate:
+                                        index == 0
+                                            ? null
+                                            : _isHoliday &&
+                                                index == _holidayPageIndex
+                                            ? _currentCalendarWeek?.startDate
+                                            : _weekStartDate(index),
+                                    highlightToday:
+                                        index == _currentScheduleWeek,
+                                    todayWeekday: _clock().weekday,
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              );
             },
           ),
         ),
@@ -2675,20 +2760,15 @@ class _WeekPickerSheetState extends State<_WeekPickerSheet> {
   }
 }
 
-/// One rendered timetable view: a fixed weekday/date header on top of a
-/// vertically scrollable period grid. Horizontal paging is owned by the
-/// enclosing PageView, so this grid always fits the width.
+/// One vertically scrollable period grid, below the shared header layers.
+/// Horizontal paging is owned by the enclosing PageView.
 class _ScheduleWeekPage extends StatelessWidget {
   static const _leftWidth = _scheduleLeftWidth;
   final double periodHeight;
-  static const _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
 
   final AcademicScheduleWeekSplit split;
   final bool showNonCurrent;
   final int maxPeriod;
-  final bool highlightToday;
-  final int todayWeekday;
-  final DateTime? weekStartDate;
   final int? selectedWeek;
   final TeachingSchedule teachingSchedule;
   final double columnWidth;
@@ -2706,9 +2786,6 @@ class _ScheduleWeekPage extends StatelessWidget {
     required this.split,
     required this.showNonCurrent,
     required this.maxPeriod,
-    required this.highlightToday,
-    required this.todayWeekday,
-    required this.weekStartDate,
     required this.selectedWeek,
     required this.teachingSchedule,
     required this.columnWidth,
@@ -2733,89 +2810,19 @@ class _ScheduleWeekPage extends StatelessWidget {
       for (final group in groupScheduleEntriesByOverlap(visible))
         if (visibleWeekdays.contains(group.weekday)) group,
     ];
-    final fadedEntries =
-        showNonCurrent
-            ? split.faded.toSet()
-            : const <AcademicPersonalScheduleEntry>{};
+    final fadedEntries = showNonCurrent
+        ? split.faded.toSet()
+        : const <AcademicPersonalScheduleEntry>{};
     final height = periodHeight * maxPeriod;
     final style = AcademicScheduleAppearanceScope.of(context).style;
     final colors = Theme.of(context).colorScheme;
-    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-    final highlightColor = colors.primary.withValues(
-      alpha: isDarkTheme ? 0.18 : 0.07,
-    );
-    final weekStartDate = this.weekStartDate;
-
-    return Column(
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
-        SizedBox(
-          key: const ValueKey('academic-schedule-week-header'),
-          height: 44,
-          child: Row(
-            children: [
-              SizedBox(
-                width: _leftWidth,
-                child: Center(
-                  child:
-                      weekStartDate != null
-                          ? Text(
-                            '${weekStartDate.month}月',
-                            style: TextStyle(
-                              fontSize: math.max(8, style.headerFontSize - 2),
-                              height: 1.2,
-                              color: colors.onSurfaceVariant,
-                            ),
-                          )
-                          : null,
-                ),
-              ),
-              for (final day in visibleWeekdays)
-                SizedBox(
-                  width: columnWidth,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color:
-                          highlightToday && day == todayWeekday
-                              ? highlightColor
-                              : null,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '周${_weekdays[day - 1]}',
-                            style: TextStyle(
-                              fontSize: style.headerFontSize,
-                              height: 1.2,
-                            ),
-                          ),
-                          if (weekStartDate != null)
-                            Text(
-                              () {
-                                final date = weekStartDate.add(
-                                  Duration(days: day - 1),
-                                );
-                                return '${date.day}';
-                              }(),
-                              style: TextStyle(
-                                fontSize: math.max(8, style.headerFontSize - 2),
-                                height: 1.2,
-                                color: colors.onSurfaceVariant,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        Expanded(
+        Positioned.fill(
+          top: 44,
           child: SingleChildScrollView(
+            clipBehavior: Clip.none,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.only(bottom: 24),
             child: SizedBox(
@@ -2907,10 +2914,9 @@ class _ScheduleWeekPage extends StatelessWidget {
       faded: group.entries.every(fadedEntries.contains),
       onTap: () => _onBlockTap(group, fadedEntries),
     );
-    final child =
-        firstCourseKey != null && groupIndex == 0
-            ? KeyedSubtree(key: firstCourseKey, child: courseBlock)
-            : courseBlock;
+    final child = firstCourseKey != null && groupIndex == 0
+        ? KeyedSubtree(key: firstCourseKey, child: courseBlock)
+        : courseBlock;
     return Positioned(
       left:
           _leftWidth + visibleWeekdays.indexOf(group.weekday) * columnWidth + 2,
@@ -2932,14 +2938,139 @@ class _ScheduleWeekPage extends StatelessWidget {
     onCellTap(
       group.entries,
       isNonCurrent: isFaded,
-      companions:
-          isFaded
-              ? const <AcademicPersonalScheduleEntry>[]
-              : [
-                for (final other in split.hidden)
-                  if (group.overlaps(other)) other,
-              ],
+      companions: isFaded
+          ? const <AcademicPersonalScheduleEntry>[]
+          : [
+              for (final other in split.hidden)
+                if (group.overlaps(other)) other,
+            ],
       mergeSources: mergeSources,
+    );
+  }
+}
+
+/// Week labels paint above the shared backdrop and follow the pager offset.
+class _ScheduleWeekHeader extends StatelessWidget {
+  const _ScheduleWeekHeader({
+    required this.visibleWeekdays,
+    required this.columnWidth,
+    required this.weekStartDate,
+    required this.highlightToday,
+    required this.todayWeekday,
+  });
+
+  static const _leftWidth = _scheduleLeftWidth;
+  static const _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+  final List<int> visibleWeekdays;
+  final double columnWidth;
+  final DateTime? weekStartDate;
+  final bool highlightToday;
+  final int todayWeekday;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = AcademicScheduleAppearanceScope.of(context).style;
+    final colors = Theme.of(context).colorScheme;
+    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+    final highlightColor = colors.primary.withValues(
+      alpha: isDarkTheme ? 0.18 : 0.07,
+    );
+    final weekStartDate = this.weekStartDate;
+
+    return SizedBox(
+      key: const ValueKey('academic-schedule-week-header'),
+      height: 44,
+      child: Row(
+        children: [
+          SizedBox(
+            width: _leftWidth,
+            child: Center(
+              child: weekStartDate != null
+                  ? Text(
+                      '${weekStartDate.month}月',
+                      style: TextStyle(
+                        fontSize: math.max(8, style.headerFontSize - 2),
+                        height: 1.2,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+          for (final day in visibleWeekdays)
+            SizedBox(
+              width: columnWidth,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: highlightToday && day == todayWeekday
+                      ? highlightColor
+                      : null,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '周${_weekdays[day - 1]}',
+                        style: TextStyle(
+                          fontSize: style.headerFontSize,
+                          height: 1.2,
+                        ),
+                      ),
+                      if (weekStartDate != null)
+                        Text(
+                          () {
+                            final date = weekStartDate.add(
+                              Duration(days: day - 1),
+                            );
+                            return '${date.day}';
+                          }(),
+                          style: TextStyle(
+                            fontSize: math.max(8, style.headerFontSize - 2),
+                            height: 1.2,
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Native graduated backdrop blur behind the separate refractive controls.
+class _ScheduleTopGlass extends StatelessWidget {
+  const _ScheduleTopGlass();
+  @override
+  Widget build(BuildContext context) {
+    final tint = AppGlassMaterial.backgroundTintFor(
+      Theme.of(context).colorScheme,
+    );
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const ProgressiveBlur(maxSigma: AppGlassMaterial.backgroundBlur),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                tint,
+                tint,
+                tint.withValues(alpha: 0),
+              ],
+              stops: const [0, .55, 1],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -3530,9 +3661,28 @@ class _ScheduleLoadingOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.78),
-      child: _ScheduleLoadingState(label: label),
+    final surface = Theme.of(context).colorScheme.surface;
+    return ClipRect(
+      child: AbsorbPointer(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  surface.withValues(alpha: .08),
+                  surface.withValues(alpha: .52),
+                  surface.withValues(alpha: .52),
+                ],
+                stops: const [0, .16, 1],
+              ),
+            ),
+            child: _ScheduleLoadingState(label: label),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -3619,4 +3769,14 @@ class _ScheduleGridPainter extends CustomPainter {
       days != old.days ||
       periods != old.periods ||
       color != old.color;
+}
+
+enum _ScheduleMenuAction {
+  currentWeek,
+  showNonCurrent,
+  hideWeekend,
+  export,
+  addCourse,
+  restoreOriginal,
+  refresh,
 }

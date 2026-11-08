@@ -3,6 +3,9 @@
 <network-security-config>
     <base-config cleartextTrafficPermitted="false" />
     <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">chdsyxk.chd.edu.cn</domain>
+    </domain-config>
+    <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">bkjw.chd.edu.cn</domain>
     </domain-config>
     <domain-config cleartextTrafficPermitted="true">
