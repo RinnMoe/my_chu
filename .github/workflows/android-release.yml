@@ -9,6 +9,10 @@ on:
         description: 'Existing release tag to build, such as 1.0.0 or v1.0.0'
         required: true
         type: string
+      build_ref:
+        description: 'Optional source ref for rebuilding this release; defaults to its tag'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -30,10 +34,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Check out the release tag
+      - name: Check out the release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+          ref: ${{ github.event.release.tag_name || github.event.inputs.build_ref || github.event.inputs.tag }}
           persist-credentials: false
 
       - name: Set up Java
@@ -165,7 +169,6 @@ jobs:
           MYCHU_SUPABASE_PUBLISHABLE_KEY: ${{ vars.MYCHU_SUPABASE_PUBLISHABLE_KEY }}
           MYCHU_PRIVACY_BASE_URL: ${{ vars.MYCHU_PRIVACY_BASE_URL || 'https://mychu-policy.rinn.moe/' }}
           RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
-          GIT_SHA: ${{ github.sha }}
           RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
@@ -180,10 +183,12 @@ jobs:
           export MYCHU_BUILD_CHANNEL=official
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
           build_time="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          git_sha="$(git rev-parse HEAD)"
+          printf 'Source commit: `%s`\n' "$git_sha" >> "$GITHUB_STEP_SUMMARY"
           pwsh -NoLogo -NoProfile -File scripts/build_android_release.ps1 \
             -Channel official \
             -UpgradeLinkConfigFile "$RUNNER_TEMP/mychu-upgradelink.json" \
-            -GitSha "$GIT_SHA" \
+            -GitSha "$git_sha" \
             -BuildId "release-$RUN_ID" \
             -BuildTimeUtc "$build_time"
           apk_path="$(find output/releases -maxdepth 1 -type f -name 'MyCHU-*-arm64-v8a-release.apk' -print -quit)"
@@ -247,10 +252,10 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
     steps:
-      - name: Check out the release tag
+      - name: Check out the release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+          ref: ${{ github.event.release.tag_name || github.event.inputs.build_ref || github.event.inputs.tag }}
           persist-credentials: false
 
       - name: Fetch HDiffPatch
