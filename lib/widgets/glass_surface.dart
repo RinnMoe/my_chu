@@ -131,7 +131,8 @@ class AppGlassButton extends StatelessWidget {
       width: width,
       height: height,
       shape: shape,
-      quality: AppGlassMaterial.quality,
+      // Disabled opacity layers cannot capture the refractive backdrop.
+      quality: onPressed == null ? GlassQuality.minimal : AppGlassMaterial.quality,
       useOwnLayer: true,
       platformViewBackdrop: mapBackdrop && !ImageFilter.isShaderFilterSupported,
       settings: AppGlassMaterial.settingsFor(
