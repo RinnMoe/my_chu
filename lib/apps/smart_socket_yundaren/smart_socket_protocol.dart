@@ -36,8 +36,9 @@ class BleQrInfo {
     if (parts[0] != 'KLCXKJ-Water') {
       throw const BleProtocolException('二维码前缀必须是 KLCXKJ-Water');
     }
-    if (parts[1] != 'B') {
-      throw const BleProtocolException('二维码不是 BLE 模式');
+    final mode = parts[1];
+    if (mode != 'B' && mode != '0') {
+      throw const BleProtocolException('二维码模式必须是 B 或 0');
     }
     final snCode = parts[2].toUpperCase();
     if (!RegExp(r'^[0-9A-F]{12}$').hasMatch(snCode)) {
@@ -45,7 +46,7 @@ class BleQrInfo {
     }
     return BleQrInfo(
       raw: value,
-      mode: parts[1],
+      mode: mode,
       snCode: snCode,
       mac: hexToBytes(snCode),
     );

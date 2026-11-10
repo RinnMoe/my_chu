@@ -393,56 +393,65 @@ class _HourlyBars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SizedBox(
-      height: 96,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (var hour = 0; hour < values.length; hour++)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 1),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: FractionallySizedBox(
-                          heightFactor: values[hour] == null
-                              ? 0
-                              : (math.max(values[hour]!, 2) / 100).clamp(0.02, 1),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary.withValues(
-                                alpha: 0.7,
-                              ),
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(2),
-                              ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 80,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (var hour = 0; hour < values.length; hour++)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 1),
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: FractionallySizedBox(
+                        heightFactor:
+                            values[hour] == null
+                                ? 0
+                                : (math.max(values[hour]!, 2) / 100).clamp(
+                                  0.02,
+                                  1,
+                                ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.7,
+                            ),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(2),
                             ),
                           ),
                         ),
                       ),
                     ),
-                    if (hour % 6 == 0)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          '$hour',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      )
-                    else
-                      const SizedBox(height: 16),
-                  ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            for (var hour = 0; hour < values.length; hour += 6)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 1),
+                  child: Text(
+                    '$hour',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ),
               ),
-            ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 }
