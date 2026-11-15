@@ -9,6 +9,7 @@ import 'academic_calendar/academic_calendar_app.dart';
 import 'academic_affairs/academic_syllabus_app.dart';
 import 'academic_web/academic_web_app.dart';
 import 'charging_pile/charging_pile_app.dart';
+import 'dorm_electricity/dorm_electricity_app.dart';
 import 'classroom_usage/classroom_usage_app.dart';
 import 'smart_socket_yundaren/smart_socket_yundaren_app.dart';
 import 'classroom_recording/classroom_recording_app.dart';
@@ -68,6 +69,7 @@ class AppRegistry {
     parcelIdentityCodeApp,
     smartSocketYundarenApp,
     chargingPileApp,
+    dormElectricityApp,
   ];
 
   static AppDefinition? builtInById(String id) {

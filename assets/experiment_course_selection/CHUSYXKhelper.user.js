@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         CHUSYXKhelper
 // @namespace    CHUSYXKhelper
-// @version      2.0.0
+// @version      2.1.0
 // @author       Rinn
 // @description  实验选课：解除同步 XHR 造成的整页卡死；列表缓存与等待提示
 // @match        http://chdsyxk.chd.edu.cn/*
@@ -20,10 +20,13 @@
   const CONFIG = Object.assign({
     forceAsync: true,
 
-    keepSync: [
-      'Handshake', 'GetUIToken', 'IoControl',
-      'GetSyyxRwlistXK', 'GetSyyxRwXMlistXK', 'Getxkkbbyxmid',
-      'AppInterface.asmx/Addksxmtu', 'N_QXXK',
+    keepSync: ['Handshake', 'GetUIToken', 'IoControl'],
+
+    // 移动端反过来：默认保持同步，只有确认"结果只在 success 里使用"的才转异步。
+    // 移动端页面普遍存在 $.ajax 之后同步读回调变量的写法，按名字黑名单兜不住。
+    asyncSafeMobile: [
+      'getPdXmSl', 'getBgTjXs', 'getBgSc',   // 结果只用于跳转 / 分支
+      'addDownjl',                          // success 里只做 UI 动作
     ],
 
     asyncSafePostFunctions: ['GetUserNewMessage'],
@@ -41,6 +44,22 @@
 
     greeting: 'CHDSYXKhelper霓裳实验选课助手 by Rinn 已加载',
 
+    // 视频播放页右下角提供「一键完成」：按视频总时长补报一次进度。
+    oneClickVideoComplete: true,
+
+    // 资料列表页右下角提供「一键完成」：按项目逐个补报资料查看记录。
+    oneClickMaterialComplete: true,
+
+    // 答题提交去重：同一次提交还在路上时，忽略重复点击。
+    dedupeAnswerSubmit: true,
+
+    // 允许修改已答题目的答案：给已答的选项补上点击处理，重新提交一次 tjks。
+    allowAnswerChange: true,
+
+    // 关闭"选工位"弹窗后不刷新课表：站点在 end 回调里调 AddSYKB(1) 重拉整个列表，
+    // 而 Getxkkbbyxmid 是同步请求，一拉就把页面冻住。
+    keepListAfterChooseGW: true,
+
     verbose: true,
   }, window.__CHUSYXKHELPER_CONFIG__ || {});
 
@@ -49,11 +68,12 @@
   const MAX_TOASTS = 4;
 
   const api = (window[KEY] = {
-    version: '2.0.0',
+    version: '2.1.0',
     config: CONFIG,
     coerced: 0,
     pageSizeExpanded: 0,
     suppressed: 0,
+    submitDeduped: 0,
     cacheHits: 0,
     cacheWrites: 0,
     reportedAjax: false,
@@ -245,7 +265,211 @@
     }
   }
 
-  function track(jqXHR, url) {
+  // ---------------------------------------------------------- 一键完成（视频）
+  // 播放器页把总时长写在全局 spsc 里（durationHandler 赋值），上报接口是全局 addspjl。
+  // 这里按同样的请求体补报一次 time = 总时长，等价于把进度条拖到结尾。
+  function isVideoPage() {
+    try {
+      return String(window.location.pathname || '').toLowerCase().endsWith('syyx_playvideo.html');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function videoDuration() {
+    const fromPlayer = Number(window.spsc);
+    if (fromPlayer > 0) return fromPlayer;
+    const el = document.querySelector && document.querySelector('video');
+    if (el && isFinite(el.duration) && el.duration > 0) return el.duration;
+    return 0;
+  }
+
+  function submitVideoComplete(total) {
+    const $ = window.jQuery;
+    if (!$ || typeof $.ajax !== 'function') return;
+    const params = new URLSearchParams(window.location.search);
+    const jxrwid = params.get('jxrwid');
+    const xmid = params.get('xmid');
+    if (!jxrwid || !xmid) return;
+
+    const value = String(total);
+    const busy = pushToast('正在上报视频进度…');
+    $.ajax({
+      url: '../../../wxInterface/update/AppInterface.asmx/addspjl',
+      type: 'POST',
+      dataType: 'json',
+      contentType: 'application/json',
+      cache: false,
+      timeout: 30000,
+      data: `{jxrwid:'${jxrwid}',xmid:'${xmid}',spzsc:'${value}',time:'${value}'}`,
+      beforeSend(xhr) {
+        xhr.setRequestHeader('Token', window.localStorage.getItem('Token') || '');
+      },
+    }).done(() => {
+      removeEl(busy);
+      pushToast(`已上报完成（视频）：${value} 秒`);
+    }).fail(() => {
+      removeEl(busy);
+      pushToast('上报失败，请重试');
+    });
+  }
+
+  function offerVideoComplete() {
+    if (!CONFIG.oneClickVideoComplete || !isVideoPage()) return;
+    let tries = 0;
+    const timer = setInterval(() => {
+      const total = videoDuration();
+      if (total > 0) {
+        clearInterval(timer);
+        let handle = null;
+        handle = pushToast('本任务可一键完成（视频）', {
+          label: '一键完成',
+          run: () => {
+            removeEl(handle);
+            submitVideoComplete(total);
+          },
+        });
+        return;
+      }
+      if (++tries > 60) clearInterval(timer);   // 30 秒还没拿到时长就放弃
+    }, 500);
+  }
+
+  // ------------------------------------------------------ 答题提交去重
+  // tjks（逐题提交）和 PaperSubmit（交卷）都没有 timeout，服务端慢时要等几分钟；
+  // 站点在此期间没有任何反馈（alertLoading 被注释掉），onclick 也只在成功后才清除，
+  // 用户会反复点同一题，服务端于是收到一串相同请求并回"请勿重复提交"。
+  // 这里在发出去之前拦掉重复的，第一个请求完成（无论成败）后自动解锁。
+  const SUBMIT_MARKS = ['AppInterface.asmx/tjks', 'AppInterface.asmx/PaperSubmit'];
+  const inflightSubmits = new Set();
+
+  function isSubmitUrl(url) {
+    const text = String(url || '');
+    return SUBMIT_MARKS.some(mark => text.indexOf(mark) !== -1);
+  }
+
+  function submitKey(url, data) {
+    const body = typeof data === 'string' ? data : JSON.stringify(data === undefined ? '' : data);
+    return String(url) + '|' + body;
+  }
+
+  // ------------------------------------------------------ 修改已答题目
+  // 站点在 flagIsTrue == 1（StuAnSwer 非空）时不给选项绑 onclick，答过的题就改不了了。
+  // 这里把站点原本会生成的那句 onclick 补回去，点击后走站点自己的提交逻辑。
+  function isExamPage() {
+    try {
+      return String(window.location.pathname || '').toLowerCase().endsWith('syyx_6.html');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function scoreOf(tmtype) {
+    const id = tmtype === 'A' ? 'AScore' : tmtype === 'C' ? 'CScore' : 'BScore';
+    const el = document.getElementById(id);
+    return el ? String(el.innerHTML || '').trim() : '';
+  }
+
+  function bindAnswerChange() {
+    if (!CONFIG.allowAnswerChange || !isExamPage()) return;
+    const layouts = document.querySelectorAll('.daan_layout');
+    if (!layouts || !layouts.length) return;
+    [...layouts].forEach(layout => {
+      if (layout.onclick) return;                      // 未答的题站点自己绑了，别抢
+      const box = layout.parentElement;
+      if (!box || !box.id) return;
+      const parts = String(box.id).split('_');
+      if (parts.length !== 3) return;
+      const ksid = parts[0];
+      const tmid = parts[1];
+      const tmtype = parts[2];
+      if (tmtype !== 'A' && tmtype !== 'C') return;    // 多选要走"勾选 + 提交按钮"，另算
+      if (!box.querySelector('span.tjdx')) return;     // 只接管已答的题
+      const span = layout.querySelector('span[id]');
+      if (!span) return;
+      const letter = String(span.id).split('-').pop();
+      layout.setAttribute('onclick',
+        `tjks('${ksid}','${tmid}','${tmtype}','${letter}','${scoreOf(tmtype)}')`);
+      layout.style.cursor = 'pointer';
+    });
+  }
+
+  // ---------------------------------------------------------- 一键完成（资料）
+  // addDownjl 的请求体是 {jxrwid, ID}，其中 ID 取的是列表行的 XMID（整个项目），
+  // 不是资料行自己的 ID —— 所以一页资料通常只需要一次上报。
+  const MATERIAL_MARK = 'GetSYXMKeJian';
+  let materialIds = null;
+  let materialOffered = false;
+
+  function captureMaterialRows(data) {
+    try {
+      const outer = typeof data === 'string' ? JSON.parse(data) : data;
+      const inner = JSON.parse(outer.d);
+      const ids = [...new Set((inner.data || []).map(r => r.XMID)
+        .filter(v => v !== undefined && v !== null))];
+      if (!ids.length) return;
+      materialIds = ids;
+      offerMaterialComplete();
+    } catch (_) { /* 结构不符就跳过 */ }
+  }
+
+  function offerMaterialComplete() {
+    if (!CONFIG.oneClickMaterialComplete || materialOffered) return;
+    if (!materialIds || !materialIds.length) return;
+    materialOffered = true;
+    let handle = null;
+    handle = pushToast('本任务可一键完成（资料）', {
+      label: '一键完成',
+      run: () => {
+        removeEl(handle);
+        submitMaterialComplete(materialIds.slice());
+      },
+    });
+  }
+
+  function submitMaterialComplete(ids) {
+    const $ = window.jQuery;
+    if (!$ || typeof $.ajax !== 'function') return;
+    const params = new URLSearchParams(window.location.search);
+    const jxrwid = params.get('jxrwid');
+    if (!jxrwid) return;
+
+    const progress = pushToast(`正在上报资料进度 0/${ids.length}…`);
+    let index = 0;
+    let ok = 0;
+    let failed = 0;
+
+    const step = () => {
+      if (index >= ids.length) {
+        removeEl(progress);
+        pushToast(failed
+          ? `资料上报完成：成功 ${ok} 项，失败 ${failed} 项`
+          : `已上报完成（资料）：${ok} 项`);
+        return;
+      }
+      const id = ids[index++];
+      if (progress) progress.span.textContent = `正在上报资料进度 ${index}/${ids.length}…`;
+      $.ajax({
+        url: '../../../wxInterface/update/AppInterface.asmx/addDownjl',
+        type: 'POST',
+        dataType: 'json',
+        contentType: 'application/json',
+        cache: false,
+        timeout: 30000,
+        data: `{jxrwid:'${jxrwid}',ID:'${id}'}`,
+        beforeSend(xhr) {
+          xhr.setRequestHeader('Token', window.localStorage.getItem('Token') || '');
+        },
+      }).done(() => { ok += 1; step(); })
+        .fail(() => { failed += 1; step(); });
+    };
+    step();
+  }
+
+  // 同步请求不登记：jQuery 在 $.ajax 返回前就已 resolve，always 会立刻执行把条目删掉，
+  // 1 秒阈值永远走不到；何况同步 XHR 期间定时器也不会跑。登记了也显示不出来。
+  function track(jqXHR, url, sync) {
+    if (sync) return;
     if (!jqXHR || typeof jqXHR.always !== 'function') return;
     if (NOTICE_SKIP.test(String(url || ''))) return;
     const item = { label: labelOf(url), started: Date.now() };
@@ -327,6 +551,25 @@
     return CONFIG.keepSync.some(name => text.indexOf(name) !== -1);
   }
 
+  // 移动端请求用的是相对路径（../../../wxInterface/...），URL 里看不出 /apk/，
+  // 所以按页面地址判断。
+  const MOBILE_PAGE = (() => {
+    try {
+      if (String(window.location.port) === '8088') return true;
+      return /\/apk\//i.test(String(window.location.pathname || ''));
+    } catch (_) {
+      return false;
+    }
+  })();
+
+  // 移动端里同步消费回调的写法很普遍，未验证过的端点一律保持同步。
+  function canCoerce(url) {
+    const text = String(url || '');
+    if (mustStaySync(text)) return false;
+    if (!MOBILE_PAGE && !/\/apk\//i.test(text)) return true;
+    return CONFIG.asyncSafeMobile.some(name => text.indexOf(name) !== -1);
+  }
+
   const LIST_PAGE_SIZE_TARGET = /\/getItemTime\b/i;
   const LIST_PAGESIZE_TARGET = /\/Getxkkbbyxmid\b/i;
   const LIMIT_KEY = /([,{]\s*['"]?limit['"]?\s*:\s*['"]?)(\d+)/i;
@@ -349,6 +592,17 @@
       const settings = typeof first === 'string' ? second : first;
       const url = (settings && settings.url) || (typeof first === 'string' ? first : '');
 
+      let submitKeyValue = null;
+      if (CONFIG.dedupeAnswerSubmit && isSubmitUrl(url)) {
+        submitKeyValue = submitKey(url, settings && settings.data);
+        if (inflightSubmits.has(submitKeyValue)) {
+          api.submitDeduped += 1;
+          if (api.submitDeduped === 1) log('这次提交还在进行中，已忽略重复点击');
+          return noopXHR();
+        }
+        inflightSubmits.add(submitKeyValue);
+      }
+
       if (CONFIG.suppressBrokenWeekList && BROKEN_WEEK_LIST.test(String(url))) {
         api.suppressed += 1;
         if (api.suppressed === 1) {
@@ -360,7 +614,7 @@
       if (CONFIG.forceAsync &&
           settings && typeof settings === 'object' &&
           settings.async === false &&
-          !mustStaySync(url)) {
+          canCoerce(url)) {
         settings.async = true;              // 原地改，避免复制丢回调
         api.coerced += 1;
         if (api.coerced === 1) log('已把同步请求改为异步：页面不再因接口慢而整页卡死');
@@ -403,8 +657,8 @@
               }
             };
             // 被同步消费的端点必须同步回放，否则调用方在回调之外读到的还是旧值
-            if (mustStaySync(url)) replay();
-            else setTimeout(replay, 0);
+            if (canCoerce(url)) setTimeout(replay, 0);
+            else replay();
             const ageMin = Math.max(1, Math.round(hit.age / 60000));
             log(`${labelOf(url)} 命中缓存（${ageMin} 分钟前），不再请求服务端`);
             pushToast(`本次列表来自 ${ageMin} 分钟前的缓存，选课状态与名额可能已变化。`
@@ -422,7 +676,10 @@
       }
 
       const jqXHR = native.apply(this, arguments);
-      track(jqXHR, url);
+      track(jqXHR, url, !!(settings && typeof settings === 'object' && settings.async === false));
+      if (submitKeyValue && jqXHR && typeof jqXHR.always === 'function') {
+        jqXHR.always(() => inflightSubmits.delete(submitKeyValue));
+      }
 
       if (cacheable && jqXHR && typeof jqXHR.done === 'function') {
         jqXHR.done(data => {
@@ -439,10 +696,50 @@
         });
       }
 
+      if (String(url).indexOf('GetPaperExamLabNew') !== -1 && jqXHR && typeof jqXHR.done === 'function') {
+        jqXHR.done(() => setTimeout(bindAnswerChange, 0));
+      }
+
+      if (String(url).indexOf(MATERIAL_MARK) !== -1 && jqXHR && typeof jqXHR.done === 'function') {
+        jqXHR.done(data => captureMaterialRows(data));
+      }
+
       return jqXHR;
     };
     wrapped.__chusyxk = true;
     $.ajax = wrapped;
+    return true;
+  }
+
+  // -------------------------------------------------- 选工位弹窗关窗不刷新
+  const GW_POPUP_MARK = 'chooseGW.html';
+
+  function layerContentUrl(options) {
+    const content = options && options.content;
+    const first = Array.isArray(content) ? content[0] : content;
+    return typeof first === 'string' ? first : '';
+  }
+
+  function installLayer() {
+    const layer = window.layer;
+    if (!layer || typeof layer.open !== 'function') return false;
+    if (layer.open.__chusyxk) return true;
+
+    const native = layer.open;
+    const wrapped = function (first) {
+      let arg = first;
+      if (CONFIG.keepListAfterChooseGW &&
+          arg && typeof arg === 'object' &&
+          typeof arg.end === 'function' &&
+          layerContentUrl(arg).indexOf(GW_POPUP_MARK) !== -1) {
+        arg = Object.assign({}, arg);
+        delete arg.end;
+        log('关闭选工位弹窗，跳过课表刷新');
+      }
+      return arguments.length === 1 ? native.call(this, arg) : native.apply(this, arguments);
+    };
+    wrapped.__chusyxk = true;
+    layer.open = wrapped;
     return true;
   }
 
@@ -498,6 +795,7 @@
   let attempts = 0;
   const watcher = setInterval(() => {
     install();
+    installLayer();
     if (api.reportedAjax || ++attempts > 1500) clearInterval(watcher);
   }, 20);
   // 收尾上一个 frame 残留的等待气泡
@@ -512,14 +810,22 @@
   } catch (_) { /* 跨域或顶层还没有 body */ }
 
   install();
+  installLayer();
   greetOnce();
+  offerVideoComplete();
 
   window.addEventListener('pagehide', dropAllToasts);
   window.addEventListener('beforeunload', dropAllToasts);
 
   // 站点重载 jQuery 后需重新接管
   document.addEventListener('load', event => {
-    if (event.target && event.target.tagName === 'SCRIPT') install();
+    if (event.target && event.target.tagName === 'SCRIPT') {
+      install();
+      installLayer();
+    }
   }, true);
-  document.addEventListener('DOMContentLoaded', install, { once: true });
+  document.addEventListener('DOMContentLoaded', () => {
+    install();
+    installLayer();
+  }, { once: true });
 })();

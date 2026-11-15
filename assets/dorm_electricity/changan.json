@@ -1,0 +1,80 @@
+{
+  "id": "65",
+  "name": "长安大学",
+  "base_url": "http://bd.bdfairy.cn",
+  "campus_root": "001000",
+  "tier": "full",
+  "verified_at": "2026-11-08T01:30:00+08:00",
+  "capabilities": {
+    "buildings": true,
+    "floors": true,
+    "rooms": true,
+    "room_to_meter": true,
+    "balance": true,
+    "bill": true,
+    "detail": true
+  },
+  "counts": {
+    "building_unique": 64,
+    "groups": 5
+  },
+  "groups": [
+    {
+      "code": "003",
+      "area": "北院",
+      "status": "area",
+      "buildings": 13,
+      "note": "北院独立树：1–12号公寓、西门科技服务1号公寓"
+    },
+    {
+      "code": "004",
+      "area": "东院",
+      "status": "area",
+      "buildings": 5,
+      "note": "东院独立树：3、4、5、8、9号公寓"
+    },
+    {
+      "code": "005",
+      "area": "西院",
+      "status": "area",
+      "buildings": 6,
+      "note": "西院独立树：1、2、3、4、5、7号公寓"
+    },
+    {
+      "code": "006",
+      "area": "渭水校区",
+      "status": "verified",
+      "buildings": 26,
+      "note": "渭水主树：1–22号公寓、21A/21B、23A/23B、综合楼；实测 406/101 可绑房取表号"
+    },
+    {
+      "code": "008",
+      "area": "混合",
+      "status": "mixed",
+      "buildings": 14,
+      "note": "跨区域混合组：渭水修建中心、北院花园公寓、南院、东院青年公寓、西院平房等；不是渭水校区别名"
+    }
+  ],
+  "id_rule": {
+    "widths": {
+      "root": 6,
+      "group": 3,
+      "building": 6,
+      "floor": 6,
+      "room": 3
+    },
+    "building_serial": "group 内顺序，不是楼号；例如 004 组 3号公寓=000001、4号=000002",
+    "floor_serial": "楼层序号；1楼=000001、2楼=000002",
+    "room_serial": "楼层内顺序，不是房号；101→001、102→002，003组106→005",
+    "placeholder_room": "部分楼栋 1 楼首个房间为「充值前请确认房间」，序号最大（如 036），无表号"
+  },
+  "notes": [
+    "楼栋/楼层/房间结构保存在 data/changan_tree.json 静态快照；默认命令不访问 /getB，只有 bdfetch buildings --refresh 才刷新。",
+    "部分房间有两个表（如空调/照明）；room 返回 meters 与 meter_rows，不要只取 meter。",
+    "TUN 代理可能导致动态请求 RemoteDisconnected/Empty reply；建议 bdfairy.cn 直连后重试。",
+    "绑房后 selectarea 返回 band=1，此时 /getB 返回 500；需 POST /phonejcbd 解绑后重试。",
+    "非微信 UA 的 GET /?id=65 会 302 到微信 OAuth；API 链路使用 MicroMessenger UA。",
+    "房间地址字段 roomaddr 返回 undefined，balance.room 为 null。",
+    "MyCHU 目录已移除无效的 007 渭水旧树，仅提供 006 渭水主树。"
+  ]
+}

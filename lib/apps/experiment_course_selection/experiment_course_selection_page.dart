@@ -21,7 +21,7 @@ class _ExperimentCourseSelectionPageState
   late Future<UnmodifiableListView<UserScript>> _scripts = _loadScripts();
 
   Future<UnmodifiableListView<UserScript>> _loadScripts() async {
-    // Bundled verbatim from CHUSYXKhelper 2.0.0. Keep its mobile synchronous
+    // Bundled verbatim from CHUSYXKhelper 2.1.0. Keep its mobile synchronous
     // list/submission safeguards when updating the asset.
     final source = await rootBundle.loadString(
       'assets/experiment_course_selection/CHUSYXKhelper.user.js',

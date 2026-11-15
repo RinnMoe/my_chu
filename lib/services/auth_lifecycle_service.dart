@@ -1,3 +1,4 @@
+import 'dorm_electricity_storage_service.dart';
 import 'time_reminder_service.dart';
 import 'course_live_activity_service.dart';
 import 'host_auth_state.dart';
@@ -255,6 +256,9 @@ class AuthLifecycleService {
     final override = debugSignOut;
     if (override != null) return override();
     HostAuthCoordinator.signedOut();
+    final clearElectricity = DormElectricityStorageService()
+        .clearForSignOut()
+        .then<Object?>((_) => null, onError: (Object error) => error);
     CredentialSyncService.cancel();
     final clearWidgetFuture = DesktopWidgetSyncService.clearSchedule();
     // The session fence is invalidated synchronously at operation entry. The
@@ -306,5 +310,14 @@ class AuthLifecycleService {
     // that window can read the old account and keep showing it; publish a
     // second guest snapshot after cleanup so listeners reload the final state.
     HostAuthCoordinator.signedOut();
+    final electricityFailure = await clearElectricity;
+    if (electricityFailure != null) {
+      AppLogger.warn('退出登录清理电费记录失败 (${electricityFailure.runtimeType})');
+      // Same rule as the account cleanup above: a step that fails after the
+      // account itself was removed is not a failed sign-out for the user.
+      if (await AuthService.getCurrentAccount() != null) {
+        throw StateError('dorm_electricity_storage');
+      }
+    }
   }
 }

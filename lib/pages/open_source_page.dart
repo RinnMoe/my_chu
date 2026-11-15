@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 
 class OpenSourcePage extends StatelessWidget {
   const OpenSourcePage({super.key});
+  static bool _electricityLicenseRegistered = false;
 
   static const _dependencies = <_DependencyEntry>[
     _DependencyEntry('Mapbox Maps Flutter', '校园地图展示'),
@@ -33,6 +35,14 @@ class OpenSourcePage extends StatelessWidget {
   }
 
   void _showDependencyLicenses(BuildContext context) {
+    if (!_electricityLicenseRegistered) {
+      _electricityLicenseRegistered = true;
+      LicenseRegistry.addLicense(() async* {
+        yield LicenseEntryWithLineBreaks([
+          'bdfairy-Fetch',
+        ], await rootBundle.loadString('assets/dorm_electricity/LICENSE'));
+      });
+    }
     showLicensePage(context: context, applicationName: 'MyCHU');
   }
 
@@ -73,8 +83,7 @@ class OpenSourcePage extends StatelessWidget {
           ListTile(
             title: const Text('查看开源仓库'),
             trailing: const Icon(Icons.open_in_new),
-            onTap:
-                () => _openExternal('https://github.com/RinnMoe/my_chu'),
+            onTap: () => _openExternal('https://github.com/RinnMoe/my_chu'),
           ),
           const Divider(),
           _MaterialSectionHeading('特别鸣谢', style: theme.textTheme.titleSmall),
@@ -84,6 +93,13 @@ class OpenSourcePage extends StatelessWidget {
           ),
           const Divider(),
           _MaterialSectionHeading('主要依赖', style: theme.textTheme.titleSmall),
+          ListTile(
+            title: const Text('bdfairy-Fetch（MIT）'),
+            subtitle: const Text('宿舍电费协议与长安大学房间目录'),
+            trailing: const Icon(Icons.open_in_new),
+            onTap:
+                () => _openExternal('https://github.com/RinnMoe/bdfairy-Fetch'),
+          ),
           for (final dependency in _dependencies)
             ListTile(
               title: Text(dependency.name),

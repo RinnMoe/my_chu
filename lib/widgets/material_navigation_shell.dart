@@ -112,10 +112,11 @@ class MaterialNavigationShell extends StatelessWidget {
               onTabSelected: onSelected,
               quality: AppGlassMaterial.quality,
               backgroundQuality: AppGlassMaterial.quality,
-              settings:
-                  isMap
-                      ? AppGlassMaterial.settingsFor(colors, mapBackdrop: true)
-                      : null,
+              settings: AppGlassMaterial.bottomBarSettingsFor(
+                colors,
+                mapBackdrop: isMap,
+              ),
+              indicatorSettings: AppGlassMaterial.bottomBarIndicatorSettings,
               platformViewBackdrop:
                   isMap && !ImageFilter.isShaderFilterSupported,
               selectedIconColor: colors.primary,

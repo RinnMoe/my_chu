@@ -25,8 +25,9 @@ abstract final class AppGlassMaterial {
 
   static const double _thickness = 24;
   static const double _buttonBlur = 2;
-  static const double _lightIntensity = 0.85;
-  static const double _glowIntensity = 1;
+  static const double _lightIntensity = 0.22;
+  static const double _glowIntensity = 0.18;
+  static const double _fresnelStrength = 0.3;
 
   /// Passive bars use blur and tint only; keep button optics independent.
   static Color backgroundTintFor(
@@ -52,7 +53,28 @@ abstract final class AppGlassMaterial {
       chromaticAberration: .02,
       lightIntensity: _lightIntensity,
       glowIntensity: _glowIntensity,
+      fresnelStrength: _fresnelStrength,
       platformViewFallbackColor: surface.withValues(alpha: _fallbackAlpha),
     );
   }
+
+  /// The bar always uses the app palette, including dark and pure-black themes.
+  static LiquidGlassSettings bottomBarSettingsFor(
+    ColorScheme colors, {
+    bool mapBackdrop = false,
+  }) => settingsFor(colors, mapBackdrop: mapBackdrop).copyWith(
+    glassColor: colors.surface.withValues(
+      alpha: colors.brightness == Brightness.dark ? .36 : .24,
+    ),
+    blur: 8,
+    bodyMode: GlassBodyMode.clear,
+  );
+
+  /// Keep the library's shallow selection lens with the shared subdued rim.
+  static final LiquidGlassSettings bottomBarIndicatorSettings =
+      AnimatedGlassIndicator.baseIndicatorSettings.copyWith(
+        lightIntensity: _lightIntensity,
+        glowIntensity: _glowIntensity,
+        fresnelStrength: _fresnelStrength,
+      );
 }
