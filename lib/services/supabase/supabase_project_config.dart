@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'supabase_project_defaults.dart';
 
+import '../logging/logger.dart';
+
 /// Supabase 公开端点配置。
 ///
 /// 只承载公开客户端可持有的信息：项目 URL 与 publishable/anon key。Service
@@ -97,7 +99,8 @@ class SupabaseEndpointConfig {
         utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
       );
       return payload is! Map || payload['role'] != 'anon';
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return true;
     }
   }

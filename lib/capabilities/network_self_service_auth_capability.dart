@@ -5,6 +5,8 @@ import '../services/campus_service_id.dart';
 import '../services/campus_service_session_service.dart';
 import '../services/network_self_service_auth_service.dart';
 
+import '../services/logging/logger.dart';
+
 /// Feature-facing handle for the network self-service login flow.
 ///
 /// This capability exposes only typed readiness/challenge states. The shared
@@ -57,7 +59,8 @@ class NetworkSelfServiceAuthCapability {
           NetworkSelfServiceAuthStatus.ready,
         );
       }
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return const NetworkSelfServiceAuthState(
         NetworkSelfServiceAuthStatus.networkError,
         message: '网络自服暂时无法连接，请稍后重试。',
@@ -123,7 +126,8 @@ class NetworkSelfServiceAuthCapability {
         CampusServices.networkSelfService,
         forceRefresh: true,
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // The typed state is returned below; the UI should not display a raw
       // exception from the credential layer.
     }

@@ -7,9 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_remote_services_service.dart';
 import 'build_info.dart';
-import 'logger_service.dart';
+import 'logging/logger.dart';
 import 'privacy_agreement_service.dart';
 import 'reliability_event.dart';
+import 'failure_classifier.dart';
+import 'failure_details.dart';
 
 /// Aptabase storage scoped to MyCHU's own analytics queue keys.
 ///
@@ -60,9 +62,13 @@ class AptabaseAnalyticsStorageManager extends StorageManager {
         await prefs.remove('$eventKeyPrefix$key');
       }
       if (purgeOldEvents) await prefs.remove(_revocationPendingKey);
-    } catch (error) {
+    } catch (error, stackTrace) {
       _events.clear();
-      AppLogger.warn('Aptabase 队列读取失败 (${error.runtimeType})');
+      AppLogger.error(
+        error,
+        stackTrace: stackTrace,
+        context: 'Aptabase 队列读取失败',
+      );
     }
     // Keep the in-memory queue usable if local persistence is unavailable.
     _enabled = generation == _generation;
@@ -112,8 +118,12 @@ class AptabaseAnalyticsStorageManager extends StorageManager {
         await prefs.remove('$eventKeyPrefix$oldKey');
       }
       await prefs.setString('$eventKeyPrefix$key', event);
-    } catch (error) {
-      AppLogger.warn('Aptabase 队列写入失败 (${error.runtimeType})');
+    } catch (error, stackTrace) {
+      AppLogger.error(
+        error,
+        stackTrace: stackTrace,
+        context: 'Aptabase 队列写入失败',
+      );
     }
   }
 
@@ -129,8 +139,12 @@ class AptabaseAnalyticsStorageManager extends StorageManager {
       for (final key in ownedKeys) {
         await prefs.remove('$eventKeyPrefix$key');
       }
-    } catch (error) {
-      AppLogger.warn('Aptabase 队列清理失败 (${error.runtimeType})');
+    } catch (error, stackTrace) {
+      AppLogger.error(
+        error,
+        stackTrace: stackTrace,
+        context: 'Aptabase 队列清理失败',
+      );
     }
   }
 
@@ -154,7 +168,12 @@ class AptabaseAnalyticsStorageManager extends StorageManager {
         if (!removed && prefs.containsKey(key)) {
           cleanupFailure ??= StateError('无法清除 Aptabase 队列');
         }
-      } catch (error) {
+      } catch (error, stackTrace) {
+        AppLogger.error(
+          error,
+          stackTrace: stackTrace,
+          context: '清理 Aptabase 队列',
+        );
         cleanupFailure ??= error;
       }
     }
@@ -210,20 +229,23 @@ class UsageAnalyticsService {
   static final Map<String, DateTime> _recentFaults = {};
   static final Set<Future<void>> _pendingSdkEvents = {};
 
+  @visibleForTesting
+  static void Function(ReliabilityEvent)? debugObserver;
+
   static bool get _supportedPlatform =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   static Future<void> disableAndClear() async {
     _generation++;
-    AppLogger.reliabilityObserver = null;
+
     _recentFaults.clear();
     await _storage.disableAndClear();
     // SDK trackEvent awaits system properties before reaching storage. Wait
     // while storage is disabled so a rapid re-enable cannot accept old events.
     try {
       await Future.wait(List<Future<void>>.of(_pendingSdkEvents));
-    } on Object {
-      // Each caller also handles its SDK failure independently.
+    } on Object catch (error, stack) {
+      AppLogger.error(error, stackTrace: stack, context: '等待 Aptabase 待处理事件结束');
     }
   }
 
@@ -262,7 +284,7 @@ class UsageAnalyticsService {
           return;
         }
         _activeBuild = buildInfo;
-        AppLogger.reliabilityObserver = _observeReliability;
+
         return;
       }
       await _gateway.initialize(
@@ -276,7 +298,7 @@ class UsageAnalyticsService {
       }
       _initialized = true;
       _activeBuild = buildInfo;
-      AppLogger.reliabilityObserver = _observeReliability;
+
       if (_startupEventAttempted) return;
       _startupEventAttempted = true;
       try {
@@ -284,16 +306,16 @@ class UsageAnalyticsService {
           _trackSdkEvent('app_started').then<void>(
             (_) {},
             onError: (Object error, StackTrace stackTrace) {
-              AppLogger.error('Aptabase 启动事件记录失败 (${error.runtimeType})');
+              AppLogger.error(error, stackTrace: stackTrace);
             },
           ),
         );
-      } catch (error) {
-        AppLogger.error('Aptabase 启动事件记录失败 (${error.runtimeType})');
+      } catch (error, stackTrace) {
+        AppLogger.error(error, stackTrace: stackTrace);
       }
-    } catch (error) {
+    } catch (error, stackTrace) {
       // Initialization failures do not delay startup; a later call may retry.
-      AppLogger.error('Aptabase 统计初始化失败 (${error.runtimeType})');
+      AppLogger.error(error, stackTrace: stackTrace);
     }
   }
 
@@ -303,15 +325,38 @@ class UsageAnalyticsService {
     return AppRemoteServicesService.isEnabled();
   }
 
-  static void _observeReliability(AppLogEvent log) {
-    final event = ReliabilityEvent.fromLog(log);
-    if (event == null || _pendingEvents >= 32) return;
+  static AnalyticsOperation beginOperation(UserOperationId operation) =>
+      AnalyticsOperation(operation);
+
+  static void recordOperation(
+    UserOperationId operation, {
+    required String result,
+    FailureReason? reason,
+    FailureStage stage = FailureStage.operation,
+    Duration? duration,
+    bool complete = false,
+  }) => recordReliability(
+    ReliabilityEvent.operation(
+      operation,
+      result: result,
+      reason: reason,
+      stage: stage,
+      duration: duration,
+      complete: complete,
+    ),
+  );
+
+  static void recordReliability(ReliabilityEvent? event) {
+    if (event == null) return;
+    debugObserver?.call(event);
+    if (!_initialized || !_storage.isEnabled || _pendingEvents >= 32) return;
     final generation = _generation;
     _pendingEvents++;
     unawaited(
-      _recordReliability(event, generation).whenComplete(() {
-        _pendingEvents--;
-      }),
+      _recordReliability(
+        event,
+        generation,
+      ).whenComplete(() => _pendingEvents--),
     );
   }
 
@@ -335,8 +380,9 @@ class UsageAnalyticsService {
         _recentFaults[event.signature] = now;
       }
       await _trackSdkEvent(event.name, event.properties);
-    } on Object {
-      // SDK failures are not recursively reported and never escape to callers.
+    } on Object catch (error, stack) {
+      // Raw SDK failures stay in the local error log.
+      AppLogger.error(error, stackTrace: stack, context: 'Aptabase 事件处理失败');
     }
   }
 
@@ -354,14 +400,63 @@ class UsageAnalyticsService {
 
   @visibleForTesting
   static void resetForTest({AptabaseGateway? gateway}) {
+    debugObserver = null;
     _initialized = false;
     _startupEventAttempted = false;
     _initialization = null;
     _generation++;
     _activeBuild = null;
     _recentFaults.clear();
-    AppLogger.reliabilityObserver = null;
+
     _storage = AptabaseAnalyticsStorageManager();
     _gateway = gateway ?? const _SdkAptabaseGateway();
+  }
+}
+
+/// Records one terminal analytics outcome per business operation.
+class AnalyticsOperation {
+  AnalyticsOperation(this.operation);
+  final UserOperationId operation;
+  final Stopwatch _watch = Stopwatch()..start();
+  bool _finished = false;
+  bool get isFinished => _finished;
+  void succeed() => _finish('success');
+  void cancel() => _finish('cancelled', reason: FailureReason.cancelled);
+  void fail(
+    Object error, {
+    int? statusCode,
+    bool? renderProcessCrashed,
+    FailureStage stage = FailureStage.operation,
+  }) {
+    final reason = classifyFailure(
+      error,
+      statusCode: statusCode,
+      renderProcessCrashed: renderProcessCrashed,
+    );
+    _finish(
+      reason == FailureReason.cancelled || reason == FailureReason.sessionStale
+          ? 'cancelled'
+          : 'failed',
+      reason: reason,
+      stage: stage,
+    );
+  }
+
+  void _finish(
+    String result, {
+    FailureReason? reason,
+    FailureStage stage = FailureStage.operation,
+  }) {
+    if (_finished) return;
+    _finished = true;
+    _watch.stop();
+    UsageAnalyticsService.recordOperation(
+      operation,
+      result: result,
+      reason: reason,
+      stage: stage,
+      duration: _watch.elapsed,
+      complete: true,
+    );
   }
 }

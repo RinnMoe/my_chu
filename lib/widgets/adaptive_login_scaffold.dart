@@ -5,14 +5,14 @@ import '../capabilities/dev_visibility.dart';
 /// Presentation-only shell for the shared unified-identity login WebView.
 class AdaptiveLoginScaffold extends StatelessWidget {
   final Widget child;
-  final VoidCallback onOpenLog;
+  final VoidCallback onOpenDiagnostics;
   final VoidCallback onConfirm;
   final bool isConfirming;
 
   const AdaptiveLoginScaffold({
     super.key,
     required this.child,
-    required this.onOpenLog,
+    required this.onOpenDiagnostics,
     required this.onConfirm,
     required this.isConfirming,
   });
@@ -27,8 +27,8 @@ class AdaptiveLoginScaffold extends StatelessWidget {
           DevOnly(
             child: IconButton(
               icon: const Icon(Icons.article_outlined),
-              tooltip: '查看日志',
-              onPressed: onOpenLog,
+              tooltip: '诊断信息',
+              onPressed: onOpenDiagnostics,
             ),
           ),
           TextButton(

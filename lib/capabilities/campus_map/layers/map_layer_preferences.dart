@@ -9,6 +9,8 @@ import "dart:convert";
 import "package:flutter/foundation.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
+import '../../../services/logging/logger.dart';
+
 class MapLayerPreferenceStore {
   MapLayerPreferenceStore({Future<SharedPreferences> Function()? preferences})
     : _preferences = preferences ?? SharedPreferences.getInstance;
@@ -31,7 +33,8 @@ class MapLayerPreferenceStore {
         if (key is String && value is bool) result[key] = value;
       });
       return result;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return const <String, bool>{};
     }
   }
@@ -44,8 +47,11 @@ class MapLayerPreferenceStore {
       if (current[layerId] == visible) return true;
       current[layerId] = visible;
       return await prefs.setString(storageKey, jsonEncode(current));
-    } catch (error) {
-      debugPrint("map layer preference write failed: ${error.runtimeType}");
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
+      AppLogger.debug(
+        "map layer preference write failed: ${error.runtimeType}",
+      );
       return false;
     }
   }
@@ -56,7 +62,8 @@ class MapLayerPreferenceStore {
     try {
       final prefs = await _preferences();
       await prefs.remove(storageKey);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 偏好清除失败不影响地图可用性。
     }
   }

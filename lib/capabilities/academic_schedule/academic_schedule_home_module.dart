@@ -9,7 +9,7 @@ import '../../services/campus_settings_service.dart';
 import '../../services/demo_data_service.dart';
 import '../../services/teaching_schedule_service.dart';
 import '../../services/temporal_change_service.dart';
-import '../../services/logger_service.dart';
+import '../../services/logging/logger.dart';
 import '../../apps/academic_affairs/academic_affairs_models.dart';
 import '../../apps/academic_affairs/academic_affairs_service.dart';
 import '../../apps/academic_calendar/academic_calendar_models.dart';
@@ -228,20 +228,14 @@ class _AcademicScheduleHomeModuleState
         _publicHolidayLoading = false;
         _publicHolidayPartial = snapshot.hasUnavailableYears;
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted ||
           scheduleGeneration != _generation ||
           publicGeneration != _publicHolidayGeneration) {
         return;
       }
-      AppLogger.recordSafeFailure(
-        level: 'WARN',
-        code: 'home.schedule.public_holidays.failed',
-        message: '首页今日课表公共节假日加载失败',
-        error: error,
-        domain: 'home',
-        fields: const {'stage': 'public_holidays'},
-      );
+      AppLogger.error(error, stackTrace: StackTrace.current);
       setState(() {
         _publicHolidayError = error;
         _publicHolidayLoading = false;
@@ -329,7 +323,8 @@ class _AcademicScheduleHomeModuleState
               scheduleMode = await campusSettingsService.scheduleModeFor();
             }
           }
-        } catch (_) {
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           // Cached academic data is optional while the dated source is ready.
         }
         final day = resolveRecentScheduleDay(
@@ -435,17 +430,11 @@ class _AcademicScheduleHomeModuleState
         if (currentWeek == null && !holiday) {
           throw const AcademicCalendarException('当前教学周暂不可用');
         }
-      } catch (error) {
+      } catch (error, diagnosticStack) {
+        AppLogger.error(error, stackTrace: diagnosticStack);
         calendarUnavailable = true;
         if (mounted && generation == _generation) {
-          AppLogger.recordSafeFailure(
-            level: 'WARN',
-            code: 'home.schedule.teaching_week.failed',
-            message: '首页课表教学周加载失败',
-            error: error,
-            domain: 'home',
-            fields: const {'stage': 'teaching_week'},
-          );
+          AppLogger.error(error, stackTrace: StackTrace.current);
         }
         throw const AcademicCalendarException('当前教学周暂不可用');
       }
@@ -482,16 +471,11 @@ class _AcademicScheduleHomeModuleState
       unawaited(
         _loadPublicHolidays(generation, academicNow, force: forcePublic),
       );
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || generation != _generation) return;
       if (!calendarUnavailable) {
-        AppLogger.recordSafeFailure(
-          code: 'home.schedule.failed',
-          message: '首页课表加载失败',
-          error: error,
-          domain: 'home',
-          fields: const {'stage': 'module'},
-        );
+        AppLogger.error(error, stackTrace: StackTrace.current);
       }
       setState(() {
         _courses = const [];

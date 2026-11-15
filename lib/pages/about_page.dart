@@ -5,7 +5,7 @@ import '../capabilities/qq_group_join_capability.dart';
 import '../services/app_remote_services_service.dart';
 import 'app_update_dialog.dart' show showAppRemoteServicesDisabledMessage;
 import 'appreciation_page.dart';
-import 'diagnostic_report_page.dart';
+import '../widgets/diagnostics_entries.dart';
 import 'developer_tools_hub_page.dart';
 import 'feedback_community_page.dart';
 import 'open_source_page.dart';
@@ -62,10 +62,6 @@ class _AboutPageState extends State<AboutPage> {
     _pushPage((_) => const DeveloperToolsHubPage());
   }
 
-  void _openDiagnostics() {
-    _pushPage((_) => const DiagnosticReportPage());
-  }
-
   void _pushPage(WidgetBuilder builder) {
     Navigator.push<void>(context, MaterialPageRoute<void>(builder: builder));
   }
@@ -73,6 +69,35 @@ class _AboutPageState extends State<AboutPage> {
   @override
   Widget build(BuildContext context) {
     return _buildMaterial(context);
+  }
+
+  Widget _section(BuildContext context, String title, List<Widget> children) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Semantics(
+              header: true,
+              child: Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ),
+          ),
+          Card(
+            margin: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
+            child: Column(children: children),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildMaterial(BuildContext context) {
@@ -104,78 +129,71 @@ class _AboutPageState extends State<AboutPage> {
           ),
         ),
         const SizedBox(height: 28),
-        Card(
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.feedback_outlined),
-                title: const Text('建言献策'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _openFeedback,
-              ),
-              const Divider(height: 1, indent: 56),
-              ListTile(
-                leading: const Icon(Icons.groups_outlined),
-                title: const Text('QQ交流群'),
-                subtitle: const Text(QqGroupJoinCapability.groupNumber),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _joinQqGroup,
-              ),
-              const Divider(height: 1, indent: 56),
-              ListTile(
-                leading: const Icon(Icons.volunteer_activism_outlined),
-                title: const Text('赞赏'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _pushPage((_) => const AppreciationPage()),
-              ),
-              const Divider(height: 1, indent: 56),
-              ListTile(
-                leading: const Icon(Icons.analytics_outlined),
-                title: const Text('诊断信息'),
-                subtitle: const Text('预览、保存或分享已隐去个人信息的诊断报告'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _openDiagnostics,
-              ),
-              DevOnly(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Divider(height: 1, indent: 56),
-                    ListTile(
-                      leading: const Icon(Icons.build_outlined),
-                      title: const Text('开发者工具'),
-                      trailing: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          DevBadge(),
-                          SizedBox(width: 8),
-                          Icon(Icons.chevron_right),
-                        ],
-                      ),
-                      onTap: _openDeveloperTools,
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1, indent: 56),
-              ListTile(
-                leading: const Icon(Icons.privacy_tip_outlined),
-                title: const Text('用户协议与在线功能'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _pushPage((_) => const PrivacySettingsPage()),
-              ),
-              const Divider(height: 1, indent: 56),
-              ListTile(
-                leading: const Icon(Icons.source_outlined),
-                title: const Text('开源许可与致谢'),
-                subtitle: const Text('本项目基于 Mozilla Public License 2.0 开源'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _pushPage((_) => const OpenSourcePage()),
-              ),
-            ],
+        _section(context, '关于', [
+          ListTile(
+            leading: const Icon(Icons.feedback_outlined),
+            title: const Text('建言献策'),
+            subtitle: const Text('分享你遇到的问题或建议'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _openFeedback,
           ),
-        ),
+          const Divider(height: 1, indent: 56),
+          ListTile(
+            leading: const Icon(Icons.groups_outlined),
+            title: const Text('QQ交流群'),
+            subtitle: const Text(QqGroupJoinCapability.groupNumber),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _joinQqGroup,
+          ),
+          const Divider(height: 1, indent: 56),
+          ListTile(
+            leading: const Icon(Icons.volunteer_activism_outlined),
+            title: const Text('赞赏'),
+            subtitle: const Text('支持本项目'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _pushPage((_) => const AppreciationPage()),
+          ),
+          const Divider(height: 1, indent: 56),
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: const Text('用户协议'),
+            subtitle: const Text('管理用户协议与在线功能'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _pushPage((_) => const PrivacySettingsPage()),
+          ),
+          const Divider(height: 1, indent: 56),
+          ListTile(
+            leading: const Icon(Icons.source_outlined),
+            title: const Text('开源信息'),
+            subtitle: const Text('本项目基于MPL v2开源'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _pushPage((_) => const OpenSourcePage()),
+          ),
+        ]),
+        _section(context, '修复', [
+          const DiagnosticsEntries(),
+          DevOnly(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Divider(height: 1, indent: 56),
+                ListTile(
+                  leading: const Icon(Icons.build_outlined),
+                  title: const Text('开发者工具'),
+                  trailing: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DevBadge(),
+                      SizedBox(width: 8),
+                      Icon(Icons.chevron_right),
+                    ],
+                  ),
+                  onTap: _openDeveloperTools,
+                ),
+              ],
+            ),
+          ),
+        ]),
       ],
     );
     return Scaffold(appBar: AppBar(title: const Text('关于')), body: body);

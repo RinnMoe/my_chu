@@ -9,6 +9,8 @@ import 'session_materialization.dart';
 import 'session_runtime_fence.dart';
 import 'service_endpoints.dart';
 
+import 'logging/logger.dart';
+
 class FederatedSetCookieEvent {
   const FederatedSetCookieEvent({
     required this.requestUri,
@@ -176,7 +178,8 @@ class FederatedSession {
           provider: identityProvider,
         );
       }
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // The caller decides whether a transport failure is retryable. Cookies
       // collected before the failure remain available in the result.
     } finally {
@@ -429,11 +432,14 @@ class FederatedSession {
   static Future<void> _drain(HttpClientResponse response) async {
     try {
       await response.drain<void>().timeout(requestTimeout);
-    } on HttpException {
+    } on HttpException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Redirect exchange only needs headers; an early body close is safe.
-    } on SocketException {
+    } on SocketException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Same as above for a server that closes after Set-Cookie/Location.
-    } on TimeoutException {
+    } on TimeoutException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // The next validation/request will decide whether the session is usable.
     }
   }

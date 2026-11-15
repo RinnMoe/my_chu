@@ -9,6 +9,8 @@ import '../app_feedback.dart';
 import '../feedback_repository.dart';
 import '../../supabase/supabase_project_config.dart';
 
+import '../../logging/logger.dart';
+
 /// Supabase 匿名反馈数据源。
 ///
 /// 统一走 Edge Function（`submit-feedback`），不直接写表：客户端只持有
@@ -59,7 +61,8 @@ class SupabaseFeedbackRepository implements FeedbackRepository {
         headers: config.authHeaders,
         timeout: timeout,
       );
-    } on PublicHttpException catch (error) {
+    } on PublicHttpException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       // 超时、连接中断或响应读取失败：请求可能已经写入，结果未知。
       throw FeedbackSubmissionUnknownException(error);
     }
@@ -87,7 +90,8 @@ class SupabaseFeedbackRepository implements FeedbackRepository {
       if (decoded is! Map || decoded['ok'] != true) {
         throw const FeedbackSubmissionUnknownException();
       }
-    } on FormatException catch (error) {
+    } on FormatException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw FeedbackSubmissionUnknownException(error);
     }
   }

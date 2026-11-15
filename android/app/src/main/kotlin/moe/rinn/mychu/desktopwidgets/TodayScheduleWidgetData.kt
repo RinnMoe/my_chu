@@ -1,5 +1,7 @@
 package moe.rinn.mychu.desktopwidgets
 
+import moe.rinn.mychu.NativeErrorLog
+
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -96,7 +98,8 @@ internal object TodayScheduleSnapshotParser {
             }
             val date = try {
                 LocalDate.parse(dateText)
-            } catch (_: RuntimeException) {
+            } catch (diagnosticError: RuntimeException) {
+                NativeErrorLog.record(diagnosticError, "TodayScheduleWidgetData")
                 throw JSONException("Invalid occurrence date")
             }
             if (date != businessDate) continue
@@ -117,7 +120,8 @@ internal object TodayScheduleSnapshotParser {
             val endAt = endTime?.let {
                 try {
                     date.atTime(LocalTime.parse(it)).toInstant(east8)
-                } catch (_: RuntimeException) {
+                } catch (diagnosticError: RuntimeException) {
+                    NativeErrorLog.record(diagnosticError, "TodayScheduleWidgetData")
                     null
                 }
             }

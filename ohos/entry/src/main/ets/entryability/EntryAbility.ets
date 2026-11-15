@@ -9,6 +9,7 @@ import MychuHarmonyBlePermissionPlugin from '../plugins/MychuHarmonyBlePermissio
 import MychuHarmonyCaptchaOcrPlugin from '../plugins/MychuHarmonyCaptchaOcrPlugin';
 import MychuHarmonyAppLaunchPlugin from '../plugins/MychuHarmonyAppLaunchPlugin';
 import MychuHarmonyDesktopWidgetPlugin from '../plugins/MychuHarmonyDesktopWidgetPlugin';
+import MychuHarmonyDiagnosticsPlugin from '../plugins/MychuHarmonyDiagnosticsPlugin';
 import Want from '@ohos.app.ability.Want';
 import window from '@ohos.window';
 
@@ -85,6 +86,7 @@ export default class EntryAbility extends FlutterAbility {
 
   configureFlutterEngine(flutterEngine: FlutterEngine) {
     super.configureFlutterEngine(flutterEngine)
+    flutterEngine.getPlugins()?.add(new MychuHarmonyDiagnosticsPlugin())
     GeneratedPluginRegistrant.registerWith(flutterEngine)
     flutterEngine.getPlugins()?.add(new MychuHarmonyLocationPlugin())
     flutterEngine.getPlugins()?.add(new MychuHarmonyFileSharePlugin())

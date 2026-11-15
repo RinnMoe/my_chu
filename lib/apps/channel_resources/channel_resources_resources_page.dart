@@ -7,6 +7,8 @@ import 'channel_resources_models.dart';
 import 'channel_resources_service.dart';
 import 'channel_resources_widgets.dart';
 
+import '../../services/logging/logger.dart';
+
 class ChannelResourcesResourcesPage extends StatefulWidget {
   final ChannelResourcesService service;
   final VoidCallback? onPointsChanged;
@@ -105,19 +107,22 @@ class _ChannelResourcesResourcesPageState
         _links = values[3] as List<ChannelLink>;
         _loading = false;
       });
-    } on ChannelResourcesSessionException catch (error) {
+    } on ChannelResourcesSessionException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _loading = false;
         _error = error.userMessage;
       });
-    } on ChannelResourcesServiceException catch (error) {
+    } on ChannelResourcesServiceException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _loading = false;
         _error = error.message;
       });
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -144,21 +149,24 @@ class _ChannelResourcesResourcesPageState
           _loading = false;
         });
       }
-    } on ChannelResourcesSessionException catch (error) {
+    } on ChannelResourcesSessionException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) {
         setState(() {
           _loading = false;
           _error = error.userMessage;
         });
       }
-    } on ChannelResourcesServiceException catch (error) {
+    } on ChannelResourcesServiceException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) {
         setState(() {
           _loading = false;
           _error = error.message;
         });
       }
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) {
         setState(() {
           _loading = false;
@@ -180,11 +188,14 @@ class _ChannelResourcesResourcesPageState
         purchased ? '已兑换资料。' : '这份资料已经在你的资料库中。',
       );
       await _loadResources();
-    } on ChannelResourcesSessionException catch (error) {
+    } on ChannelResourcesSessionException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) showChannelResourcesSnack(context, error.userMessage);
-    } on ChannelResourcesServiceException catch (error) {
+    } on ChannelResourcesServiceException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) showChannelResourcesSnack(context, error.message);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) showChannelResourcesSnack(context, '兑换失败，请稍后重试。');
     } finally {
       if (mounted) setState(() => _purchasing.remove(resource.id));
@@ -200,11 +211,14 @@ class _ChannelResourcesResourcesPageState
       if (!opened && mounted) {
         showChannelResourcesSnack(context, '无法打开资料链接。');
       }
-    } on ChannelResourcesSessionException catch (error) {
+    } on ChannelResourcesSessionException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) showChannelResourcesSnack(context, error.userMessage);
-    } on ChannelResourcesServiceException catch (error) {
+    } on ChannelResourcesServiceException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) showChannelResourcesSnack(context, error.message);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) showChannelResourcesSnack(context, '资料暂时无法打开，请稍后重试。');
     } finally {
       if (mounted) {

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'dev_tools_page.dart';
-import 'log_page.dart';
 
 /// Collects the existing developer-only pages behind one About entry.
 class DeveloperToolsHubPage extends StatelessWidget {
@@ -25,13 +24,6 @@ class DeveloperToolsHubPage extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.list_alt_outlined),
-                  title: const Text('日志'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _push(context, const LogPage()),
-                ),
-                const Divider(height: 1, indent: 56),
                 ListTile(
                   leading: const Icon(Icons.build_outlined),
                   title: const Text('调试工具'),

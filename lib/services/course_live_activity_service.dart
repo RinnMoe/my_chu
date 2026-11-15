@@ -12,7 +12,7 @@ import '../capabilities/academic_schedule/recent_schedule_repository.dart';
 import 'auth_service.dart';
 import 'course_live_activity.dart';
 import 'demo_data_service.dart';
-import 'logger_service.dart';
+import 'logging/logger.dart';
 import 'platform_compatibility_service.dart';
 import 'privacy_agreement_service.dart';
 
@@ -84,7 +84,8 @@ class CourseLiveActivityService {
         });
         if (result is! Map) throw StateError('测试能力不可用');
         return Map<Object?, Object?>.from(result);
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         _developerTest = false;
         rethrow;
       }
@@ -130,7 +131,8 @@ class CourseLiveActivityService {
     try {
       return await (debugInvoke?.call(method, args) ??
           _channel.invokeMethod<Object?>(method, args));
-    } on MissingPluginException {
+    } on MissingPluginException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -145,8 +147,8 @@ class CourseLiveActivityService {
 
   static Future<String?> _currentAccount() async =>
       debugAccount != null
-      ? await debugAccount!()
-      : (await AuthService.getCurrentAccount())?.accountKey;
+          ? await debugAccount!()
+          : (await AuthService.getCurrentAccount())?.accountKey;
 
   static Future<bool> _accepted() =>
       debugAccepted?.call() ?? PrivacyAgreementService.isAccepted();
@@ -164,7 +166,11 @@ class CourseLiveActivityService {
   }
 
   static Future<void> initialize() =>
-      _initialization ??= _initialize().catchError((Object error) {
+      _initialization ??= _initialize().catchError((
+        Object error,
+        StackTrace diagnosticStack,
+      ) {
+        AppLogger.error(error, stackTrace: diagnosticStack);
         _initialization = null;
         throw error;
       });
@@ -192,7 +198,8 @@ class CourseLiveActivityService {
   static Future<bool> isEnabled() async {
     try {
       await initialize();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return true;
     }
     final prefs = await SharedPreferences.getInstance();
@@ -241,7 +248,8 @@ class CourseLiveActivityService {
         exact: raw['exact'] == true,
         promoted: raw['promoted'] == true,
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return const CourseLiveActivityStatus();
     }
   }
@@ -311,8 +319,12 @@ class CourseLiveActivityService {
         }
       }
       if (epoch == _epoch) _refreshedAt[account] = _refreshStamp;
-    } catch (error) {
-      AppLogger.warn('课程实时动态刷新失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '课程实时动态刷新失败 (${error.runtimeType})',
+      );
     } finally {
       _scheduleBoundaryRefresh();
       if (more) {
@@ -365,7 +377,10 @@ class CourseLiveActivityService {
     // making the native side schedule the same moment again.
     if (nextBoundary == null) return;
     final delay = nextBoundary.difference(now) + const Duration(seconds: 2);
-    _boundaryTimer = Timer(delay, () => unawaited(_coordinateForegroundBoundary()));
+    _boundaryTimer = Timer(
+      delay,
+      () => unawaited(_coordinateForegroundBoundary()),
+    );
   }
 
   /// Tracks the foreground state so the local boundary timer only runs while
@@ -415,10 +430,11 @@ class CourseLiveActivityService {
     var record = records[account];
     if (record == null || record['owner'] is! String) {
       final random = Random.secure();
-      final owner = List.generate(
-        24,
-        (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
-      ).join();
+      final owner =
+          List.generate(
+            24,
+            (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+          ).join();
       record = {'owner': owner};
       records[account] = record;
       if (!await _saveRecords(prefs, records)) {
@@ -474,12 +490,13 @@ class CourseLiveActivityService {
       await (debugReadWindow?.call(account) ?? repository.read(account));
     }
     if (!await _canPublish(account, epoch, revision)) return;
-    final days = await (debugLoadDays?.call(account, dates, debugRepository) ??
-        loadRecentScheduleDays(
-          account,
-          dates,
-          repository: debugRepository,
-        ));
+    final days =
+        await (debugLoadDays?.call(account, dates, debugRepository) ??
+            loadRecentScheduleDays(
+              account,
+              dates,
+              repository: debugRepository,
+            ));
     if (!await _canPublish(account, epoch, revision)) return;
     final outcome = projectCourseLiveActivityPlan(
       owner: owner,
@@ -595,7 +612,8 @@ class CourseLiveActivityService {
       final eventId = payload['eventId'];
       if (eventId is! String || eventId.trim().isEmpty) return false;
       return await _invoke('validateLaunch', payload) == true;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
     }
   }
@@ -621,7 +639,8 @@ class CourseLiveActivityService {
         final prefs = await SharedPreferences.getInstance();
         await prefs.remove(_accountsKey);
         _initialization = null;
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // Binding records are best-effort; the native side is already cleared.
       }
     });
@@ -637,7 +656,8 @@ class CourseLiveActivityService {
     if (raw is! String || raw.isEmpty) return null;
     try {
       return jsonDecode(raw);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -654,7 +674,8 @@ class CourseLiveActivityService {
         }
       });
       return result;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return {};
     }
   }

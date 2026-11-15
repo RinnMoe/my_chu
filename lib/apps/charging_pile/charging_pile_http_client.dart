@@ -1,9 +1,10 @@
+import '../../services/failure_details.dart';
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import '../../services/failure_details.dart';
+import '../../services/logging/logger.dart';
 import '../../services/public_http_client.dart';
 export '../../services/public_http_client.dart' show PublicHttpException;
 
@@ -76,7 +77,7 @@ class ChargingPileHttpClient extends PublicHttpClient {
     Duration? timeout,
     bool followRedirects = false,
     Future<void>? abortTrigger,
-  }) async {
+  }) => AppLogger.guardAsync(() async {
     if (_closed) throw _cancelled();
     final expired = Completer<void>();
     final limit = timeout ?? defaultTimeout;
@@ -92,7 +93,10 @@ class ChargingPileHttpClient extends PublicHttpClient {
       unawaited(
         abortTrigger.then<void>(
           (_) => abort(FailureReason.cancelled),
-          onError: (Object _) => abort(FailureReason.cancelled),
+          onError: (Object error, StackTrace stack) {
+            AppLogger.error(error, stackTrace: stack, context: '充电桩请求取消');
+            abort(FailureReason.cancelled);
+          },
         ),
       );
     }
@@ -112,12 +116,17 @@ class ChargingPileHttpClient extends PublicHttpClient {
       return await (() async =>
               http.Response.fromStream(await _transport.send(request)))()
           .timeout(limit);
-    } on TimeoutException {
+    } on TimeoutException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw abortReason == FailureReason.cancelled ? _cancelled() : _timedOut();
-    } on http.RequestAbortedException {
+    } on http.RequestAbortedException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw abortReason == FailureReason.timeout ? _timedOut() : _cancelled();
-    } catch (_) {
-      if (abortReason == FailureReason.cancelled || _closed) throw _cancelled();
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+      if (abortReason == FailureReason.cancelled || _closed) {
+        throw _cancelled();
+      }
       if (abortReason == FailureReason.timeout) throw _timedOut();
       throw const PublicHttpException(
         '网络请求失败，请稍后重试。',
@@ -126,7 +135,7 @@ class ChargingPileHttpClient extends PublicHttpClient {
     } finally {
       timer.cancel();
     }
-  }
+  });
 
   static PublicHttpException _timedOut() =>
       const PublicHttpException('请求超时，请稍后重试。', reason: FailureReason.timeout);

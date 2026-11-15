@@ -14,6 +14,8 @@ import '../../services/campus_session.dart';
 import '../../services/service_endpoints.dart';
 import 'tronclass_models.dart';
 
+import '../../services/logging/logger.dart';
+
 const _mobileUserAgent =
     'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) '
     'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 '
@@ -284,6 +286,10 @@ class TronclassService {
     );
     final url = data['url']?.toString().trim() ?? '';
     if (url.isEmpty || data['status'] == 'failed') {
+      AppLogger.error(
+        data,
+        context: '畅课课件下载链接异常\n${file.name} (${file.fileId})',
+      );
       throw TronclassException(
         '无法获取下载链接',
         reason:
@@ -315,6 +321,10 @@ class TronclassService {
       throwOnHttpError: false,
     );
     if (response.statusCode != HttpStatus.ok) {
+      AppLogger.error(
+        response.body,
+        context: '畅课接口请求失败\n$method $url\nHTTP ${response.statusCode}',
+      );
       throw TronclassException(
         '请求失败（HTTP ${response.statusCode}）',
         statusCode: response.statusCode,
@@ -322,6 +332,7 @@ class TronclassService {
     }
     final decoded = _decodeJson(response.body);
     if (decoded is! Map<String, dynamic>) {
+      AppLogger.error(response.body, context: '畅课接口返回格式异常\n$method $url');
       throw const TronclassException(
         '接口返回格式异常',
         reason: FailureReason.malformedResponse,
@@ -352,7 +363,8 @@ Object? _decodeJson(String body) {
   final cleaned = text.startsWith('\uFEFF') ? text.substring(1) : text;
   try {
     return jsonDecode(cleaned);
-  } catch (_) {
+  } catch (diagnosticError, diagnosticStack) {
+    AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
     return null;
   }
 }

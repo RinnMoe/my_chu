@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../../services/logging/logger.dart';
+
 /// 教室占用状态归一化后的展示枚举。
 enum RoomUsageStatus { free, occupied, unknown }
 
@@ -141,7 +143,8 @@ List<RoomBuilding> parseRoomBuildings(String body) {
 Object? _decodeJson(String body) {
   try {
     return jsonDecode(body);
-  } on FormatException {
+  } on FormatException catch (diagnosticError, diagnosticStack) {
+    AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
     throw const FormatException('教室接口未返回 JSON');
   }
 }

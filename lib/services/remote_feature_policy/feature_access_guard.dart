@@ -4,6 +4,8 @@ import '../development_mode_service.dart';
 import 'remote_feature_policy_models.dart';
 import 'remote_feature_policy_service.dart';
 
+import '../logging/logger.dart';
+
 /// Effective access state for one feature.
 enum FeatureAccessStatus {
   /// Usable and listed by ordinary entry points.
@@ -119,7 +121,8 @@ class FeatureAccessGuard {
     bool? installed;
     try {
       installed = (await AppService.getState(app.metadata.id)).installed;
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // A damaged local state must not block a feature that is otherwise
       // available; the catalog already treats it as installed by default.
       installed = null;

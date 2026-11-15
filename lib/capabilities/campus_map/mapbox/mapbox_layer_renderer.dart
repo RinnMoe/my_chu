@@ -7,6 +7,8 @@ import "package:mapbox_maps_flutter/mapbox_maps_flutter.dart";
 import "../../campus_places/campus_places.dart";
 import "../layers/layers.dart";
 
+import '../../../services/logging/logger.dart';
+
 /// 通用 Mapbox 图层渲染适配器。
 ///
 /// 只认识 [MapLayerRenderState]：不知道图层 ID 来自哪个业务，也不知道要素
@@ -116,7 +118,8 @@ class MapboxLayerRenderer {
         final generation = _styleGeneration;
         try {
           await _syncNow(_states);
-        } catch (_) {
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           if (generation == _styleGeneration) rethrow;
         }
         if (generation != _styleGeneration) {
@@ -398,8 +401,16 @@ class MapboxLayerRenderer {
             slot: "top",
             filter: <Object>[
               "all",
-              <Object>["==", <Object>["get", "aggregate"], false],
-              <Object>["!=", <Object>["get", "emphasized"], true],
+              <Object>[
+                "==",
+                <Object>["get", "aggregate"],
+                false,
+              ],
+              <Object>[
+                "!=",
+                <Object>["get", "emphasized"],
+                true,
+              ],
             ],
             minZoom: layerStyle.minZoom,
             maxZoom: layerStyle.maxZoom,
@@ -422,8 +433,16 @@ class MapboxLayerRenderer {
             slot: "top",
             filter: <Object>[
               "all",
-              <Object>["==", <Object>["get", "aggregate"], false],
-              <Object>["==", <Object>["get", "emphasized"], true],
+              <Object>[
+                "==",
+                <Object>["get", "aggregate"],
+                false,
+              ],
+              <Object>[
+                "==",
+                <Object>["get", "emphasized"],
+                true,
+              ],
             ],
             minZoom: layerStyle.minZoom,
             maxZoom: layerStyle.maxZoom,
@@ -446,13 +465,21 @@ class MapboxLayerRenderer {
             id: aggregatePointId,
             sourceId: sourceId,
             slot: "top",
-            filter: <Object>["==", <Object>["get", "aggregate"], true],
+            filter: <Object>[
+              "==",
+              <Object>["get", "aggregate"],
+              true,
+            ],
             minZoom: layerStyle.minZoom,
             maxZoom: layerStyle.maxZoom,
             circleColorExpression: _colorExpression(),
             circleRadiusExpression: <Object>[
               "case",
-              <Object>["==", <Object>["get", "emphasized"], true],
+              <Object>[
+                "==",
+                <Object>["get", "emphasized"],
+                true,
+              ],
               layerStyle.emphasizedAggregateCircleRadius ??
                   layerStyle.emphasizedCircleRadius,
               layerStyle.aggregateCircleRadius ?? layerStyle.circleRadius,
@@ -559,7 +586,11 @@ class MapboxLayerRenderer {
         id: id,
         sourceId: sourceId,
         slot: "top",
-        filter: <Object>["==", <Object>["get", "aggregate"], false],
+        filter: <Object>[
+          "==",
+          <Object>["get", "aggregate"],
+          false,
+        ],
         minZoom: minZoom,
         maxZoom: layerStyle.maxZoom,
         textFieldExpression: <Object>["get", "badge"],
@@ -578,7 +609,11 @@ class MapboxLayerRenderer {
       id: id,
       sourceId: sourceId,
       slot: "top",
-      filter: <Object>["==", <Object>["get", "aggregate"], true],
+      filter: <Object>[
+        "==",
+        <Object>["get", "aggregate"],
+        true,
+      ],
       minZoom: minZoom,
       maxZoom: layerStyle.maxZoom,
       textFieldExpression: <Object>["get", "badge"],

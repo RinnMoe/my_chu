@@ -6,6 +6,8 @@ import 'academic_schedule_background_store.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../services/logging/logger.dart';
+
 enum AcademicSchedulePalette {
   classic('classic', '经典浅彩'),
   ocean('ocean', '海盐蓝绿'),
@@ -195,7 +197,8 @@ class AcademicScheduleAppearanceStore {
       if (json is Map<String, dynamic>) {
         return AcademicScheduleAppearance.fromJson(json);
       }
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // An invalid appearance must never prevent opening the timetable.
     }
     return const AcademicScheduleAppearance();
@@ -226,7 +229,8 @@ class AcademicScheduleAppearanceStore {
       }
       final file = await AcademicScheduleBackgroundStore.file(image);
       if (await file.exists()) await file.delete();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Cleanup never changes the result of an already persisted preference.
     }
   }

@@ -1,11 +1,13 @@
+import 'web_view_error_reporting.dart';
+import '../services/usage_analytics_service.dart';
+import '../services/reliability_event.dart';
 import 'dart:collection';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import '../services/logger_service.dart';
-import '../services/error_feedback_service.dart';
+import '../services/logging/logger.dart';
 import '../services/user_error_message.dart';
 import 'campus_web_view_security.dart';
 import 'web_view_back_handler.dart';
@@ -57,10 +59,11 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
   var _canGoForward = false;
   var _useDesktopUA = false;
   String? _error;
-  ErrorFeedbackAttempt? _feedbackAttempt;
+  AnalyticsOperation? _feedbackAttempt;
 
   void _startFeedbackAttempt() {
-    _feedbackAttempt = ErrorFeedbackCoordinator.shared.begin(
+    _feedbackAttempt?.cancel();
+    _feedbackAttempt = UsageAnalyticsService.beginOperation(
       UserOperationId.manualWebView,
     );
   }
@@ -72,6 +75,7 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
 
   @override
   void dispose() {
+    _feedbackAttempt?.cancel();
     _disposed = true;
     _controller = null;
     super.dispose();
@@ -93,15 +97,18 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
       'Chrome/150.0.0.0 Safari/537.36';
 
   Future<void> _onWebViewCreated(InAppWebViewController controller) async {
+    WebViewErrorReporting.attach(controller);
     _controller = controller;
     _startFeedbackAttempt();
     try {
       await controller.loadUrl(urlRequest: URLRequest(url: WebUri(widget.url)));
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted) return;
       logUserFacingError(
         UserErrorContext.webView,
         error,
+        stackTrace: diagnosticStack,
         operationId: UserOperationId.manualWebView,
         feedbackAttempt: _feedbackAttempt,
       );
@@ -120,12 +127,14 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
     _startFeedbackAttempt();
     try {
       await _controller?.reload();
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted) return;
       logUserFacingError(
         UserErrorContext.webView,
         error,
-        operation: 'manual',
+        stackTrace: diagnosticStack,
+        operationId: UserOperationId.manualWebView,
         feedbackAttempt: _feedbackAttempt,
       );
       setState(() {
@@ -143,7 +152,8 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
       if (await controller.canGoBack()) {
         await controller.goBack();
       }
-    } on PlatformException {
+    } on PlatformException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return;
     }
     await _updateNavigationState();
@@ -157,7 +167,8 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
       if (await controller.canGoForward()) {
         await controller.goForward();
       }
-    } on PlatformException {
+    } on PlatformException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return;
     }
     await _updateNavigationState();
@@ -176,7 +187,8 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
         _canGoBack = canGoBack;
         _canGoForward = canGoForward;
       });
-    } on PlatformException {
+    } on PlatformException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // WebView 可能在加载回调期间销毁，导航状态不是关键 UI。
     }
   }
@@ -186,7 +198,8 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
     try {
       await _controller?.setSettings(settings: _settings());
       await _controller?.reload();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 首屏尚未加载完成时切换 UA，重载失败可忽略，后续加载使用新 UA。
     }
     if (!mounted) return;
@@ -207,17 +220,19 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
   ) async {
     final host = challenge.protectionSpace.host;
     if (shouldUseSystemCertificateValidation(host)) {
-      AppLogger.event(
-        level: 'INFO',
-        code: 'webview.manual.tls.system_validation',
-        message: '手动登录 WebView 服务器证书使用系统校验',
+      AppLogger.info(
+        <Object?>[
+          'webview.manual.tls.system_validation',
+          '手动登录 WebView 服务器证书使用系统校验',
+        ].join(' | '),
       );
       return null;
     }
-    AppLogger.event(
-      level: 'WARN',
-      code: 'webview.manual.tls.compatibility_validation',
-      message: '手动登录 WebView 服务器证书使用校园兼容校验',
+    AppLogger.warn(
+      <Object?>[
+        'webview.manual.tls.compatibility_validation',
+        '手动登录 WebView 服务器证书使用校园兼容校验',
+      ].join(' | '),
     );
     return ServerTrustAuthResponse(
       action: ServerTrustAuthResponseAction.PROCEED,
@@ -275,7 +290,10 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
           else
             InAppWebView(
               initialSettings: _settings(),
-              initialUserScripts: widget.initialUserScripts,
+              initialUserScripts: UnmodifiableListView([
+                WebViewErrorReporting.script,
+                ...?widget.initialUserScripts,
+              ]),
               onWebViewCreated: _onWebViewCreated,
               shouldOverrideUrlLoading:
                   (controller, navigationAction) =>
@@ -290,7 +308,7 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
                   (controller, origin) => _webViewPermissions
                       .handleGeolocationPermissionsShowPrompt(origin),
               onLoadStart: (controller, url) {
-                if (_feedbackAttempt?.completed != false) {
+                if (_feedbackAttempt?.isFinished != false) {
                   _startFeedbackAttempt();
                 }
                 if (mounted) setState(() => _loading = true);
@@ -303,11 +321,15 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
                 await _updateNavigationState();
               },
               onReceivedError: (controller, request, error) {
+                AppLogger.error(
+                  error,
+                  context: 'WebView 资源加载失败\n${request.url}',
+                );
                 if (!mounted || request.isForMainFrame != true) return;
                 logUserFacingError(
                   UserErrorContext.webView,
                   error,
-                  operation: 'manual',
+                  operationId: UserOperationId.manualWebView,
                   feedbackAttempt: _feedbackAttempt,
                 );
                 setState(() {
@@ -316,14 +338,18 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
                 });
               },
               onReceivedHttpError: (controller, request, errorResponse) {
+                AppLogger.error(
+                  errorResponse,
+                  context: 'WebView HTTP 错误\n${request.url}',
+                );
                 if (!mounted || request.isForMainFrame != true) return;
                 final statusCode = errorResponse.statusCode;
                 if (statusCode == 401 || statusCode == 403) return;
-                final error = StateError('Manual login WebView HTTP error');
+                final error = errorResponse;
                 logUserFacingError(
                   UserErrorContext.webView,
                   error,
-                  operation: 'manual',
+                  operationId: UserOperationId.manualWebView,
                   statusCode: statusCode,
                   feedbackAttempt: _feedbackAttempt,
                 );
@@ -333,13 +359,16 @@ class _ManualLoginWebViewPageState extends State<ManualLoginWebViewPage> {
                 });
               },
               onRenderProcessGone: (controller, detail) {
-                if (!mounted) return;
-                if (_feedbackAttempt?.completed != false) {
+                if (!mounted) {
+                  AppLogger.error(detail, context: '手动登录 WebView 渲染进程退出');
+                  return;
+                }
+                if (_feedbackAttempt?.isFinished != false) {
                   _startFeedbackAttempt();
                 }
                 logUserFacingError(
                   UserErrorContext.webView,
-                  StateError('Manual login WebView renderer exited'),
+                  detail,
                   operationId: UserOperationId.manualWebView,
                   renderProcessCrashed: detail.didCrash,
                   feedbackAttempt: _feedbackAttempt,

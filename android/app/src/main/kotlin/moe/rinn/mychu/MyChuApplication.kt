@@ -13,8 +13,12 @@ import moe.rinn.mychu.desktopwidgets.TodayScheduleWidgetReceiver
 class MyChuApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        // Public crash reports are opt-in for this process.
+        // Preserve the previous uncaught-exception handler after saving.
+        runCatching { NativeCrashRecorder.install(this) }.onFailure { NativeErrorLog.record(it, "MyChuApplication") }
+
         // Retry incomplete upgrade cleanup on the next startup without blocking launch.
-        runCatching { TimeReminderEngine.resetLegacy(this) }
+        runCatching { TimeReminderEngine.resetLegacy(this) }.onFailure { NativeErrorLog.record(it, "MyChuApplication") }
 
         if (
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM &&
@@ -54,7 +58,7 @@ class MyChuApplication : Application() {
                 AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN,
                 RemoteViews(packageName, layout),
             )
-        }.getOrDefault(false)
+        }.onFailure { NativeErrorLog.record(it, "MyChuApplication") }.getOrDefault(false)
         if (published) preferences.edit().putBoolean(attemptKey, true).apply()
     }
 

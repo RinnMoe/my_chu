@@ -1,3 +1,4 @@
+import MychuHarmonyDiagnosticsPlugin from './MychuHarmonyDiagnosticsPlugin';
 import {
   AbilityAware,
   AbilityPluginBinding,
@@ -67,7 +68,8 @@ export default class MychuHarmonyBlePermissionPlugin
         ability.context.applicationInfo.accessTokenId,
         BLE_PERMISSION,
       ) === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED;
-    } catch (_) {
+    } catch (diagnosticError) {
+      MychuHarmonyDiagnosticsPlugin.record(diagnosticError as Error, "MychuHarmonyBlePermissionPlugin");
       return false;
     }
   }
@@ -89,7 +91,8 @@ export default class MychuHarmonyBlePermissionPlugin
           request.authResults[0] ===
             abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED,
       );
-    } catch (_) {
+    } catch (diagnosticError) {
+      MychuHarmonyDiagnosticsPlugin.record(diagnosticError as Error, "MychuHarmonyBlePermissionPlugin");
       result.success(false);
     }
   }

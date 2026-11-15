@@ -4,6 +4,8 @@ import "package:flutter/services.dart";
 
 import "place_normalizer.dart";
 
+import '../../services/logging/logger.dart';
+
 /// The kind of logical destination described by a code rule.
 enum PlaceCodeRuleKind { classroom, place }
 
@@ -422,7 +424,8 @@ class PlaceCodeRulesRepository {
   Future<PlaceCodeRuleCatalog> loadCatalog() async {
     try {
       return decodeCatalog(await loadText(assetPath));
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return const PlaceCodeRuleCatalog();
     }
   }

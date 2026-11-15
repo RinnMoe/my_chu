@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/app_remote_services_service.dart';
-import '../services/logger_service.dart';
+import '../services/logging/logger.dart';
 import '../services/privacy_agreement_service.dart';
 import '../capabilities/academic_schedule/recent_schedule_repository.dart';
 import '../capabilities/desktop_widgets/desktop_widget_bridge.dart';
@@ -42,8 +42,12 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
         _remoteServicesEnabled = enabled;
         _loading = false;
       });
-    } catch (error) {
-      AppLogger.warn('应用远程服务设置读取失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '应用远程服务设置读取失败 (${error.runtimeType})',
+      );
       if (!mounted) return;
       setState(() => _loading = false);
     }
@@ -62,11 +66,16 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       } else {
         await UsageAnalyticsService.disableAndClear();
       }
-    } catch (error) {
-      AppLogger.warn('应用远程服务设置保存失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '应用远程服务设置保存失败 (${error.runtimeType})',
+      );
       try {
         _remoteServicesEnabled = await AppRemoteServicesService.isEnabled();
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         _remoteServicesEnabled = null;
       }
       if (mounted) {
@@ -113,13 +122,21 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     try {
       try {
         await AppRemoteServicesService.setEnabled(false);
-      } catch (error) {
-        AppLogger.warn('应用远程服务关闭失败 (${error.runtimeType})');
+      } catch (error, diagnosticStack) {
+        AppLogger.error(
+          error,
+          stackTrace: diagnosticStack,
+          context: '应用远程服务关闭失败 (${error.runtimeType})',
+        );
       }
       try {
         await UsageAnalyticsService.disableAndClear();
-      } catch (error) {
-        AppLogger.warn('匿名统计队列清理失败 (${error.runtimeType})');
+      } catch (error, diagnosticStack) {
+        AppLogger.error(
+          error,
+          stackTrace: diagnosticStack,
+          context: '匿名统计队列清理失败 (${error.runtimeType})',
+        );
       }
       for (final clear in <Future<void> Function()>[
         PrivacyAgreementService.clear,
@@ -130,8 +147,12 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
       ]) {
         try {
           await clear();
-        } catch (error) {
-          AppLogger.warn('Privacy cleanup failed (${error.runtimeType})');
+        } catch (error, diagnosticStack) {
+          AppLogger.error(
+            error,
+            stackTrace: diagnosticStack,
+            context: 'Privacy cleanup failed (${error.runtimeType})',
+          );
         }
       }
     } finally {
@@ -153,7 +174,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
     final theme = Theme.of(context);
     final enabled = _remoteServicesEnabled ?? true;
     return Scaffold(
-      appBar: AppBar(title: const Text('用户协议与在线功能')),
+      appBar: AppBar(title: const Text('用户协议')),
       body: ListView(
         children: [
           const SizedBox(height: 8),

@@ -6,6 +6,8 @@ import 'channel_resources_resources_page.dart';
 import 'channel_resources_service.dart';
 import 'channel_resources_widgets.dart';
 
+import '../../services/logging/logger.dart';
+
 /// Native Android presentation for the normal-user channel-resources site.
 /// The two tabs are local to this app and do not change the host bottom bar.
 class ChannelResourcesPage extends StatefulWidget {
@@ -45,7 +47,8 @@ class _ChannelResourcesPageState extends State<ChannelResourcesPage> {
     _attachService(service);
     try {
       await service.restore();
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // The session publishes the corresponding auth state.
     }
   }

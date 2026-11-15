@@ -6,6 +6,8 @@ import '../capabilities/campus_places/campus_registry.dart';
 import '../services/campus_settings_service.dart';
 import '../widgets/compact_badge.dart';
 
+import '../services/logging/logger.dart';
+
 Future<bool?> showCampusSettingsSheet(BuildContext context) {
   const sheet = CampusSettingsSheet();
 
@@ -82,7 +84,8 @@ class _CampusSettingsSheetState extends State<CampusSettingsSheet> {
         _defaultFallback = !hasCurrent && hasDefault;
         _loading = false;
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || !(await _isCurrentSession())) return;
       setState(() {
         _campuses = const [];
@@ -117,7 +120,8 @@ class _CampusSettingsSheetState extends State<CampusSettingsSheet> {
         return;
       }
       Navigator.of(context).pop(true);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _saving = false;

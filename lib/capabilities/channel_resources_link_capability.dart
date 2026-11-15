@@ -1,5 +1,7 @@
 import 'package:url_launcher/url_launcher.dart';
 
+import '../services/logging/logger.dart';
+
 /// Opens channel-resource links after restricting them to ordinary web URLs.
 class ChannelResourcesLinkCapability {
   final Future<bool> Function(Uri uri)? _externalOpener;
@@ -16,7 +18,8 @@ class ChannelResourcesLinkCapability {
   static Future<bool> _openExternally(Uri uri) async {
     try {
       return await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
     }
   }

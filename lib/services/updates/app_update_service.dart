@@ -13,6 +13,8 @@ import 'update_offer.dart';
 import 'upgradelink_client.dart';
 import 'upgradelink_delta_update.dart';
 
+import '../logging/logger.dart';
+
 enum UpdateCheckState {
   idle,
   checking,
@@ -207,7 +209,8 @@ class AppUpdateService extends ChangeNotifier {
         );
       }
       _emit();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (_disposed || epoch != _epoch) return;
       offer = null;
       delta = null;
@@ -230,7 +233,8 @@ class AppUpdateService extends ChangeNotifier {
       }
       if (!await _current(epoch) || !identical(offer, candidate)) return;
       delta = match;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Metadata/preflight failure leaves the verified full route available.
     } finally {
       if (!_disposed && epoch == _epoch && identical(offer, candidate)) {
@@ -309,7 +313,8 @@ class AppUpdateService extends ChangeNotifier {
         if (!opened) error = '无法打开安装程序，请重试';
       }
       return opened;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!_disposed && epoch == _epoch) error = '更新未完成，请检查网络或可用空间后重试';
       return false;
     } finally {

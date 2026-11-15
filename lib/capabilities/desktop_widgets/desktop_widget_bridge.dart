@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import '../../services/logger_service.dart';
+import '../../services/logging/logger.dart';
 import 'desktop_widget_models.dart';
 import 'desktop_widget_projection.dart';
 
@@ -63,8 +63,12 @@ class DesktopWidgetSyncService {
             continue;
           }
           await DesktopWidgetBridge.publish(snapshot);
-        } on Object catch (error) {
-          AppLogger.warn('桌面课表小组件同步失败 (${error.runtimeType})');
+        } on Object catch (error, diagnosticStack) {
+          AppLogger.error(
+            error,
+            stackTrace: diagnosticStack,
+            context: '桌面课表小组件同步失败 (${error.runtimeType})',
+          );
         }
       } while (_refreshAgain);
     } finally {
@@ -87,8 +91,12 @@ class DesktopWidgetSyncService {
           ),
         ),
       );
-    } on Object catch (error) {
-      AppLogger.warn('退出登录时清除桌面课表小组件失败 (${error.runtimeType})');
+    } on Object catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '退出登录时清除桌面课表小组件失败 (${error.runtimeType})',
+      );
     } finally {
       _clearingSchedule--;
     }

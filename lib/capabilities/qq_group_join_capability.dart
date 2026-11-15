@@ -1,5 +1,7 @@
 import 'package:url_launcher/url_launcher.dart';
 
+import '../services/logging/logger.dart';
+
 /// 通过 QQ 群卡片深链调起手机 QQ 的加群界面。
 ///
 /// 只携带公开群号，不涉及账号、Cookie 或任何本机标识。QQ 未安装、系统无应用
@@ -24,8 +26,11 @@ class QqGroupJoinCapability {
   Future<bool> joinGroup() async {
     final launcher = _launcher ?? _launchExternally;
     try {
-      return await launcher(groupUri);
-    } on Object {
+      final opened = await launcher(groupUri);
+      if (!opened) AppLogger.warn('QQ 交流群入口未能打开\n$groupUri');
+      return opened;
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
     }
   }

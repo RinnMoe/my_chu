@@ -98,16 +98,19 @@ class ChargingPileSnapshotClient {
   }
 
   /// 解析快照响应。单个分区坏掉只丢那个分区，不让整份作废。
+  ///
+  /// 站点 `area=all` 在某个分区读失败时会回 `ok:false` + `partial_r2_error`，
+  /// 但**其余分区的数据照发**（见站点 worker 的注释），页面也照常展示。
+  /// 所以这里接受 `ok:false` 的降级响应；只有没有 `areas`、或整份都没有可用
+  /// 数据时才当成失败，让页面显示重试。
   static ChargingPileSnapshot parse(String body) {
     final decoded = jsonDecode(body);
     if (decoded is! Map) {
       throw const ChargingPileException(ChargingPileFailure.malformed);
     }
-    if (decoded['ok'] != true) {
-      throw const ChargingPileException(ChargingPileFailure.malformed);
-    }
+    final ok = decoded['ok'] == true;
     final rawAreas = decoded['areas'];
-    if (rawAreas is! List) {
+    if (rawAreas is! List || rawAreas.isEmpty) {
       throw const ChargingPileException(ChargingPileFailure.malformed);
     }
 
@@ -163,6 +166,10 @@ class ChargingPileSnapshotClient {
     }
     if (areas.isEmpty) {
       throw const ChargingPileException(ChargingPileFailure.malformed);
+    }
+    if (!ok && areas.every((area) => !area.hasData)) {
+      // 上游自己降级且一个分区都没给出数据：当成取数失败，页面给重试。
+      throw const ChargingPileException(ChargingPileFailure.network);
     }
 
     return ChargingPileSnapshot(

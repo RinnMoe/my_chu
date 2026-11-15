@@ -261,12 +261,14 @@ function atomicWrite(path: string, source: string): void {
 export function writeDesktopWidgetSnapshot(
   filesDir: string,
   source: string,
+  onError?: (error: Error) => void,
 ): boolean {
   if (parseDesktopWidgetSnapshot(source) === null) return false;
   try {
     atomicWrite(`${filesDir}/${SNAPSHOT_FILE}`, source);
     return true;
-  } catch (_) {
+  } catch (error) {
+    onError?.(error as Error);
     return false;
   }
 }

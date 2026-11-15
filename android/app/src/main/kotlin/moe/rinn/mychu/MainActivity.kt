@@ -1,13 +1,10 @@
 package moe.rinn.mychu
 
-import android.content.ContentValues
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.Context
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
 import android.webkit.CookieManager
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -27,6 +24,7 @@ import moe.rinn.mychu.desktopwidgets.DesktopWidgetRefreshReceiver
 import moe.rinn.mychu.desktopwidgets.WidgetSnapshotStore
 
 class MainActivity : FlutterActivity() {
+    private var nativeErrorNotification: (() -> Unit)? = null
     private val CHANNEL = "mychu/cookie"
     private val FILE_CHANNEL = "mychu/file_save"
     private val APP_INSTALLER_CHANNEL = "mychu/app_installer"
@@ -64,6 +62,49 @@ class MainActivity : FlutterActivity() {
         PlatformCompatibilityChannel.register(this, flutterEngine)
         AndroidDeviceCompatibilityChannel.register(this, flutterEngine)
         TimeReminderEngine.register(this, flutterEngine)
+        val diagnostics = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "mychu/diagnostics")
+        val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+        nativeErrorNotification?.let { if (NativeErrorLog.onChanged === it) NativeErrorLog.onChanged = null }
+        lateinit var notifyErrors: () -> Unit
+        notifyErrors = {
+            mainHandler.post {
+                if (NativeErrorLog.onChanged === notifyErrors) {
+                    diagnostics.invokeMethod("errorsAvailable", null)
+                }
+            }
+        }
+        nativeErrorNotification = notifyErrors
+        NativeErrorLog.onChanged = nativeErrorNotification
+        diagnostics.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "takeErrors" -> result.success(NativeErrorLog.takeErrors())
+                "clearErrors" -> { NativeErrorLog.clear(); result.success(null) }
+                "requiresStoragePermission" -> result.success(requiresCrashStoragePermission())
+                "setCrashRecording" -> {
+                    val enabled = call.argument<Boolean>("enabled") == true
+                    if (enabled && requiresCrashStoragePermission()) {
+                        result.error("STORAGE_PERMISSION_DENIED", "需要下载目录写入权限", null)
+                    } else {
+                        NativeCrashRecorder.setCrashRecording(enabled)
+                        result.success(null)
+                    }
+                }
+                "isCrashRecording" -> result.success(NativeCrashRecorder.isCrashRecording())
+                "saveCrashReport" -> {
+                    val content = call.argument<String>("content")
+                    if (content == null) result.error("INVALID_ARG", "content is required", null)
+                    else try {
+                        NativeCrashRecorder.saveDartCrash(content)
+                        result.success(null)
+                    } catch (error: Exception) {
+                        NativeErrorLog.record(error, "MainActivity")
+                        result.error("CRASH_SAVE_FAILED", error.toString(), error.stackTraceToString())
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             DESKTOP_WIDGET_CHANNEL,
@@ -91,7 +132,8 @@ class MainActivity : FlutterActivity() {
                     withContext(Dispatchers.Main.immediate) {
                         result.success(null)
                     }
-                } catch (_: Exception) {
+                } catch (diagnosticError: Exception) {
+                    NativeErrorLog.record(diagnosticError, "MainActivity")
                     withContext(Dispatchers.Main.immediate) {
                         result.error("WIDGET_UPDATE_FAILED", "桌面课表更新失败", null)
                     }
@@ -157,11 +199,11 @@ class MainActivity : FlutterActivity() {
                     result.error("INVALID_ARG", "fileName and sourcePath are required", null)
                     return@setMethodCallHandler
                 }
-                val saved = saveToDownloads(fileName, File(sourcePath))
-                if (saved != null) {
-                    result.success(saved)
-                } else {
-                    result.error("SAVE_FAILED", "无法保存到系统下载目录", null)
+                try {
+                    result.success(saveToDownloads(fileName, File(sourcePath)))
+                } catch (error: Exception) {
+                    NativeErrorLog.record(error, "保存下载文件 $fileName")
+                    result.error("SAVE_FAILED", error.toString(), error.stackTraceToString())
                 }
             } else if (call.method == "openFile") {
                 val path = call.argument<String>("path")
@@ -228,9 +270,11 @@ class MainActivity : FlutterActivity() {
                         startActivity(intent)
                         result.success(true)
                     }
-                } catch (_: ActivityNotFoundException) {
+                } catch (diagnosticError: ActivityNotFoundException) {
+                    NativeErrorLog.record(diagnosticError, "MainActivity")
                     result.success(false)
-                } catch (_: SecurityException) {
+                } catch (diagnosticError: SecurityException) {
+                    NativeErrorLog.record(diagnosticError, "MainActivity")
                     result.success(false)
                 }
                 return@setMethodCallHandler
@@ -252,9 +296,11 @@ class MainActivity : FlutterActivity() {
                     },
                 )
                 result.success(true)
-            } catch (_: ActivityNotFoundException) {
+            } catch (diagnosticError: ActivityNotFoundException) {
+                NativeErrorLog.record(diagnosticError, "MainActivity")
                 result.success(false)
-            } catch (_: SecurityException) {
+            } catch (diagnosticError: SecurityException) {
+                NativeErrorLog.record(diagnosticError, "MainActivity")
                 result.success(false)
             }
         }
@@ -267,6 +313,7 @@ class MainActivity : FlutterActivity() {
             androidx.startup.AppInitializer.getInstance(applicationContext)
                 .initializeComponent(component)
         } catch (error: Throwable) {
+            NativeErrorLog.record(error, "MainActivity")
             android.util.Log.w("MyCHU", "Mapbox initializer $name failed", error)
         }
     }
@@ -297,6 +344,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        nativeErrorNotification?.let { if (NativeErrorLog.onChanged === it) NativeErrorLog.onChanged = null }
+        nativeErrorNotification = null
         mapboxLogMessenger?.detach()
         mapboxLogMessenger = null
         appUpdateChannel?.dispose()
@@ -347,17 +396,18 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    /** 保存到公共下载目录 Download/MyCHU，返回可授予外部应用的 URI；失败返回 null。 */
-    private fun saveToDownloads(fileName: String, source: File): String? {
-        return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                saveViaMediaStore(fileName, source)
-            } else {
-                saveViaLegacy(fileName, source)
-            }
-        } catch (e: Exception) {
-            null
+    private fun requiresCrashStoragePermission(): Boolean =
+        Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
+            androidx.core.content.ContextCompat.checkSelfPermission(this,
+                android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    /** 保存到公共下载目录 Download/MyCHU，返回可授予外部应用的 URI。 */
+    private fun saveToDownloads(fileName: String, source: File): String {
+        val saved = PublicDownloads(applicationContext).write(fileName, mimeType(fileName)) { out ->
+            source.inputStream().use { it.copyTo(out) }
         }
+        check(saved.isNotEmpty()) { "无法保存下载文件 $fileName" }
+        return saved
     }
 
     /** Shows the system chooser for a saved courseware file. */
@@ -371,9 +421,11 @@ class MainActivity : FlutterActivity() {
         return try {
             startActivity(Intent.createChooser(intent, "选择打开方式"))
             true
-        } catch (_: ActivityNotFoundException) {
+        } catch (diagnosticError: ActivityNotFoundException) {
+            NativeErrorLog.record(diagnosticError, "MainActivity")
             false
-        } catch (_: SecurityException) {
+        } catch (diagnosticError: SecurityException) {
+            NativeErrorLog.record(diagnosticError, "MainActivity")
             false
         }
     }
@@ -387,9 +439,11 @@ class MainActivity : FlutterActivity() {
         return try {
             startActivity(Intent.createChooser(intent, null))
             true
-        } catch (_: ActivityNotFoundException) {
+        } catch (diagnosticError: ActivityNotFoundException) {
+            NativeErrorLog.record(diagnosticError, "MainActivity")
             false
-        } catch (_: SecurityException) {
+        } catch (diagnosticError: SecurityException) {
+            NativeErrorLog.record(diagnosticError, "MainActivity")
             false
         }
     }
@@ -404,11 +458,13 @@ class MainActivity : FlutterActivity() {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         return try {
-            startActivity(Intent.createChooser(intent, "分享课表"))
+            startActivity(Intent.createChooser(intent, "分享文件"))
             true
-        } catch (_: ActivityNotFoundException) {
+        } catch (diagnosticError: ActivityNotFoundException) {
+            NativeErrorLog.record(diagnosticError, "MainActivity")
             false
-        } catch (_: SecurityException) {
+        } catch (diagnosticError: SecurityException) {
+            NativeErrorLog.record(diagnosticError, "MainActivity")
             false
         }
     }
@@ -434,7 +490,8 @@ class MainActivity : FlutterActivity() {
             }
             startActivity(intent)
             true
-        } catch (_: ActivityNotFoundException) {
+        } catch (diagnosticError: ActivityNotFoundException) {
+            NativeErrorLog.record(diagnosticError, "MainActivity")
             false
         }
     }
@@ -469,9 +526,11 @@ class MainActivity : FlutterActivity() {
         return try {
             startActivity(intent)
             true
-        } catch (_: ActivityNotFoundException) {
+        } catch (diagnosticError: ActivityNotFoundException) {
+            NativeErrorLog.record(diagnosticError, "MainActivity")
             false
-        } catch (_: SecurityException) {
+        } catch (diagnosticError: SecurityException) {
+            NativeErrorLog.record(diagnosticError, "MainActivity")
             false
         }
     }
@@ -492,88 +551,6 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun saveViaMediaStore(fileName: String, source: File): String {
-        val displayName = uniqueMediaName(fileName)
-        val values = ContentValues().apply {
-            put(MediaStore.Downloads.DISPLAY_NAME, displayName)
-            put(MediaStore.Downloads.MIME_TYPE, mimeType(displayName))
-            put(
-                MediaStore.Downloads.RELATIVE_PATH,
-                "${Environment.DIRECTORY_DOWNLOADS}/MyCHU",
-            )
-            put(MediaStore.Downloads.IS_PENDING, 1)
-        }
-        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-        val uri = contentResolver.insert(collection, values) ?: return ""
-        return try {
-            contentResolver.openOutputStream(uri)?.use { out ->
-                source.inputStream().use { it.copyTo(out) }
-            } ?: throw IllegalStateException("无法打开下载文件输出流")
-            val completed = ContentValues().apply {
-                put(MediaStore.Downloads.IS_PENDING, 0)
-            }
-            contentResolver.update(uri, completed, null, null)
-            // Keep the grantable URI instead of reconstructing it later from
-            // a display path. This also avoids vendor-specific MediaStore
-            // selection quirks when opening the file immediately after save.
-            uri.toString()
-        } catch (error: Exception) {
-            try {
-                contentResolver.delete(uri, null, null)
-            } catch (_: Exception) {
-                // The original save error is more useful to the Flutter side.
-            }
-            throw error
-        }
-    }
-
-    @Suppress("DEPRECATION")
-    private fun saveViaLegacy(fileName: String, source: File): String {
-        val dir = File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-            "MyCHU",
-        )
-        if (!dir.exists() && !dir.mkdirs()) return ""
-        val target = uniqueLegacyFile(dir, fileName)
-        source.copyTo(target)
-        return target.absolutePath
-    }
-
-    private fun uniqueMediaName(fileName: String): String {
-        val existing = HashSet<String>()
-        val projection = arrayOf(MediaStore.Downloads.DISPLAY_NAME)
-        val selection = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?"
-        val selectionArgs = arrayOf("${Environment.DIRECTORY_DOWNLOADS}/MyCHU%")
-        contentResolver.query(
-            MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
-            projection,
-            selection,
-            selectionArgs,
-            null,
-        )?.use { cursor ->
-            val index = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
-            while (cursor.moveToNext()) {
-                cursor.getString(index)?.let { existing.add(it) }
-            }
-        }
-        return uniqueName(fileName, existing)
-    }
-
-    private fun uniqueLegacyFile(dir: File, fileName: String): File {
-        val existing = dir.list()?.toSet() ?: emptySet()
-        return File(dir, uniqueName(fileName, existing))
-    }
-
-    private fun uniqueName(fileName: String, existing: Set<String>): String {
-        if (fileName !in existing) return fileName
-        val dot = fileName.lastIndexOf('.')
-        val stem = if (dot > 0) fileName.substring(0, dot) else fileName
-        val ext = if (dot > 0) fileName.substring(dot) else ""
-        var index = 1
-        while ("$stem ($index)$ext" in existing) index++
-        return "$stem ($index)$ext"
-    }
-
     private fun mimeType(fileName: String): String {
         val ext = fileName.substringAfterLast('.', "").lowercase()
         return when (ext) {
@@ -590,7 +567,7 @@ class MainActivity : FlutterActivity() {
             "png" -> "image/png"
             "jpg", "jpeg" -> "image/jpeg"
             "ics" -> "text/calendar"
-            "txt" -> "text/plain"
+            "txt", "log" -> "text/plain"
             else -> "application/octet-stream"
         }
     }

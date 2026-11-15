@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../capabilities/campus_places/campus_places.dart';
 import 'teaching_schedule_service.dart';
 
+import 'logging/logger.dart';
+
 /// 设备全局校区偏好，与账号、会话和登出独立。
 class CampusSettingsService {
   static const defaultCampusId = 'weishui';
@@ -62,7 +64,8 @@ class CampusSettingsService {
               ? await (await _prefs()).setString(_key(), campusId)
               : await _setStringOverride(_key(), campusId);
       if (!saved) return false;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
     }
     revision.value++;
@@ -101,7 +104,15 @@ class CampusSettingsService {
     _registryReleaseId = snapshot.manifest.releaseId;
     // Keep the registry fast on cold start, then let the shared coordinator
     // stage a newer release for the next map entry.
-    unawaited(_releaseCoordinator.refresh().catchError((_) => false));
+    unawaited(
+      _releaseCoordinator.refresh().catchError((
+        Object error,
+        StackTrace stack,
+      ) {
+        AppLogger.error(error, stackTrace: stack, context: '地图资源后台刷新');
+        return false;
+      }),
+    );
     return snapshot.registry;
   }
 }

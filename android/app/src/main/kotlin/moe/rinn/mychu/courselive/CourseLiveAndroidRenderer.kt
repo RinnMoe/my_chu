@@ -1,5 +1,7 @@
 package moe.rinn.mychu.courselive
 
+import moe.rinn.mychu.NativeErrorLog
+
 import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
@@ -105,14 +107,14 @@ class CourseLiveAndroidRenderer(private val context: Context) {
         if (!notificationsAllowed()) return false
         ensureChannel()
         if (!channelEnabled()) return false
-        val posted = runCatching { build(notification) }.getOrNull() ?: return false
+        val posted = runCatching { build(notification) }.onFailure { NativeErrorLog.record(it, "CourseLiveAndroidRenderer") }.getOrNull() ?: return false
         return runCatching {
             manager.notify(
                 CourseLiveNotificationIdentity.TAG,
                 CourseLiveNotificationIdentity.NOTIFICATION_ID,
                 posted,
             )
-        }.isSuccess
+        }.onFailure { NativeErrorLog.record(it, "CourseLiveAndroidRenderer") }.isSuccess
     }
 
     /** Ends the single slot. There is exactly one tagged entry per package. */
@@ -122,7 +124,7 @@ class CourseLiveAndroidRenderer(private val context: Context) {
                 CourseLiveNotificationIdentity.TAG,
                 CourseLiveNotificationIdentity.NOTIFICATION_ID,
             )
-        }
+        }.onFailure { NativeErrorLog.record(it, "CourseLiveAndroidRenderer") }
     }
 
     /**
@@ -142,7 +144,7 @@ class CourseLiveAndroidRenderer(private val context: Context) {
             val flags = Notification::class.java.getField("flags")
                 .getInt(active.notification)
             (flags and CourseLiveNotificationIdentity.FLAG_PROMOTED_ONGOING) != 0
-        }.getOrDefault(false)
+        }.onFailure { NativeErrorLog.record(it, "CourseLiveAndroidRenderer") }.getOrDefault(false)
     }
 
     private fun build(notification: CourseLiveNotification): Notification {
@@ -233,7 +235,7 @@ class CourseLiveAndroidRenderer(private val context: Context) {
                 .getMethod("setRequestPromotedOngoing", Boolean::class.javaPrimitiveType)
                 .invoke(builder, true)
             true
-        }.getOrDefault(false)
+        }.onFailure { NativeErrorLog.record(it, "CourseLiveAndroidRenderer") }.getOrDefault(false)
         if (!requested) {
             // Older minor releases know only the promotable-characteristics path.
             builder.setColorized(true)
@@ -242,7 +244,7 @@ class CourseLiveAndroidRenderer(private val context: Context) {
             builder.javaClass
                 .getMethod("setShortCriticalText", String::class.java)
                 .invoke(builder, compactText)
-        }
+        }.onFailure { NativeErrorLog.record(it, "CourseLiveAndroidRenderer") }
     }
 
     private fun contentTapIntent(notification: CourseLiveNotification): Intent =

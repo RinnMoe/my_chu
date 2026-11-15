@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 
-import '../../services/logger_service.dart';
+import '../../services/logging/logger.dart';
 import '../../services/platform_compatibility_service.dart';
 import '../in_app_download/in_app_download.dart';
 
@@ -22,16 +22,27 @@ class AppInstallerCapability {
     }
 
     try {
-      return await _channel.invokeMethod<bool>('installPackage', {
+      final opened =
+          await _channel.invokeMethod<bool>('installPackage', {
             'path': file.path,
             'fileName': file.fileName,
           }) ??
           false;
-    } on MissingPluginException {
-      AppLogger.warn('系统安装能力不可用');
+      if (!opened) AppLogger.warn('系统安装程序未能打开\n${file.fileName}\n${file.path}');
+      return opened;
+    } on MissingPluginException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(
+        diagnosticError,
+        stackTrace: diagnosticStack,
+        context: '系统安装能力不可用',
+      );
       return false;
-    } on PlatformException catch (error) {
-      AppLogger.warn('系统安装程序唤起失败 (${error.code})');
+    } on PlatformException catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '系统安装程序唤起失败 (${error.code})',
+      );
       return false;
     }
   }

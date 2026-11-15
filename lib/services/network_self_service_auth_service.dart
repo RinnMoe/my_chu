@@ -9,7 +9,7 @@ import 'package:pointycastle/export.dart';
 
 import '../models/account.dart';
 import 'auth_service.dart';
-import 'logger_service.dart';
+import 'logging/logger.dart';
 import 'network_self_service_ocr.dart';
 import 'saved_login_credential_service.dart';
 import 'scoped_cookie_jar.dart';
@@ -242,37 +242,42 @@ class NetworkSelfServiceAuthService {
           transaction.captchaCode = candidate;
           return await _continueTransaction(transaction);
         }
-        AppLogger.event(
-          level: 'WARN',
-          code: 'network.self_service.captcha.ocr_failed',
-          message: '网络自服验证码识别失败',
-          attempt: attempt + 1,
+        AppLogger.warn(
+          <Object?>[
+            'network.self_service.captcha.ocr_failed',
+            '网络自服验证码识别失败',
+          ].join(' | '),
         );
       }
       // A disagreement or unavailable recognizer must never be submitted.
       // Leave the latest challenge for manual entry after bounded retries.
-      AppLogger.event(
-        level: 'WARN',
-        code: 'network.self_service.captcha.ocr_exhausted',
-        message: '网络自服验证码识别失败，已转为手动输入',
+      AppLogger.warn(
+        <Object?>[
+          'network.self_service.captcha.ocr_exhausted',
+          '网络自服验证码识别失败，已转为手动输入',
+        ].join(' | '),
       );
       _showCaptcha(transaction);
       return null;
-    } on _NetworkSelfServiceRequestException catch (error) {
-      AppLogger.event(
-        level: 'WARN',
-        code: 'network.self_service.request_failed',
-        message: '网络自服登录请求失败',
-        fields: {'phase': error.kind},
-        exceptionType: error.runtimeType.toString(),
+    } on _NetworkSelfServiceRequestException catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: <Object?>[
+          'network.self_service.request_failed',
+          '网络自服登录请求失败',
+          {'phase': error.kind},
+        ].join(' | '),
       );
       return _failTransaction(key, '网络自服暂时无法连接，请稍后重试。', transaction);
-    } catch (error) {
-      AppLogger.event(
-        level: 'WARN',
-        code: 'network.self_service.login_failed',
-        message: '网络自服登录流程失败',
-        exceptionType: error.runtimeType.toString(),
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: <Object?>[
+          'network.self_service.login_failed',
+          '网络自服登录流程失败',
+        ].join(' | '),
       );
       return _failTransaction(key, '网络自服登录暂时失败，请稍后重试。', transaction);
     }
@@ -306,12 +311,11 @@ class NetworkSelfServiceAuthService {
         }
         final result = _jsonObject(response.bytes);
         if (response.statusCode != HttpStatus.ok || result == null) {
-          AppLogger.event(
-            level: 'WARN',
-            code: 'network.self_service.captcha.validation_failed',
-            message: '网络自服验证码校验失败',
-            exceptionType: 'HttpStatus',
-            statusCode: response.statusCode,
+          AppLogger.warn(
+            <Object?>[
+              'network.self_service.captcha.validation_failed',
+              '网络自服验证码校验失败',
+            ].join(' | '),
           );
           return _failTransaction(key, '账号或验证码校验失败，请稍后重试。', transaction);
         }
@@ -319,10 +323,11 @@ class NetworkSelfServiceAuthService {
           if (_looksLikeInvalidCredential(result['message'])) {
             return _invalidCredential(key, transaction);
           }
-          AppLogger.event(
-            level: 'WARN',
-            code: 'network.self_service.captcha.validation_retry',
-            message: '网络自服验证码校验失败，已刷新验证码',
+          AppLogger.warn(
+            <Object?>[
+              'network.self_service.captcha.validation_retry',
+              '网络自服验证码校验失败，已刷新验证码',
+            ].join(' | '),
           );
           await _fetchCaptcha(transaction);
           _showCaptcha(transaction, message: '验证码未通过，请重新输入。');
@@ -331,10 +336,11 @@ class NetworkSelfServiceAuthService {
           }
           return null;
         }
-        AppLogger.event(
-          level: 'INFO',
-          code: 'network.self_service.captcha.validation_succeeded',
-          message: '网络自服验证码校验成功',
+        AppLogger.info(
+          <Object?>[
+            'network.self_service.captcha.validation_succeeded',
+            '网络自服验证码校验成功',
+          ].join(' | '),
         );
         transaction.userValidated = true;
         if (result['inputSms'] == true) {
@@ -448,21 +454,25 @@ class NetworkSelfServiceAuthService {
       );
       _discardTransaction(key, transaction);
       return NetworkSelfServiceLoginSession(cookies);
-    } on _NetworkSelfServiceRequestException catch (error) {
-      AppLogger.event(
-        level: 'WARN',
-        code: 'network.self_service.request_failed',
-        message: '网络自服登录请求失败',
-        fields: {'phase': error.kind},
-        exceptionType: error.runtimeType.toString(),
+    } on _NetworkSelfServiceRequestException catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: <Object?>[
+          'network.self_service.request_failed',
+          '网络自服登录请求失败',
+          {'phase': error.kind},
+        ].join(' | '),
       );
       return _failTransaction(key, '网络自服暂时无法连接，请稍后重试。', transaction);
-    } catch (error) {
-      AppLogger.event(
-        level: 'WARN',
-        code: 'network.self_service.login_submit_failed',
-        message: '网络自服登录提交失败',
-        exceptionType: error.runtimeType.toString(),
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: <Object?>[
+          'network.self_service.login_submit_failed',
+          '网络自服登录提交失败',
+        ].join(' | '),
       );
       return _failTransaction(key, '网络自服登录暂时失败，请稍后重试。', transaction);
     }
@@ -545,13 +555,15 @@ class NetworkSelfServiceAuthService {
       }
       transaction.captchaCode = null;
       _showCaptcha(transaction);
-    } on _NetworkSelfServiceRequestException catch (error) {
-      AppLogger.event(
-        level: 'WARN',
-        code: 'network.self_service.captcha.refresh_failed',
-        message: '网络自服验证码刷新失败',
-        fields: {'phase': error.kind},
-        exceptionType: error.runtimeType.toString(),
+    } on _NetworkSelfServiceRequestException catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: <Object?>[
+          'network.self_service.captcha.refresh_failed',
+          '网络自服验证码刷新失败',
+          {'phase': error.kind},
+        ].join(' | '),
       );
       _setStateForTransaction(
         transaction,
@@ -560,12 +572,14 @@ class NetworkSelfServiceAuthService {
           message: '验证码刷新失败，请稍后重试。',
         ),
       );
-    } catch (error) {
-      AppLogger.event(
-        level: 'WARN',
-        code: 'network.self_service.captcha.refresh_failed',
-        message: '网络自服验证码刷新失败',
-        exceptionType: error.runtimeType.toString(),
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: <Object?>[
+          'network.self_service.captcha.refresh_failed',
+          '网络自服验证码刷新失败',
+        ].join(' | '),
       );
       _setStateForTransaction(
         transaction,
@@ -736,7 +750,8 @@ class NetworkSelfServiceAuthService {
     try {
       final decoded = jsonDecode(_decode(bytes));
       return decoded is Map ? Map<String, dynamic>.from(decoded) : null;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }

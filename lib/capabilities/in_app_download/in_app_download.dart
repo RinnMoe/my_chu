@@ -5,7 +5,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../services/campus_session.dart';
 import '../../services/file_save_service.dart';
-import '../../services/logger_service.dart';
+import '../../services/logging/logger.dart';
 import '../../services/public_http_client.dart';
 import '../../services/service_endpoints.dart';
 
@@ -36,7 +36,8 @@ class InAppDownloadException implements Exception {
   const InAppDownloadException(this.type, {this.statusCode});
 
   @override
-  String toString() => 'InAppDownloadException(${type.name})';
+  String toString() =>
+      'InAppDownloadException(${type.name}${statusCode == null ? '' : ', HTTP $statusCode'})';
 }
 
 /// Progress for one active download attempt.
@@ -163,7 +164,12 @@ class InAppDownloadCapability {
         fileName: destination.uri.pathSegments.last,
         sizeBytes: await destination.length(),
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(
+        diagnosticError,
+        stackTrace: diagnosticStack,
+        context: '下载文件 ${destination.path}\n$url',
+      );
       if (await destination.exists()) await destination.delete();
       if (shouldContinue?.call() == false) {
         throw const InAppDownloadException(InAppDownloadErrorType.cancelled);
@@ -224,16 +230,29 @@ class InAppDownloadCapability {
         fileName: _fileNameFromPath(savedPath, safeName),
         sizeBytes: sizeBytes,
       );
-    } on InAppDownloadException {
+    } on InAppDownloadException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(
+        diagnosticError,
+        stackTrace: diagnosticStack,
+        context: '下载文件 $safeName\n$url',
+      );
       rethrow;
-    } catch (error) {
-      AppLogger.warn('应用内下载失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '下载文件 $safeName\n$url',
+      );
       throw const InAppDownloadException(InAppDownloadErrorType.storage);
     } finally {
       try {
         if (await temporaryFile.exists()) await temporaryFile.delete();
-      } catch (error) {
-        AppLogger.warn('应用内下载临时文件清理失败 (${error.runtimeType})');
+      } catch (error, diagnosticStack) {
+        AppLogger.error(
+          error,
+          stackTrace: diagnosticStack,
+          context: '应用内下载临时文件清理失败 (${error.runtimeType})',
+        );
       }
     }
   }
@@ -289,8 +308,12 @@ class InAppDownloadCapability {
         onProgress: reportProgress,
       );
       return _DownloadResponse(response.statusCode);
-    } catch (error) {
-      AppLogger.warn('应用内下载网络请求失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '下载网络请求\n$url',
+      );
       throw const InAppDownloadException(InAppDownloadErrorType.network);
     }
   }
@@ -311,8 +334,12 @@ class InAppDownloadCapability {
         '${directory.path}${Platform.pathSeparator}'
         '.mychu-download-${DateTime.now().microsecondsSinceEpoch}.part',
       );
-    } catch (error) {
-      AppLogger.warn('应用内下载临时目录不可用 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '应用内下载临时目录不可用 (${error.runtimeType})',
+      );
       throw const InAppDownloadException(InAppDownloadErrorType.storage);
     }
   }

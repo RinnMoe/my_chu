@@ -1,6 +1,8 @@
-import 'logger_service.dart';
 import 'failure_classifier.dart';
-import 'error_feedback_service.dart';
+import 'failure_details.dart';
+import 'usage_analytics_service.dart';
+import 'reliability_event.dart';
+import 'logging/logger.dart';
 
 /// User-facing operation categories used to keep implementation details out
 /// of UI error messages.
@@ -21,102 +23,56 @@ String userFacingError(UserErrorContext context, Object error) {
   }
 }
 
-/// Records only a stable operation label and exception type; never the raw
-/// exception text, which may contain paths, URLs, or response details.
+/// Records a handled failure at its user-visible boundary.
 void logUserFacingError(
   UserErrorContext context,
   Object error, {
-  String? operation,
   UserOperationId? operationId,
   int? statusCode,
   bool? renderProcessCrashed,
-  int? attempt,
-  ErrorFeedbackAttempt? feedbackAttempt,
-  ErrorFeedbackCoordinator? coordinator,
+  AnalyticsOperation? feedbackAttempt,
   FailureStage? stage,
+  StackTrace? stackTrace,
+  String? details,
 }) {
-  // User-facing error handling is also a feature-level boundary. Mark the
-  // object before recording the safe operation event so a later Zone or
-  // platform fallback does not report the same failure a second time.
-  RuntimeErrorReporter.markRecorded(error);
-  final trackedOperation = operationId ?? _legacyOperation(context, operation);
-  if (trackedOperation != null &&
-      (feedbackAttempt != null || !_isAuthenticationFailure(error))) {
-    if (feedbackAttempt != null) {
-      feedbackAttempt.fail(
-        error,
-        statusCode: statusCode,
-        renderProcessCrashed: renderProcessCrashed,
-        attempt: attempt,
-        stage:
-            stage ??
-            (context == UserErrorContext.webView
-                ? FailureStage.mainFrame
-                : FailureStage.request),
-      );
-    } else {
-      (coordinator ?? ErrorFeedbackCoordinator.shared).recordFailure(
-        trackedOperation,
-        error,
-        statusCode: statusCode,
-        renderProcessCrashed: renderProcessCrashed,
-        attempt: attempt,
-        stage:
-            stage ??
-            (context == UserErrorContext.webView
-                ? FailureStage.mainFrame
-                : FailureStage.request),
-      );
-    }
-    return;
-  }
-  AppLogger.recordSafeFailure(
-    error: error,
-    failureStage:
-        stage ??
-        (context == UserErrorContext.webView
-            ? FailureStage.mainFrame
-            : FailureStage.request),
-    level: 'WARN',
-    code: 'user.operation.failed',
-    message: '用户操作失败',
-    domain: trackedOperation?.key.split('.').first ?? context.name,
-    operation: trackedOperation,
-    statusCode: statusCode,
-    renderProcessCrashed: renderProcessCrashed,
-    attempt: attempt,
+  final failureStage =
+      stage ??
+      (context == UserErrorContext.webView
+          ? FailureStage.mainFrame
+          : FailureStage.request);
+  AppLogger.error(
+    error,
+    stackTrace: stackTrace,
+    context: [
+      (operationId ?? feedbackAttempt?.operation)?.key ?? context.name,
+      if (details != null) details,
+      if (statusCode != null) 'HTTP $statusCode',
+      if (renderProcessCrashed != null)
+        'renderProcessCrashed=$renderProcessCrashed',
+    ].join('\n'),
   );
-}
-
-bool _isAuthenticationFailure(Object error) {
-  if (classifyFailure(error).kind == 'authentication') return true;
-  final typeName = error.runtimeType.toString();
-  return typeName == 'AcademicAffairsAuthenticationException' ||
-      typeName.endsWith('AuthenticationException') ||
-      typeName.endsWith('IdentityException') ||
-      typeName == 'LoginExpiredException';
-}
-
-UserOperationId? _legacyOperation(UserErrorContext context, String? operation) {
-  return switch ((context, operation)) {
-    (UserErrorContext.map, 'load') => UserOperationId.mapLoad,
-    (UserErrorContext.webView, 'authenticated') =>
-      UserOperationId.authenticatedWebView,
-    (UserErrorContext.webView, 'academic-web') =>
-      UserOperationId.academicWebView,
-    (UserErrorContext.webView, 'manual') => UserOperationId.manualWebView,
-    (UserErrorContext.network, 'notices') => UserOperationId.portalNotices,
-    (UserErrorContext.network, 'notice') => UserOperationId.portalNoticeDetail,
-    (UserErrorContext.network, 'personal') => UserOperationId.portalPersonal,
-    (UserErrorContext.network, 'todos') => UserOperationId.portalTodos,
-    (UserErrorContext.network, 'apps') => UserOperationId.wozaichangdaApps,
-    (UserErrorContext.network, 'courses') => UserOperationId.tronclassCourses,
-    (UserErrorContext.network, 'courseware') =>
-      UserOperationId.tronclassCourseware,
-    (UserErrorContext.download, 'courseware') =>
-      UserOperationId.tronclassCoursewareDownload,
-    (UserErrorContext.network, 'network-self-service') =>
-      UserOperationId.networkSelfService,
-    _ => null,
-  };
+  if (feedbackAttempt != null) {
+    feedbackAttempt.fail(
+      error,
+      statusCode: statusCode,
+      renderProcessCrashed: renderProcessCrashed,
+      stage: failureStage,
+    );
+  } else if (operationId != null) {
+    final reason = classifyFailure(
+      error,
+      statusCode: statusCode,
+      renderProcessCrashed: renderProcessCrashed,
+    );
+    UsageAnalyticsService.recordOperation(
+      operationId,
+      result:
+          reason == FailureReason.cancelled ||
+                  reason == FailureReason.sessionStale
+              ? 'cancelled'
+              : 'failed',
+      reason: reason,
+      stage: failureStage,
+    );
+  }
 }

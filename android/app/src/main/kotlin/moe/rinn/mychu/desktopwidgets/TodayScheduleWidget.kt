@@ -1,5 +1,7 @@
 package moe.rinn.mychu.desktopwidgets
 
+import moe.rinn.mychu.NativeErrorLog
+
 import android.content.Context
 import android.content.Intent
 import java.time.Instant
@@ -60,7 +62,8 @@ internal class TodayScheduleWidget : GlanceAppWidget() {
         }
         try {
             DesktopWidgetScheduler.schedule(context.applicationContext, now)
-        } catch (_: RuntimeException) {
+        } catch (diagnosticError: RuntimeException) {
+            NativeErrorLog.record(diagnosticError, "TodayScheduleWidget")
             // Alarm scheduling is best-effort; the widget can still render cached courses.
         }
         provideContent {
@@ -73,7 +76,7 @@ internal class TodayScheduleWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget = TodayScheduleWidget()
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         super.onDeleted(context, appWidgetIds)
-        runCatching { DesktopWidgetScheduler.schedule(context.applicationContext) }
+        runCatching { DesktopWidgetScheduler.schedule(context.applicationContext) }.onFailure { NativeErrorLog.record(it, "TodayScheduleWidget") }
     }
 }
 

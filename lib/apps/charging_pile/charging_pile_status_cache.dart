@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'charging_pile_models.dart';
 
+import '../../services/logging/logger.dart';
+
 /// Persists the last known per-device status so a cold start can show data
 /// without waiting for a network round trip.
 ///
@@ -80,7 +82,8 @@ class ChargingPileStatusCache {
         await preferences.remove(legacyStorageKey);
       }
       return migrated;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return <String, ChargingPileDeviceState>{};
     }
   }
@@ -90,7 +93,8 @@ class ChargingPileStatusCache {
     try {
       final preferences = await _preferences();
       await _write(preferences, states);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Best effort: the next successful refresh retries the write.
     }
   }

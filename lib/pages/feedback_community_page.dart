@@ -6,6 +6,8 @@ import '../services/privacy_agreement_service.dart';
 import '../theme/app_palette.dart';
 import 'feedback_composer_page.dart';
 
+import '../services/logging/logger.dart';
+
 const _stateLabels = {
   'considering': '评估中',
   'planned': '计划中',
@@ -88,7 +90,8 @@ class _FeedbackCommunityPageState extends State<FeedbackCommunityPage> {
           _category = null;
         }
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted && generation == _generation) {
         setState(
           () =>
@@ -502,7 +505,8 @@ class _ProposalPageState extends State<_ProposalPage> {
         _moreComments = rows.length == 50;
         _error = null;
       });
-    } catch (e) {
+    } catch (e, diagnosticStack) {
+      AppLogger.error(e, stackTrace: diagnosticStack);
       if (mounted && generation == _generation) {
         setState(
           () => _error = e is CommunityException ? e.message : '加载失败，请重试。',
@@ -523,7 +527,8 @@ class _ProposalPageState extends State<_ProposalPage> {
         supported: _proposal['voted'] != true,
       );
       await _load();
-    } catch (e) {
+    } catch (e, diagnosticStack) {
+      AppLogger.error(e, stackTrace: diagnosticStack);
       if (mounted) {
         setState(
           () => _error = e is CommunityException ? e.message : '操作未完成，请刷新后重试。',
@@ -699,7 +704,8 @@ class _CommunityComposerState extends State<_CommunityComposer> {
         body: _body.text.trim(),
       );
       if (mounted) Navigator.pop(context, true);
-    } catch (e) {
+    } catch (e, diagnosticStack) {
+      AppLogger.error(e, stackTrace: diagnosticStack);
       if (mounted) {
         setState(() {
           _uncertain = e is CommunityException && e.uncertain;

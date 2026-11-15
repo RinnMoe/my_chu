@@ -4,6 +4,8 @@ import 'dart:math';
 
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+import '../../services/logging/logger.dart';
+
 class BleTransportException implements Exception {
   final String message;
 
@@ -96,6 +98,7 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
         }
       },
       onError: (Object error, StackTrace stackTrace) {
+        AppLogger.error(error, stackTrace: stackTrace);
         if (!found.isCompleted) found.completeError(error, stackTrace);
       },
     );
@@ -116,9 +119,11 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
                   '12 秒内未找到二维码设备 ${_formatMac(target)}',
                 ),
       );
-    } on BleTransportException {
+    } on BleTransportException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       rethrow;
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw BleTransportException('扫描目标设备失败（${error.runtimeType}）');
     } finally {
       await subscription.cancel();
@@ -149,7 +154,8 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
         autoConnect: false,
       );
       _connected = true;
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw BleTransportException('连接设备失败（${error.runtimeType}）');
     }
   }
@@ -189,9 +195,11 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
         onError: _notificationController.addError,
       );
       await notify.setNotifyValue(true);
-    } on BleTransportException {
+    } on BleTransportException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       rethrow;
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw BleTransportException('发现 GATT 服务失败（${error.runtimeType}）');
     }
   }
@@ -208,7 +216,8 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
       for (final chunk in splitBleWriteChunks(bytes)) {
         await characteristic.write(chunk, withoutResponse: true);
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw BleTransportException('写入 FF02 失败（${error.runtimeType}）');
     }
   }
@@ -223,7 +232,8 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
     if (device != null) {
       try {
         await device.disconnect();
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // Local teardown remains best-effort when the adapter is already off.
       }
     }
@@ -253,7 +263,8 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
       // emitted its first platform state. Reading the stream's first value
       // initializes that state from the Android adapter before scanning.
       return await _readAdapterState();
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw BleTransportException('读取蓝牙状态失败（${error.runtimeType}）');
     }
   }

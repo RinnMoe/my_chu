@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 
 import 'captcha_ocr_service.dart';
 
+import 'logging/logger.dart';
+
 /// Device-local OCR bridge for the four-digit network self-service captcha.
 ///
 /// The native implementations receive only the image bytes and return a
@@ -20,7 +22,8 @@ class NetworkSelfServiceOcr {
     if (override != null) return _normalize(await override(bytes));
     try {
       return _normalize(await CaptchaOcrService.instance.recognize(bytes));
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }

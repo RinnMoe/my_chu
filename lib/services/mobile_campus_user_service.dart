@@ -1,3 +1,4 @@
+import 'failure_details.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,7 +7,7 @@ import '../models/mobile_campus_user_profile.dart';
 import 'account_network_session_service.dart';
 import 'auth_service.dart';
 import 'campus_session.dart';
-import 'logger_service.dart';
+import 'logging/logger.dart';
 import 'mobile_campus_request_signer.dart';
 import 'service_endpoints.dart';
 
@@ -79,17 +80,26 @@ class MobileCampusUserService {
 
     try {
       return await _fetchOnce(account, userId.trim());
-    } on MobileCampusUserAuthenticationException {
+    } on MobileCampusUserAuthenticationException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       final refreshed =
           await CampusSession.client(CampusServices.mobileCampus).refresh();
       if (!refreshed) return null;
       account = await AuthService.getCurrentAccount();
       if (account == null || account.mobileCampusUserId == null) return null;
       return _fetchOnce(account, account.mobileCampusUserId!.trim());
-    } on MobileCampusUserApiException {
+    } on MobileCampusUserApiException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
-    } catch (error) {
-      AppLogger.warn('移动校园用户资料请求失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '移动校园用户资料请求失败 (${error.runtimeType})',
+      );
       return null;
     }
   }
@@ -154,7 +164,8 @@ class MobileCampusUserParser {
     Object? decoded;
     try {
       decoded = jsonDecode(raw);
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       decoded = null;
     }
     if (decoded == null) {

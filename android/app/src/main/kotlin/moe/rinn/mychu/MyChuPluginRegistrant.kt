@@ -44,6 +44,7 @@ object MyChuPluginRegistrant {
         try {
             flutterEngine.plugins.add(factory())
         } catch (error: Exception) {
+            NativeErrorLog.record(error, "MyChuPluginRegistrant")
             Log.e(TAG, "Error registering plugin", error)
         }
     }

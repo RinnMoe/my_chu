@@ -3,6 +3,8 @@ import 'dart:async';
 import '../../services/auth_service.dart';
 import 'fitness_test_models.dart';
 
+import '../../services/logging/logger.dart';
+
 /// 按学号与当前学年推算年级，只在能确定为在读本科生年级时返回。
 ///
 /// 学号前四位是入学年份（如 `2023…`），学年从 9 月开始，所以 9 月之前仍算
@@ -39,7 +41,8 @@ Future<FitnessTestGradeYear?> detectCurrentGradeYear() async {
       now: DateTime.now(),
       identity: account.identity,
     );
-  } catch (_) {
+  } catch (diagnosticError, diagnosticStack) {
+    AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
     // 预选失败不影响手动选择，也不向外抛错。
     return null;
   }

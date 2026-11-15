@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'logging/logger.dart';
+
 /// Imports only the account active at upgrade. Never falls back to a former
 /// account or anonymous settings. Cleanup is retryable after the durable marker.
 class GlobalPreferencesMigration {
@@ -69,7 +71,8 @@ class GlobalPreferencesMigration {
           return false;
         }
         return true;
-      } on FormatException {
+      } on FormatException catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         return false;
       }
     }

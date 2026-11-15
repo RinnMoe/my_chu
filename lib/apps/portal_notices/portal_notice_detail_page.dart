@@ -1,9 +1,11 @@
+import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../../services/user_error_message.dart';
+import '../../services/logging/logger.dart';
 import 'mobile_campus_notice_models.dart';
 import 'mobile_campus_notice_rich_text.dart';
 import 'mobile_campus_notice_service.dart';
@@ -74,9 +76,15 @@ class _PortalNoticeDetailPageState extends State<PortalNoticeDetailPage>
         _loading = false;
       });
       widget.onLoaded?.call(detail);
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted) return;
-      logUserFacingError(UserErrorContext.network, error, operation: 'notice');
+      logUserFacingError(
+        UserErrorContext.network,
+        error,
+        stackTrace: diagnosticStack,
+        operationId: UserOperationId.portalNoticeDetail,
+      );
       setState(() {
         _error = userFacingError(UserErrorContext.network, error);
         _loading = false;

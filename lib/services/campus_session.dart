@@ -1,3 +1,4 @@
+import 'failure_details.dart';
 import 'host_auth_state.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -11,8 +12,7 @@ import 'account_network_session_service.dart';
 import 'auth_service.dart';
 import 'campus_session_store.dart';
 import 'campus_service_session_service.dart';
-import 'cold_start_trace.dart';
-import 'logger_service.dart';
+import 'logging/logger.dart';
 import 'service_endpoints.dart';
 import 'session_runtime_fence.dart';
 
@@ -180,9 +180,11 @@ class CampusSession {
         serviceId,
         forAccount: _account,
       );
-    } catch (error) {
-      AppLogger.warn(
-        '网络请求准备失败 ${_serviceLabel(serviceId)} (${error.runtimeType})',
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '网络请求准备失败 ${_serviceLabel(serviceId)} (${error.runtimeType})',
       );
       rethrow;
     }
@@ -252,7 +254,11 @@ class CampusSession {
         Future<AccountNetworkResponse> send() async {
           try {
             await _assertCurrent(fence);
-          } on StaleSessionResultException {
+          } on StaleSessionResultException catch (
+            diagnosticError,
+            diagnosticStack
+          ) {
+            AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
             // A same-account root refresh advances only the runtime revision.
             // Re-fence once before anything is sent, but never across a hard
             // identity reset or an explicit service invalidation: those must
@@ -340,24 +346,28 @@ class CampusSession {
                   !_canRetryTransientFailure(method, response.statusCode)) {
                 return response;
               }
-            } on SocketException {
+            } on SocketException catch (diagnosticError, diagnosticStack) {
+              AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
               if (transientRetries >= 1 ||
                   !_canRetryTransientFailure(method, null)) {
                 rethrow;
               }
-            } on HandshakeException {
+            } on HandshakeException catch (diagnosticError, diagnosticStack) {
+              AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
               // 移动网络冷启动偶尔出现一次 TLS 握手失败；它与连接失败同属瞬时
               // 网络事件，只对可重放方法补一次重试。
               if (transientRetries >= 1 ||
                   !_canRetryTransientFailure(method, null)) {
                 rethrow;
               }
-            } on TimeoutException {
+            } on TimeoutException catch (diagnosticError, diagnosticStack) {
+              AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
               if (transientRetries >= 1 ||
                   !_canRetryTransientFailure(method, null)) {
                 rethrow;
               }
-            } on HttpException {
+            } on HttpException catch (diagnosticError, diagnosticStack) {
+              AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
               if (transientRetries >= 1 ||
                   !_canRetryTransientFailure(method, null)) {
                 rethrow;
@@ -395,26 +405,22 @@ class CampusSession {
             response.statusCode == HttpStatus.unauthorized) {
           // 调用方自行处理状态码时，401 不会抛异常，此前只留一条 INFO 行，
           // 无法区分“已尝试恢复仍失败”和“策略未覆盖、从未尝试恢复”。
-          AppLogger.event(
-            level: 'WARN',
-            code: 'service.request.unauthorized',
-            message: '${_serviceLabel(serviceId)} 返回 401，本次请求未取得会话恢复',
-            domain: 'session',
-            statusCode: response.statusCode,
-            failureReason: FailureReason.httpAuthentication,
-            failureStage: FailureStage.request,
-            fields: {
-              'service': serviceId.value,
-              'phase': 'request',
-              'result': 'unauthorized',
-            },
+          AppLogger.warn(
+            <Object?>[
+              'service.request.unauthorized',
+              '${_serviceLabel(serviceId)} 返回 401，本次请求未取得会话恢复',
+              {
+                'service': serviceId.value,
+                'phase': 'request',
+                'result': 'unauthorized',
+              },
+            ].join(' | '),
           );
         }
         AppLogger.info(
           '网络请求 ${_serviceLabel(serviceId)} '
           '→ ${response.statusCode} (${stopwatch.elapsedMilliseconds}ms, 尝试 $attempt 次)',
         );
-        ColdStartTrace.requestSucceeded();
         if (throwOnHttpError && response.statusCode != HttpStatus.ok) {
           AppLogger.warn(
             '$method ${_serviceLabel(serviceId)} 失败: ${response.statusCode}',
@@ -422,16 +428,14 @@ class CampusSession {
           throw CampusHttpException(response.statusCode, uri: uri);
         }
         return response;
-      } catch (error) {
-        AppLogger.warn(
-          '网络请求失败 ${_serviceLabel(serviceId)} '
-          '(${stopwatch.elapsedMilliseconds}ms, 尝试 $attempt 次, ${error.runtimeType})',
+      } catch (error, diagnosticStack) {
+        AppLogger.error(
+          error,
+          stackTrace: diagnosticStack,
+          context:
+              '网络请求失败 ${_serviceLabel(serviceId)} '
+              '(${stopwatch.elapsedMilliseconds}ms, 尝试 $attempt 次, ${error.runtimeType})',
         );
-        if (error is StaleSessionResultException) {
-          ColdStartTrace.staleDiscard();
-        } else {
-          ColdStartTrace.requestFailure();
-        }
         rethrow;
       }
     }
@@ -758,20 +762,25 @@ class CampusSessionClient {
     bool throwOnHttpError = true,
     bool autoExchangeService = true,
   }) async {
-    final session = await CampusSession.open();
-    return session.request(
-      serviceId,
-      method,
-      url,
-      body: body,
-      extraHeaders: extraHeaders,
-      contentType: contentType,
-      requestTimeout: requestTimeout,
-      responseTimeout: responseTimeout,
-      followRedirects: followRedirects,
-      throwOnHttpError: throwOnHttpError,
-      autoExchangeService: autoExchangeService,
-    );
+    try {
+      final session = await CampusSession.open();
+      return await session.request(
+        serviceId,
+        method,
+        url,
+        body: body,
+        extraHeaders: extraHeaders,
+        contentType: contentType,
+        requestTimeout: requestTimeout,
+        responseTimeout: responseTimeout,
+        followRedirects: followRedirects,
+        throwOnHttpError: throwOnHttpError,
+        autoExchangeService: autoExchangeService,
+      );
+    } catch (error, stack) {
+      AppLogger.error(error, stackTrace: stack);
+      rethrow;
+    }
   }
 
   /// Rebuilds this declared service session without exposing its projection.
@@ -810,17 +819,22 @@ class CampusSessionClient {
     bool autoExchangeService = true,
     void Function(int receivedBytes, int? totalBytes, int attempt)? onProgress,
   }) async {
-    final session = await CampusSession.open();
-    return session.downloadToFile(
-      serviceId,
-      url,
-      destination: destination,
-      extraHeaders: extraHeaders,
-      requestTimeout: requestTimeout,
-      responseTimeout: responseTimeout,
-      followRedirects: followRedirects,
-      autoExchangeService: autoExchangeService,
-      onProgress: onProgress,
-    );
+    try {
+      final session = await CampusSession.open();
+      return await session.downloadToFile(
+        serviceId,
+        url,
+        destination: destination,
+        extraHeaders: extraHeaders,
+        requestTimeout: requestTimeout,
+        responseTimeout: responseTimeout,
+        followRedirects: followRedirects,
+        autoExchangeService: autoExchangeService,
+        onProgress: onProgress,
+      );
+    } catch (error, stack) {
+      AppLogger.error(error, stackTrace: stack);
+      rethrow;
+    }
   }
 }

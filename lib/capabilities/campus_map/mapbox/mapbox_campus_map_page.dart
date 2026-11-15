@@ -24,6 +24,8 @@ import "mapbox_map_chrome.dart";
 import "mapbox_map_engine.dart";
 import "mapbox_offline_cache.dart";
 
+import '../../../services/logging/logger.dart';
+
 /// Mapbox-powered campus map page.
 ///
 /// Mapbox owns basemap rendering and hosted resources. MyCHU keeps the
@@ -116,7 +118,9 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
     _ownsLayerManager = injectedManager == null;
     _layerManager =
         injectedManager ??
-        MapLayerManager(registry: widget.layerRegistry ?? MapLayerRegistry.shared);
+        MapLayerManager(
+          registry: widget.layerRegistry ?? MapLayerRegistry.shared,
+        );
     _layerManager.onCameraRequest = _onLayerCameraRequest;
     _layerManager.onSelectionChanged = _onLayerSelectionChanged;
     _layerManager.addListener(_onLayersChanged);
@@ -143,9 +147,12 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
   Future<void> _ensureMapbox() async {
     try {
       await MapboxLazyLoader.ensureLoaded();
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       // 注册失败交给 MapWidget 的错误视图处理，不阻塞页面其余部分。
-      debugPrint("Mapbox plugin registration failed: ${error.runtimeType}");
+      AppLogger.debug(
+        "Mapbox plugin registration failed: ${error.runtimeType}",
+      );
     }
     if (!mounted) return;
     setState(() => _mapboxReady = true);
@@ -228,7 +235,8 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
   void _onLayerSelectionChanged() {
     if (!mounted) return;
     // 业务图层要素详情卡与校园地点卡互斥，避免底部堆叠两张卡片。
-    if (_layerManager.selectedEntry != null && _controller.state.selected != null) {
+    if (_layerManager.selectedEntry != null &&
+        _controller.state.selected != null) {
       unawaited(_controller.clearSelection());
     }
     setState(() {});
@@ -289,7 +297,10 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
           (sheetContext) => MapLayerSheet(
             manager: _layerManager,
             onToggle: (layerId, visible) async {
-              final persisted = await _layerManager.setVisible(layerId, visible);
+              final persisted = await _layerManager.setVisible(
+                layerId,
+                visible,
+              );
               if (!persisted && sheetContext.mounted) {
                 _showMessage("图层设置未能保存，本次仍按当前选择显示");
               }
@@ -324,7 +335,8 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
           campusId: _controller.state.campusId ?? "",
         ),
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       opened = false;
     }
     if (!mounted) return;
@@ -335,7 +347,8 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
   Future<void> _prepareOfflineCache(CampusEntry campus) async {
     try {
       await _offlineCache.prepareCampus(campus);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Offline preparation is best-effort. The visible map and semantic
       // release remain usable when the network or native cache is unavailable.
     }
@@ -603,8 +616,7 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
     final cardVisible = placeCardVisible || _layerCardVisible;
     // 玻璃底栏浮在地图上，底部浮层让出底栏高度。
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final floorSelectorBottom =
-        (cardVisible ? 116.0 : 12.0) + bottomInset;
+    final floorSelectorBottom = (cardVisible ? 116.0 : 12.0) + bottomInset;
     // 顶部右上角是一个默认收起的玻璃圆形放大镜，展开后压在地图上；右侧控件从
     // chrome 下方开始，避免被展开后的搜索栏盖住。
     final chromeTop = MediaQuery.paddingOf(context).top + 8;
@@ -613,16 +625,9 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
       children: [
         Positioned.fill(
           child:
-              mapReady
-                  ? _buildMapView(context)
-                  : _StatusView(status: status),
+              mapReady ? _buildMapView(context) : _StatusView(status: status),
         ),
-        Positioned(
-          left: 12,
-          right: 12,
-          top: chromeTop,
-          child: _buildChrome(),
-        ),
+        Positioned(left: 12, right: 12, top: chromeTop, child: _buildChrome()),
         if (indoorView != null)
           AnimatedPositioned(
             duration: const Duration(milliseconds: 180),
@@ -639,9 +644,10 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
         Positioned(
           right: 12,
           top: controlsTop,
-          bottom: _layerCardVisible
-              ? 160 + bottomInset
-              : (cardVisible ? 100 + bottomInset : 12 + bottomInset),
+          bottom:
+              _layerCardVisible
+                  ? 160 + bottomInset
+                  : (cardVisible ? 100 + bottomInset : 12 + bottomInset),
           width: 48,
           child: Align(
             alignment: Alignment.bottomCenter,
@@ -1087,10 +1093,7 @@ class MapPlaceCandidateSheet extends StatelessWidget {
       children: [
         const Padding(
           padding: EdgeInsets.all(16),
-          child: Text(
-            '匹配到多个地点',
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
+          child: Text('匹配到多个地点', style: TextStyle(fontWeight: FontWeight.w600)),
         ),
         for (final candidate in candidates)
           ListTile(

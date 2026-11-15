@@ -9,6 +9,8 @@ import '../services/theme_service.dart';
 import '../theme/app_palette.dart';
 import '../widgets/setting_reset_region.dart';
 
+import '../services/logging/logger.dart';
+
 /// Appearance settings opened from Profile.
 class AppearanceThemePage extends StatefulWidget {
   const AppearanceThemePage({super.key});
@@ -71,7 +73,8 @@ class _ThemeSettings extends StatelessWidget {
   ) async {
     try {
       await action();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,

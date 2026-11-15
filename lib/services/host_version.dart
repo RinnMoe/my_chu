@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-import 'logger_service.dart';
+import 'logging/logger.dart';
 
 /// 宿主（MyCHU）版本读取：进程内缓存一次 `PackageInfo`，供应用兼容性校验。
 class AppHostVersion {

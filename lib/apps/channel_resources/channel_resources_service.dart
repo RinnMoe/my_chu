@@ -8,6 +8,8 @@ import '../../services/channel_resources_session_service.dart';
 import '../../capabilities/saved_login_credential.dart';
 import 'channel_resources_models.dart';
 
+import '../../services/logging/logger.dart';
+
 export '../../capabilities/channel_account_capability.dart'
     show
         ChannelAccountState,
@@ -333,7 +335,8 @@ class ChannelResourcesService {
     }
     try {
       return jsonDecode(response.body);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const ChannelResourcesServiceException(
         '资料站返回的内容异常，请稍后重试；仍不行请重新登录。',
       );

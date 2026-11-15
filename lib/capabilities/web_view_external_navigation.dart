@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../services/logger_service.dart';
+import '../services/logging/logger.dart';
 
 const _externalPaymentSchemes = {
   'weixin',
@@ -34,8 +34,12 @@ class WebViewExternalNavigationCapability {
         Uri.parse(uri.toString()),
         mode: LaunchMode.externalApplication,
       );
-    } catch (error) {
-      AppLogger.warn('支付应用调起失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '支付应用调起失败 (${error.runtimeType})',
+      );
     }
     if (!launched && context.mounted) {
       await presentExternalPaymentFailure(context);

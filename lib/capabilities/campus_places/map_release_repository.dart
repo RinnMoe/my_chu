@@ -12,6 +12,8 @@ import "campus_places_models.dart";
 import "campus_registry.dart";
 import "place_code_rule_overrides.dart";
 
+import '../../services/logging/logger.dart';
+
 /// The namespaced semantic catalog stored in a Mapbox Classic Style.
 ///
 /// Only these content fields participate in [contentSha256]. Release
@@ -249,7 +251,8 @@ class MapReleaseRepository {
       if (raw is! Map) return null;
       final catalog = Map<String, dynamic>.from(raw);
       return _decodeCatalog(catalog);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -272,9 +275,11 @@ class MapReleaseRepository {
         );
       }
       return _decodeCatalog(Map<String, dynamic>.from(semantic));
-    } on MapReleaseUnavailable {
+    } on MapReleaseUnavailable catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       rethrow;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const MapReleaseUnavailable("Mapbox semantic metadata 解析失败");
     }
   }
@@ -351,7 +356,8 @@ class MapReleaseRepository {
         flush: true,
       );
       await staging.rename(target.path);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (await staging.exists()) await staging.delete(recursive: true);
       throw const MapReleaseUnavailable("地图语义缓存写入失败");
     }
@@ -371,7 +377,8 @@ class MapReleaseRepository {
       final value = (await file.readAsString(encoding: utf8)).trim();
       if (value.length > maxPointerBytes) return null;
       return value.isEmpty ? null : value;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -406,9 +413,11 @@ class MapReleaseRepository {
         "access_token": token,
       };
       return base.replace(queryParameters: query);
-    } on MapReleaseUnavailable {
+    } on MapReleaseUnavailable catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       rethrow;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const MapReleaseUnavailable("Mapbox Published Style 地址无效");
     }
   }
@@ -622,7 +631,8 @@ class MapReleaseCoordinator {
       _activeSnapshot = snapshot;
       _pendingActivation = false;
       return snapshot;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       final snapshot = await _loadBundledSnapshot();
       _activeSnapshot = snapshot;
       _pendingActivation = false;

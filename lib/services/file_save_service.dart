@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'logger_service.dart';
+import 'logging/logger.dart';
 
 /// Saves files into the public Android `Download/MyCHU` directory.
 ///
@@ -34,13 +34,18 @@ class FileSaveService {
         fileName: fileName,
         sourceFile: tempFile,
       );
-    } catch (error) {
-      AppLogger.warn('保存到系统下载目录失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '保存到系统下载目录失败 (${error.runtimeType})',
+      );
       return null;
     } finally {
       try {
         if (await tempFile.exists()) await tempFile.delete();
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // 临时文件清理失败不影响结果。
       }
     }
@@ -65,10 +70,15 @@ class FileSaveService {
             'sourcePath': sourceFile.path,
           });
           if (saved != null && saved.isNotEmpty) return saved;
-        } on MissingPluginException {
+        } on MissingPluginException catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           // Fall back to the application-managed directory below.
-        } on PlatformException catch (error) {
-          AppLogger.warn('保存到系统下载目录失败 (${error.code})');
+        } on PlatformException catch (error, diagnosticStack) {
+          AppLogger.error(
+            error,
+            stackTrace: diagnosticStack,
+            context: '保存到系统下载目录失败 (${error.code})',
+          );
         }
       }
 
@@ -77,8 +87,12 @@ class FileSaveService {
       final target = await _availableFile(directory, safeName);
       await sourceFile.copy(target.path);
       return target.path;
-    } catch (error) {
-      AppLogger.warn('保存下载文件失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '保存下载文件失败 (${error.runtimeType})',
+      );
       return null;
     }
   }
@@ -98,22 +112,33 @@ class FileSaveService {
         'path': path,
         'fileName': fileName,
       });
+      if (opened != true) AppLogger.warn('打开文件失败\n$fileName\n$path');
       return opened ?? false;
-    } on MissingPluginException {
+    } on MissingPluginException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (kIsWeb || Platform.isAndroid) return false;
       try {
         return await launchUrl(
           Uri.file(path),
           mode: LaunchMode.externalApplication,
         );
-      } on MissingPluginException {
+      } on MissingPluginException catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         return false;
-      } on PlatformException catch (error) {
-        AppLogger.warn('打开课件失败 (${error.code})');
+      } on PlatformException catch (error, diagnosticStack) {
+        AppLogger.error(
+          error,
+          stackTrace: diagnosticStack,
+          context: '打开课件失败 (${error.code})',
+        );
         return false;
       }
-    } on PlatformException catch (error) {
-      AppLogger.warn('打开课件失败 (${error.code})');
+    } on PlatformException catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '打开课件失败 (${error.code})',
+      );
       return false;
     }
   }
@@ -135,11 +160,17 @@ class FileSaveService {
         'path': path,
         'fileName': fileName,
       });
+      if (opened != true) AppLogger.warn('使用 WakeUp 打开文件失败\n$fileName\n$path');
       return opened ?? false;
-    } on MissingPluginException {
+    } on MissingPluginException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
-    } on PlatformException catch (error) {
-      AppLogger.warn('打开 WakeUp 失败 (${error.code})');
+    } on PlatformException catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '打开 WakeUp 失败 (${error.code})',
+      );
       return false;
     }
   }
@@ -155,11 +186,17 @@ class FileSaveService {
         'path': path,
         'fileName': fileName,
       });
+      if (shared != true) AppLogger.warn('系统文件分享未能打开\n$fileName\n$path');
       return shared ?? false;
-    } on MissingPluginException {
+    } on MissingPluginException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
-    } on PlatformException catch (error) {
-      AppLogger.warn('分享文件失败 (${error.code})');
+    } on PlatformException catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '分享文件失败 (${error.code})',
+      );
       return false;
     }
   }
@@ -170,9 +207,11 @@ class FileSaveService {
     try {
       return await _channel.invokeMethod<bool>('shareText', {'text': text}) ??
           false;
-    } on MissingPluginException {
+    } on MissingPluginException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
-    } on PlatformException {
+    } on PlatformException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
     }
   }

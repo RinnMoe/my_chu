@@ -7,6 +7,8 @@ import 'smart_socket_protocol.dart';
 import 'smart_socket_protocol_transport.dart';
 import 'ble_protocol_transport_ohos.dart';
 
+import '../../services/logging/logger.dart';
+
 BleProtocolTransport createDefaultBleProtocolTransport({
   HostPlatform? hostPlatform,
 }) {
@@ -201,16 +203,20 @@ class SmartSocketProtocolService {
         start: start,
         appRandom: appRandom,
       );
-    } on SmartSocketFailure {
+    } on SmartSocketFailure catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       await disconnect();
       rethrow;
-    } on BleProtocolException catch (error) {
+    } on BleProtocolException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       await disconnect();
       throw SmartSocketFailure(error.message);
-    } on BleTransportException catch (error) {
+    } on BleTransportException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       await disconnect();
       throw SmartSocketFailure(error.message);
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       await disconnect();
       throw SmartSocketFailure('BLE 连接失败（${error.runtimeType}）');
     } finally {
@@ -237,6 +243,7 @@ class SmartSocketProtocolService {
         }
       },
       onError: (Object error, StackTrace stackTrace) {
+        AppLogger.error(error, stackTrace: stackTrace);
         if (!response.isCompleted) {
           response.completeError(error, stackTrace);
         }
@@ -261,14 +268,17 @@ class SmartSocketProtocolService {
         frame: received.ascii.trim(),
       );
       return received;
-    } on TimeoutException {
+    } on TimeoutException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw SmartSocketFailure(
         '等待 0x${command.toRadixString(16).padLeft(2, '0').toUpperCase()} 响应超时',
         uncertainDeviceState: uncertainOnFailure && attempted,
       );
-    } on SmartSocketFailure {
+    } on SmartSocketFailure catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       rethrow;
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw SmartSocketFailure(
         '0x${command.toRadixString(16).padLeft(2, '0').toUpperCase()} 传输失败（${error.runtimeType}）',
         uncertainDeviceState: uncertainOnFailure && attempted,
@@ -290,6 +300,7 @@ class SmartSocketProtocolService {
           frames.add(frame);
         }
       } catch (error, stackTrace) {
+        AppLogger.error(error, stackTrace: stackTrace);
         frames.addError(error, stackTrace);
       }
     }, onError: frames.addError);
@@ -340,7 +351,8 @@ class SmartSocketProtocolService {
   void _expectAck(BleFrame frame, int command) {
     try {
       expectAck(frame, command);
-    } on BleProtocolException catch (error) {
+    } on BleProtocolException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (command == 0x86 || command == 0x31) {
         throw SmartSocketFailure(error.message, uncertainDeviceState: true);
       }

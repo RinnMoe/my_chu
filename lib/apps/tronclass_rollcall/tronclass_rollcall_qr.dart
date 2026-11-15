@@ -4,6 +4,8 @@ import '../../capabilities/qr_scanner_capability.dart';
 import '../../services/service_endpoints.dart';
 import 'tronclass_rollcall_models.dart';
 
+import '../../services/logging/logger.dart';
+
 class TronclassRollcallQr {
   const TronclassRollcallQr(this.data);
   final Object data;
@@ -36,7 +38,8 @@ QrDecodeResult<TronclassRollcallQr> decodeRollcallQr(
       if (plain != null) {
         try {
           decoded = jsonDecode(plain);
-        } on FormatException {
+        } on FormatException catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           /* Try packed form. */
         }
       }
@@ -59,7 +62,8 @@ QrDecodeResult<TronclassRollcallQr> decodeRollcallQr(
     return QrDecodeResult.success(
       TronclassRollcallQr(decoded['data'] as Object),
     );
-  } on FormatException {
+  } on FormatException catch (diagnosticError, diagnosticStack) {
+    AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
     return const QrDecodeResult.failure('二维码无法识别，请重新扫描。');
   }
 }

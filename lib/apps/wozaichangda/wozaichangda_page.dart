@@ -1,8 +1,10 @@
+import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'package:flutter/material.dart';
 
 import '../../capabilities/authenticated_web_view_capability.dart';
 import '../../services/user_error_message.dart';
+import '../../services/logging/logger.dart';
 import 'wozaichangda_models.dart';
 import 'wozaichangda_service.dart';
 
@@ -40,9 +42,15 @@ class _WozaichangdaPageState extends State<WozaichangdaPage>
           _loading = false;
         });
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || generation != _requestGeneration) return;
-      logUserFacingError(UserErrorContext.network, error, operation: 'apps');
+      logUserFacingError(
+        UserErrorContext.network,
+        error,
+        stackTrace: diagnosticStack,
+        operationId: UserOperationId.wozaichangdaApps,
+      );
       setState(() {
         _error = userFacingError(UserErrorContext.network, error);
         _loading = false;

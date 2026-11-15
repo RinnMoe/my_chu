@@ -13,6 +13,8 @@ import 'remote_feature_policy_repository.dart';
 import 'remote_feature_policy_source.dart';
 import 'remote_feature_policy_store.dart';
 
+import '../logging/logger.dart';
+
 /// The host identity a policy row is matched against.
 @immutable
 class FeaturePolicyContext {
@@ -264,13 +266,15 @@ class RemoteFeaturePolicyService {
       _adopt(next);
       try {
         await repository.persist(next);
-      } on Object {
+      } on Object catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // The in-memory snapshot stays authoritative for this session.
       }
       return const RemoteFeaturePolicyRefreshResult(
         RemoteFeaturePolicyRefreshStatus.applied,
       );
-    } on Object catch (error) {
+    } on Object catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       _lastFailureAt = now;
       return RemoteFeaturePolicyRefreshResult(
         RemoteFeaturePolicyRefreshStatus.failed,
@@ -352,13 +356,15 @@ class RemoteFeaturePolicyService {
     if (check != null) {
       try {
         return await check();
-      } on Object {
+      } on Object catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         return false;
       }
     }
     try {
       return await SupabasePrivacyGate.isAccepted();
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
     }
   }
@@ -416,7 +422,8 @@ Future<FeaturePolicyContext> loadHostFeaturePolicyContext() async {
   String? version;
   try {
     version = await AppHostVersion.current;
-  } on Object {
+  } on Object catch (diagnosticError, diagnosticStack) {
+    AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
     version = null;
   }
   final valid = version != null && isValidSemver(version) ? version : null;

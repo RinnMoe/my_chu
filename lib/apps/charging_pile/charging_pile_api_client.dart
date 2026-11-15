@@ -1,12 +1,14 @@
+import '../../services/failure_details.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:http/http.dart' as http;
 
-import '../../services/failure_details.dart';
 import 'charging_pile_http_client.dart';
 import 'charging_pile_models.dart';
+
+import '../../services/logging/logger.dart';
 
 abstract interface class ChargingPileApi {
   Future<List<ChargingPileSlot>> queryDevice(
@@ -38,8 +40,11 @@ abstract interface class ChargingPileApi {
 /// - port states are normalised the way the source normalises them:
 ///   `0` free, `1` occupied, anything else (`-1` abnormal, offline, …) → `2`.
 class ChargingPileApiClient implements ChargingPileApi {
-  ChargingPileApiClient({ChargingPileHttpClient? httpClient})
-    : _http = httpClient ?? ChargingPileHttpClient();
+  ChargingPileApiClient({
+    ChargingPileHttpClient? httpClient,
+    DateTime Function()? now,
+  }) : _http = httpClient ?? ChargingPileHttpClient(),
+       _now = now ?? DateTime.now;
 
   static final _proxy = Uri.parse('https://chd-charge.pages.dev/api/pile');
 
@@ -58,11 +63,15 @@ class ChargingPileApiClient implements ChargingPileApi {
   static const _batchSize = 12;
   static const _lanes = 2;
   static const _batchWindow = Duration(milliseconds: 25);
+  static const _requestBudget = 30;
+  static const _requestBudgetWindow = Duration(minutes: 1);
 
   /// 与站点 `PILE_PROXY_TIMEOUT_MS` 一致：一批最长 25 秒。
   static const _requestTimeout = Duration(seconds: 25);
 
   final ChargingPileHttpClient _http;
+  final DateTime Function() _now;
+  final _requestStarts = <DateTime>[];
   final _pending = <String, _PendingQuery>{};
   final _laneQueues = <List<_Batch>>[<_Batch>[], <_Batch>[]];
   final _laneBusy = <bool>[false, false];
@@ -100,9 +109,9 @@ class ChargingPileApiClient implements ChargingPileApi {
     if (_closed || _pending.isEmpty) return;
     final bySource = <ChargingPileSource, List<String>>{};
     for (final entry in _pending.entries) {
-      bySource.putIfAbsent(entry.value.device.source, () => <String>[]).add(
-        entry.key,
-      );
+      bySource
+          .putIfAbsent(entry.value.device.source, () => <String>[])
+          .add(entry.key);
     }
     final batches = <_Batch>[];
     for (final entry in bySource.entries) {
@@ -118,9 +127,7 @@ class ChargingPileApiClient implements ChargingPileApi {
           fresh |= pending.fresh;
         }
         if (entries.isEmpty) continue;
-        batches.add(
-          _Batch(source: entry.key, fresh: fresh, entries: entries),
-        );
+        batches.add(_Batch(source: entry.key, fresh: fresh, entries: entries));
       }
     }
     if (batches.isEmpty) return;
@@ -151,6 +158,17 @@ class ChargingPileApiClient implements ChargingPileApi {
       _fail(batch, const ChargingPileException(ChargingPileFailure.cancelled));
       return;
     }
+    // Count physical requests, including retries and small independent scopes.
+    // A full scan normally fits; overlapping scopes must share the same budget.
+    final now = _now();
+    _requestStarts.removeWhere(
+      (started) => now.difference(started) > _requestBudgetWindow,
+    );
+    if (_requestStarts.length >= _requestBudget) {
+      _fail(batch, const ChargingPileException(ChargingPileFailure.throttled));
+      return;
+    }
+    _requestStarts.add(now);
     final body = <String, Object>{'ids': ids};
     if (batch.fresh) body['fresh'] = true;
     // 住芒是缺省源，不写 `src`；只有驴充充的批次显式带。
@@ -177,7 +195,8 @@ class ChargingPileApiClient implements ChargingPileApi {
           pending.completer.completeError(result as ChargingPileException);
         }
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       _fail(batch, _failureOf(error));
     }
   }
@@ -243,9 +262,7 @@ class ChargingPileApiClient implements ChargingPileApi {
         // degradation (keep the previous snapshot), not a device failure, so it
         // must not pause the repository the way a real 429 does.
         if (throttled) {
-          out[id] = const ChargingPileException(
-            ChargingPileFailure.throttled,
-          );
+          out[id] = const ChargingPileException(ChargingPileFailure.throttled);
         } else if (authFailures is num && authFailures > 0) {
           out[id] = const ChargingPileException(
             ChargingPileFailure.credentialUnavailable,
@@ -257,9 +274,11 @@ class ChargingPileApiClient implements ChargingPileApi {
       }
       try {
         out[id] = _slotsOf(record, throttled: throttled);
-      } on ChargingPileException catch (error) {
+      } on ChargingPileException catch (error, diagnosticStack) {
+        AppLogger.error(error, stackTrace: diagnosticStack);
         out[id] = error;
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         out[id] = const ChargingPileException(ChargingPileFailure.malformed);
       }
     }

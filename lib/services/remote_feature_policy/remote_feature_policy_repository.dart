@@ -2,6 +2,8 @@ import 'remote_feature_policy_models.dart';
 import 'remote_feature_policy_source.dart';
 import 'remote_feature_policy_store.dart';
 
+import '../logging/logger.dart';
+
 /// Fetches, validates and caches the published policy set.
 ///
 /// The repository never applies a partial payload: [fetch] returns a snapshot
@@ -24,13 +26,18 @@ class RemoteFeaturePolicyRepository {
     final String? raw;
     try {
       raw = await store.read();
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
     if (raw == null || raw.isEmpty) return null;
     try {
       return RemoteFeaturePolicySnapshot.decode(raw);
-    } on RemoteFeaturePolicyFormatException {
+    } on RemoteFeaturePolicyFormatException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       await _clearQuietly();
       return null;
     }
@@ -53,7 +60,8 @@ class RemoteFeaturePolicyRepository {
   Future<void> _clearQuietly() async {
     try {
       await store.clear();
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // A stale cache is harmless once the in-memory snapshot is authoritative.
     }
   }

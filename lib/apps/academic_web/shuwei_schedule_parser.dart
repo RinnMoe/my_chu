@@ -4,6 +4,8 @@ import 'dart:convert';
 import '../../capabilities/text_utils.dart';
 import '../academic_affairs/academic_affairs_models.dart';
 
+import '../../services/logging/logger.dart';
+
 /// 在已加载的树维 EAMS 页面中执行的 JavaScript 与课表 JSON 解析。
 ///
 /// WakeUp `shuwei` 分支的结论：不重新请求接口、不解析课表 HTML DOM，
@@ -357,7 +359,8 @@ abstract final class ShuweiScheduleExtractor {
       try {
         final decoded = jsonDecode(text);
         if (decoded is String) return decoded;
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // The result is already the raw JS string.
       }
       return value;
@@ -372,7 +375,8 @@ abstract final class ShuweiScheduleExtractor {
     dynamic decoded;
     try {
       decoded = jsonDecode(source);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
     if (decoded is! Map) return null;
@@ -556,7 +560,8 @@ abstract final class ShuweiScheduleParser {
     try {
       decoded = jsonDecode(normalized);
       if (decoded is String) decoded = jsonDecode(decoded);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const AcademicAffairsException(
         '树维课表数据格式无法识别',
         reason: FailureReason.malformedResponse,

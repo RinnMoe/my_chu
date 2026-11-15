@@ -6,6 +6,8 @@ import '../public_http_client.dart';
 import 'remote_feature_policy_config.dart';
 import 'remote_feature_policy_models.dart';
 
+import '../logging/logger.dart';
+
 /// Transport boundary for the published policy set.
 ///
 /// Implementations return decoded rows so parsing and validation stay in one
@@ -55,7 +57,8 @@ class SupabaseFeaturePolicySource implements RemoteFeaturePolicySource {
         headers: {...config.authHeaders, 'Accept': 'application/json'},
         timeout: config.requestTimeout,
       );
-    } on PublicHttpException catch (error) {
+    } on PublicHttpException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw RemoteFeaturePolicyFetchException(
         error.failureReason.name,
         statusCode: error.statusCode,
@@ -72,7 +75,8 @@ class SupabaseFeaturePolicySource implements RemoteFeaturePolicySource {
     final Object? decoded;
     try {
       decoded = jsonDecode(utf8.decode(response.bodyBytes));
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const RemoteFeaturePolicyFetchException('response is not JSON');
     }
     if (decoded is! List) {

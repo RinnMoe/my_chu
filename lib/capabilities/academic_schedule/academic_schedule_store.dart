@@ -8,6 +8,8 @@ import '../../apps/academic_affairs/academic_affairs_models.dart';
 import 'academic_schedule_alerts.dart';
 import 'academic_schedule_utils.dart';
 
+import '../../services/logging/logger.dart';
+
 class AcademicScheduleSemesterCatalog {
   final List<AcademicSemesterOption> semesters;
   final String selectedSemesterId;
@@ -634,7 +636,8 @@ class AcademicScheduleStore {
       if (account == null || account.accountKey != accountKey) return 'unknown';
       return PortalRoute.fromIdentity(account.identity)?.studentType.name ??
           'unknown';
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return 'unknown';
     }
   }

@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../app_remote_services_service.dart';
 import '../host_platform.dart';
 import '../host_version.dart';
-import '../logger_service.dart';
+import '../logging/logger.dart';
 import '../public_http_client.dart';
 import '../supabase/supabase_privacy_gate.dart';
 import 'announcement_repository.dart';
@@ -169,8 +169,12 @@ class AppContentService {
     try {
       final items = await repository.fetchAnnouncements();
       return _commitAnnouncements(items, revision);
-    } catch (error) {
-      AppLogger.warn('应用公告读取失败（已忽略：${_describe(error)}）');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '应用公告读取失败（已忽略：${_describe(error)}）',
+      );
       return const [];
     }
   }
@@ -214,8 +218,12 @@ class AppContentService {
   Future<int> _versionCodeOrUnknown() async {
     try {
       return await _appVersionCode();
-    } catch (error) {
-      AppLogger.warn('宿主构建号不可用，公告跳过版本定向（${error.runtimeType}）');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '宿主构建号不可用，公告跳过版本定向（${error.runtimeType}）',
+      );
       return 0;
     }
   }
@@ -254,10 +262,15 @@ class AppContentService {
     try {
       await repository.submitFeedback(normalized, requestId: requestId);
       _pendingFeedbackRequest = null;
-    } on FeedbackSubmissionUnknownException {
+    } on FeedbackSubmissionUnknownException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 结果未知：保留幂等键，用户主动重试时复用。
       rethrow;
-    } on PublicHttpException catch (error) {
+    } on PublicHttpException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       // 429 在服务端限流处就被拒绝，没有走到按 request_id 去重的写入，因此
       // 它不能证明上一次尝试没有入库。若此时丢弃幂等键，用户稍后重试会生成
       // 新键，把同一份反馈写第二次。
@@ -265,7 +278,8 @@ class AppContentService {
       // 其余 4xx 在写入前被拒绝，可安全丢弃幂等键。
       _pendingFeedbackRequest = null;
       rethrow;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 明确失败：服务端未写入，丢弃幂等键。
       _pendingFeedbackRequest = null;
       rethrow;

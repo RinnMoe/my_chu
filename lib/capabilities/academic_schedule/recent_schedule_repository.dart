@@ -8,6 +8,8 @@ import '../../services/privacy_agreement_service.dart';
 import '../../services/roomis_schedule_service.dart';
 import 'recent_schedule.dart';
 
+import '../../services/logging/logger.dart';
+
 /// Only explicit host opens/refreshes perform network work. Consumers read cache.
 class RecentScheduleRepository {
   static final instance = RecentScheduleRepository();
@@ -124,7 +126,8 @@ class RecentScheduleRepository {
         _fresh[key] = window;
         _failedUntil.remove(key);
       }
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (generation == _generation) {
         _failedUntil[key] = east8WallClockToUtcInstant(
           _clock(),

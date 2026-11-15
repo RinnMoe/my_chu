@@ -2,6 +2,8 @@ import "dart:convert";
 import "package:flutter/services.dart";
 import "campus_places_models.dart";
 
+import '../../services/logging/logger.dart';
+
 /// 资产文本加载器（测试可注入）。
 typedef AssetTextLoader = Future<String> Function(String path);
 
@@ -198,11 +200,14 @@ class PlacesRepository {
       final text = await loadText(path);
       final json = jsonDecode(text) as Map<String, dynamic>;
       return CampusPlacesData.fromJson(json, expectedCampusId: campus.campusId);
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
-    } on TypeError {
+    } on TypeError catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }

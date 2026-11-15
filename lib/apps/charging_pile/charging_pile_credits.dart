@@ -3,6 +3,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'charging_pile_credits_service.dart';
 
+import '../../services/logging/logger.dart';
+
 Future<void> showChargingPileCredits(BuildContext context) async {
   await showDialog<void>(
     context: context,
@@ -14,7 +16,8 @@ Future<void> _openCreditsLink(BuildContext context, Uri uri) async {
   var opened = false;
   try {
     opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-  } catch (_) {
+  } catch (diagnosticError, diagnosticStack) {
+    AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
     /* Never display raw platform failures. */
   }
   if (!opened && context.mounted) {

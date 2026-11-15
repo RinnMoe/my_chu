@@ -1,10 +1,11 @@
+import 'failure_details.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
-import 'failure_details.dart';
+import 'logging/logger.dart';
 import 'failure_classifier.dart' show classifyFailure;
 
 /// 公开 HTTP 请求失败（超时、网络错误或服务端异常状态）。
@@ -66,12 +67,14 @@ class PublicHttpClient {
       return await _client
           .get(uri, headers: headers)
           .timeout(timeout ?? defaultTimeout);
-    } on TimeoutException {
+    } on TimeoutException catch (error, stack) {
+      AppLogger.error(error, stackTrace: stack);
       throw const PublicHttpException(
         '请求超时，请稍后重试。',
         reason: FailureReason.timeout,
       );
-    } catch (error) {
+    } catch (error, stack) {
+      AppLogger.error(error, stackTrace: stack);
       throw PublicHttpException(
         '网络请求失败，请稍后重试。',
         reason: classifyFailure(error),
@@ -114,7 +117,8 @@ class PublicHttpClient {
           onProgress: onProgress,
         );
         if (response.statusCode < 500 || attempt > 1) return response;
-      } on PublicHttpException {
+      } on PublicHttpException catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         if (attempt > 1) rethrow;
       }
       attempt++;
@@ -159,13 +163,15 @@ class PublicHttpClient {
         statusCode: response.statusCode,
         contentLength: totalBytes,
       );
-    } on TimeoutException {
+    } on TimeoutException catch (error, stack) {
+      AppLogger.error(error, stackTrace: stack);
       await sink?.close();
       throw const PublicHttpException(
         '请求超时，请稍后重试。',
         reason: FailureReason.timeout,
       );
-    } catch (error) {
+    } catch (error, stack) {
+      AppLogger.error(error, stackTrace: stack);
       await sink?.close();
       throw PublicHttpException(
         '网络请求失败，请稍后重试。',
@@ -191,12 +197,14 @@ class PublicHttpClient {
       return await _client
           .post(uri, headers: requestHeaders, body: jsonEncode(body))
           .timeout(timeout ?? defaultTimeout);
-    } on TimeoutException {
+    } on TimeoutException catch (error, stack) {
+      AppLogger.error(error, stackTrace: stack);
       throw const PublicHttpException(
         '请求超时，请稍后重试。',
         reason: FailureReason.timeout,
       );
-    } catch (error) {
+    } catch (error, stack) {
+      AppLogger.error(error, stackTrace: stack);
       throw PublicHttpException(
         '网络请求失败，请稍后重试。',
         reason: classifyFailure(error),

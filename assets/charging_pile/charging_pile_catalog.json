@@ -4,13 +4,13 @@
   "source": {
     "devices": "chd-charge/index.html#DEFAULT_DEVICES",
     "areas": "chd-charge/map-data.js#CHD_MAP.areas",
-    "geometry": "chd-charge/map-amap.js#BM_GEO/CH_GEO/E_GEO/W_GEO/Z_GEO"
+    "geometry": "chd-charge/map-amap.js#BM_GEO/CH_GEO/E_GEO/W_GEO/Z_GEO/BY_GEO/Y_GEO/T_GEO/W5_GEO/P_GEO"
   },
-  "siteVersion": "v2.85",
-  "deviceSchema": 9,
+  "siteVersion": "v3.20",
+  "deviceSchema": 11,
   "coordSystem": "GCJ-02",
   "portsPerDevice": 4,
-  "total": 177,
+  "total": 200,
   "locationRenames": [
     [
       "物流服务中心",
@@ -112,6 +112,45 @@
       "anchor": [
         108.958557,
         34.225289
+      ],
+      "precision": "schematic"
+    },
+    {
+      "key": "tushuguan",
+      "name": "图书馆",
+      "location": "雁塔-图书馆",
+      "count": 8,
+      "layout": "line",
+      "src": "zm",
+      "anchor": [
+        108.960791,
+        34.225449
+      ],
+      "precision": "schematic"
+    },
+    {
+      "key": "w5",
+      "name": "5号学生公寓南部",
+      "location": "雁塔-5号学生公寓南部",
+      "count": 12,
+      "layout": "line",
+      "src": "zm",
+      "anchor": [
+        108.961097,
+        34.226128
+      ],
+      "precision": "schematic"
+    },
+    {
+      "key": "park",
+      "name": "停车场出口",
+      "location": "雁塔-停车场出口",
+      "count": 3,
+      "layout": "line",
+      "src": "zm",
+      "anchor": [
+        108.961823,
+        34.22612
       ],
       "precision": "schematic"
     }
@@ -2239,6 +2278,282 @@
       "ports": 4,
       "lng": 108.958558,
       "lat": 34.225335,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB04443",
+      "code": "T-01",
+      "name": "雁塔 T-01 号桩",
+      "area": "tushuguan",
+      "location": "雁塔-图书馆",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.960791,
+      "lat": 34.225386,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB04358",
+      "code": "T-02",
+      "name": "雁塔 T-02 号桩",
+      "area": "tushuguan",
+      "location": "雁塔-图书馆",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.960791,
+      "lat": 34.225404,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB04200",
+      "code": "T-03",
+      "name": "雁塔 T-03 号桩",
+      "area": "tushuguan",
+      "location": "雁塔-图书馆",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.960791,
+      "lat": 34.225422,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB03660",
+      "code": "T-04",
+      "name": "雁塔 T-04 号桩",
+      "area": "tushuguan",
+      "location": "雁塔-图书馆",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.960791,
+      "lat": 34.22544,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB03551",
+      "code": "T-05",
+      "name": "雁塔 T-05 号桩",
+      "area": "tushuguan",
+      "location": "雁塔-图书馆",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.960791,
+      "lat": 34.225458,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB03577",
+      "code": "T-06",
+      "name": "雁塔 T-06 号桩",
+      "area": "tushuguan",
+      "location": "雁塔-图书馆",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.960791,
+      "lat": 34.225476,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB02955",
+      "code": "T-07",
+      "name": "雁塔 T-07 号桩",
+      "area": "tushuguan",
+      "location": "雁塔-图书馆",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.960791,
+      "lat": 34.225494,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB03439",
+      "code": "T-08",
+      "name": "雁塔 T-08 号桩",
+      "area": "tushuguan",
+      "location": "雁塔-图书馆",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.960791,
+      "lat": 34.225512,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB03069",
+      "code": "W-01",
+      "name": "雁塔 W-01 号桩",
+      "area": "w5",
+      "location": "雁塔-5号学生公寓南部",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.961322,
+      "lat": 34.226155,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB03300",
+      "code": "W-02",
+      "name": "雁塔 W-02 号桩",
+      "area": "w5",
+      "location": "雁塔-5号学生公寓南部",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.961232,
+      "lat": 34.226155,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB03261",
+      "code": "W-03",
+      "name": "雁塔 W-03 号桩",
+      "area": "w5",
+      "location": "雁塔-5号学生公寓南部",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.961142,
+      "lat": 34.226155,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB03149",
+      "code": "W-04",
+      "name": "雁塔 W-04 号桩",
+      "area": "w5",
+      "location": "雁塔-5号学生公寓南部",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.961052,
+      "lat": 34.226155,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB03382",
+      "code": "W-05",
+      "name": "雁塔 W-05 号桩",
+      "area": "w5",
+      "location": "雁塔-5号学生公寓南部",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.960962,
+      "lat": 34.226155,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB02952",
+      "code": "W-06",
+      "name": "雁塔 W-06 号桩",
+      "area": "w5",
+      "location": "雁塔-5号学生公寓南部",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.960872,
+      "lat": 34.226155,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB03089",
+      "code": "W-07",
+      "name": "雁塔 W-07 号桩",
+      "area": "w5",
+      "location": "雁塔-5号学生公寓南部",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.961322,
+      "lat": 34.2261,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB02965",
+      "code": "W-08",
+      "name": "雁塔 W-08 号桩",
+      "area": "w5",
+      "location": "雁塔-5号学生公寓南部",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.961232,
+      "lat": 34.2261,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB03556",
+      "code": "W-09",
+      "name": "雁塔 W-09 号桩",
+      "area": "w5",
+      "location": "雁塔-5号学生公寓南部",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.961142,
+      "lat": 34.2261,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB03421",
+      "code": "W-10",
+      "name": "雁塔 W-10 号桩",
+      "area": "w5",
+      "location": "雁塔-5号学生公寓南部",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.961052,
+      "lat": 34.2261,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB03641",
+      "code": "W-11",
+      "name": "雁塔 W-11 号桩",
+      "area": "w5",
+      "location": "雁塔-5号学生公寓南部",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.960962,
+      "lat": 34.2261,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLB04207",
+      "code": "W-12",
+      "name": "雁塔 W-12 号桩",
+      "area": "w5",
+      "location": "雁塔-5号学生公寓南部",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.960872,
+      "lat": 34.2261,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLA32275",
+      "code": "P-01",
+      "name": "雁塔 P-01 号桩",
+      "area": "park",
+      "location": "雁塔-停车场出口",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.961883,
+      "lat": 34.22611,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLA32372",
+      "code": "P-02",
+      "name": "雁塔 P-02 号桩",
+      "area": "park",
+      "location": "雁塔-停车场出口",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.961823,
+      "lat": 34.22611,
+      "precision": "schematic"
+    },
+    {
+      "id": "XLA32254",
+      "code": "P-03",
+      "name": "雁塔 P-03 号桩",
+      "area": "park",
+      "location": "雁塔-停车场出口",
+      "src": "zm",
+      "ports": 4,
+      "lng": 108.961763,
+      "lat": 34.22611,
       "precision": "schematic"
     }
   ]

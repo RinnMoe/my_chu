@@ -1,3 +1,4 @@
+import '../services/failure_details.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
@@ -8,7 +9,7 @@ import '../services/auth_service.dart';
 import '../services/campus_service_session_service.dart';
 import '../services/campus_session_store.dart';
 import '../services/federated_session.dart';
-import '../services/logger_service.dart';
+import '../services/logging/logger.dart';
 import '../services/persistent_campus_cookie_jar.dart';
 import '../services/service_endpoints.dart';
 import '../services/session_materialization.dart';
@@ -378,9 +379,17 @@ class CampusWebViewCookieBridge {
         await seedCookieManager(bootstrap);
         await assertBootstrapCurrent(bootstrap);
         return bindingForBootstrap(bootstrap);
-      } on CampusWebViewCookieManagerResetException {
+      } on CampusWebViewCookieManagerResetException catch (
+        diagnosticError,
+        diagnosticStack
+      ) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         rethrow;
-      } on CampusWebViewSessionFenceExpiredException {
+      } on CampusWebViewSessionFenceExpiredException catch (
+        diagnosticError,
+        diagnosticStack
+      ) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         if (attempt == 1) rethrow;
       }
     }
@@ -449,9 +458,17 @@ class CampusWebViewCookieBridge {
         );
         await assertBootstrapCurrent(bootstrap);
         return bootstrap;
-      } on CampusWebViewCookieManagerResetException {
+      } on CampusWebViewCookieManagerResetException catch (
+        diagnosticError,
+        diagnosticStack
+      ) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         rethrow;
-      } on CampusWebViewSessionFenceExpiredException {
+      } on CampusWebViewSessionFenceExpiredException catch (
+        diagnosticError,
+        diagnosticStack
+      ) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         if (attempt == 1) rethrow;
         await _assertCurrentAccountKey(expectedAccountKey);
       }
@@ -582,14 +599,11 @@ class CampusWebViewCookieBridge {
               );
               continue;
             }
-            AppLogger.event(
-              level: 'WARN',
-              code: 'webview.cookie.commit_failed',
-              message: '认证 WebView 会话数据写入失败',
-              operation: operationForAuthenticatedService(
-                bootstrap.serviceId.value,
-              ),
-              exceptionType: 'CookieCommitFailure',
+            AppLogger.warn(
+              <Object?>[
+                'webview.cookie.commit_failed',
+                '认证 WebView 会话数据写入失败',
+              ].join(' | '),
             );
             throw ClassifiedStateError(
               FailureReason.cookieWrite,
@@ -609,7 +623,8 @@ class CampusWebViewCookieBridge {
       if (browserRelayCleanupKey != null) {
         _browserRelayCleanupFences.add(browserRelayCleanupKey);
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       await _rollbackCookieWrites(context, written);
       rethrow;
     }
@@ -720,7 +735,8 @@ class CampusWebViewCookieBridge {
       List<WebViewCookieValue> cookies;
       try {
         cookies = await context.readCookies(url);
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         continue;
       }
       for (final cookie in cookies) {
@@ -923,9 +939,14 @@ class CampusWebViewCookieBridge {
     try {
       await assertBindingCurrent(binding);
       return true;
-    } on CampusWebViewSessionFenceExpiredException {
+    } on CampusWebViewSessionFenceExpiredException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
-    } on StateError {
+    } on StateError catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
     }
   }
@@ -962,7 +983,8 @@ class CampusWebViewCookieBridge {
         httpOnly: cookie.httpOnly,
         sameSite: cookie.sameSite,
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Some platform implementations do not expose getCookie. A failed
       // read still permits best-effort deletion during rollback.
       return null;
@@ -998,7 +1020,8 @@ class CampusWebViewCookieBridge {
             sameSite: cookie.sameSite,
           ),
       };
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return const <String, CampusWebViewCookieSeed>{};
     }
   }
@@ -1060,7 +1083,8 @@ class CampusWebViewCookieBridge {
         } else {
           await _setCookie(context, mutation.url, mutation.previous!);
         }
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // Rollback is best effort; the original stale/failure exception is
         // the actionable result for the caller.
       }

@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/service_endpoints.dart';
 
+import '../../services/logging/logger.dart';
+
 typedef NoticeExternalLinkOpener = Future<void> Function(Uri uri);
 
 /// 本地富文本渲染：把移动校园公告正文 HTML 转成 Flutter 文本与内嵌图片。
@@ -71,7 +73,8 @@ class _MobileCampusNoticeRichTextState
     var launched = false;
     try {
       launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       launched = false;
     }
     if (!launched && mounted) {

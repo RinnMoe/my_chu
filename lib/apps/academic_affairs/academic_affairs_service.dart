@@ -1,3 +1,4 @@
+import '../../services/failure_details.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -13,7 +14,7 @@ import '../../capabilities/text_utils.dart';
 import '../../services/academic_affairs_backend.dart';
 import '../../services/auth_service.dart';
 import '../../services/campus_session.dart';
-import '../../services/logger_service.dart';
+import '../../services/logging/logger.dart';
 import '../../services/service_endpoints.dart';
 import 'academic_affairs_html_parser.dart';
 import 'academic_affairs_models.dart';
@@ -401,7 +402,11 @@ class AcademicAffairsService {
     Future<List<AcademicExam>> loadWithRetry() async {
       try {
         return await loadForRevision(revision);
-      } on StaleSessionResultException {
+      } on StaleSessionResultException catch (
+        diagnosticError,
+        diagnosticStack
+      ) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         final currentOwner = await _tryCurrentAccountKey();
         final nextRevision = AuthService.sessionRevision;
         if (owner == null ||
@@ -486,7 +491,8 @@ class AcademicAffairsService {
     Document overview;
     try {
       overview = await _loadDocument(_withCacheBuster(_examUri));
-    } catch (overviewError) {
+    } catch (overviewError, diagnosticStack) {
+      AppLogger.error(overviewError, stackTrace: diagnosticStack);
       // A stale root session will fail the detail request on the same fence;
       // let fetchExamsByBatch retry once under the new revision instead of
       // spending another request that is already known to be discarded.
@@ -520,7 +526,8 @@ class AcademicAffairsService {
       if (AcademicAffairsHtmlParser.hasExams(detail)) {
         return AcademicAffairsHtmlParser.parseExams(detail);
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       // 明细接口不可用时，回退解析查询页自带的表格，避免整个考试分区报错。
       detailError = error;
     }
@@ -550,7 +557,8 @@ class AcademicAffairsService {
       );
       if (!AcademicAffairsHtmlParser.hasExams(detail)) return null;
       return AcademicAffairsHtmlParser.parseExams(detail);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -560,7 +568,8 @@ class AcademicAffairsService {
     if (override != null) return override();
     try {
       return (await AuthService.getCurrentAccount())?.accountKey;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -643,12 +652,14 @@ class AcademicAffairsService {
         );
       }
       return html_parser.parse(responseBody);
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const AcademicAffairsException(
         '教务服务返回了无法识别的数据',
         reason: FailureReason.malformedResponse,
       );
-    } on TimeoutException {
+    } on TimeoutException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const AcademicAffairsException(
         '教务响应超时，请稍后重试',
         reason: FailureReason.timeout,
@@ -698,12 +709,14 @@ class AcademicAffairsService {
         );
       }
       return html_parser.parse(responseBody);
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const AcademicAffairsException(
         '教务服务返回了无法识别的数据',
         reason: FailureReason.malformedResponse,
       );
-    } on TimeoutException {
+    } on TimeoutException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const AcademicAffairsException(
         '教务响应超时，请稍后重试',
         reason: FailureReason.timeout,

@@ -1,3 +1,4 @@
+import '../../services/reliability_event.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -5,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../../capabilities/east8_time.dart';
 import '../../capabilities/public_holidays/public_holidays.dart';
 import '../../capabilities/skeleton_block.dart';
-import '../../services/error_feedback_service.dart';
+import '../../services/logging/logger.dart';
 import '../../services/user_error_message.dart';
 import 'academic_calendar_models.dart';
 import 'academic_calendar_service.dart';
@@ -116,11 +117,13 @@ class _AcademicCalendarPageState extends State<AcademicCalendarPage> {
         _scheduleCurrentWeek(loadedCalendar);
         unawaited(_loadPublicHolidays(loadedCalendar, force: force));
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || generation != _generation) return;
       logUserFacingError(
         UserErrorContext.academic,
         error,
+        stackTrace: diagnosticStack,
         operationId: UserOperationId.academicCalendar,
       );
       setState(() {
@@ -148,11 +151,13 @@ class _AcademicCalendarPageState extends State<AcademicCalendarPage> {
       });
       _scheduleCurrentWeek(calendar);
       unawaited(_loadPublicHolidays(calendar));
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || generation != _generation) return;
       logUserFacingError(
         UserErrorContext.academic,
         error,
+        stackTrace: diagnosticStack,
         operationId: UserOperationId.academicCalendar,
       );
       setState(() {
@@ -199,7 +204,8 @@ class _AcademicCalendarPageState extends State<AcademicCalendarPage> {
       setState(() {
         _publicHolidaySnapshot = snapshot;
       });
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Public holiday annotations are optional; the school calendar remains
       // usable when the independent data source is unavailable.
     }
@@ -438,7 +444,8 @@ class _CalendarLoadResult {
 Future<_CalendarLoadResult> _capture(Future<Object> future) async {
   try {
     return _CalendarLoadResult.success(await future);
-  } catch (error) {
+  } catch (error, diagnosticStack) {
+    AppLogger.error(error, stackTrace: diagnosticStack);
     return _CalendarLoadResult.failure(error);
   }
 }

@@ -9,6 +9,8 @@ import 'current_account_store.dart';
 import 'persistent_campus_cookie_jar.dart';
 import 'session_storage_support.dart';
 
+import 'logging/logger.dart';
+
 List<T> _dedupeLatestByAccountKey<T>(
   Iterable<T> source, {
   required String Function(T) accountKeyOf,
@@ -305,7 +307,8 @@ class SessionMigrationBootstrap {
       return const SessionMigrationResult(
         outcome: SessionMigrationOutcome.ready,
       );
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       return SessionMigrationResult(
         outcome: SessionMigrationOutcome.retryableFailure,
         errorType: error.runtimeType.toString(),

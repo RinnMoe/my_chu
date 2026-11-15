@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'logging/logger.dart';
+
 final themePreferencesNotifier = ThemePreferencesNotifier();
 
 enum AppThemeMode {
@@ -164,7 +166,8 @@ class ThemePreferencesNotifier extends ValueNotifier<ThemePreferences> {
     var supported = false;
     try {
       supported = await DynamicColorPlugin.getCorePalette() != null;
-    } on PlatformException {
+    } on PlatformException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       supported = false;
     }
 

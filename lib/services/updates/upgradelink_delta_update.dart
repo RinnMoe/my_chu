@@ -7,7 +7,7 @@ import '../../capabilities/app_update/app_update_gate.dart';
 import '../../capabilities/app_update/app_update_native.dart';
 import '../../capabilities/app_update/app_update_patch_plan.dart';
 import '../../capabilities/in_app_download/in_app_download.dart';
-import '../logger_service.dart';
+import '../logging/logger.dart';
 import 'update_offer.dart';
 
 /// Free space kept beyond the rebuilt target APK and the patch itself.
@@ -84,7 +84,8 @@ class UpgradeLinkDeltaPlanner {
         targetSize: targetSize,
       );
       return readiness.isWorthwhile ? readiness : null;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -147,7 +148,8 @@ class UpgradeLinkDeltaRunner {
       phase(AppUpdatePhase.preparing);
       try {
         source = await _native.inspect();
-      } on Object {
+      } on Object catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         await check();
         return null;
       }
@@ -206,12 +208,14 @@ class UpgradeLinkDeltaRunner {
       phase(AppUpdatePhase.verifying);
       retain = true;
       return merged;
-    } on InAppDownloadException catch (error) {
+    } on InAppDownloadException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (error.type == InAppDownloadErrorType.cancelled) rethrow;
       await check();
       AppLogger.warn('差分补丁下载失败，改用完整安装包');
       return null;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       await check();
       // Merge, verification and identity failures all land here; the verified
       // full package of the same response remains available.
@@ -221,8 +225,12 @@ class UpgradeLinkDeltaRunner {
       if (source != null) {
         try {
           await _native.finish(source, retainApk: retain);
-        } catch (_) {
-          AppLogger.warn('更新缓存清理失败');
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(
+            diagnosticError,
+            stackTrace: diagnosticStack,
+            context: '更新缓存清理失败',
+          );
         }
       }
     }

@@ -6,13 +6,11 @@ import 'package:flutter/material.dart';
 import 'charging_pile_http_client.dart';
 import 'charging_pile_models.dart';
 
+import '../../services/logging/logger.dart';
+
 /// 站点 `/api/stats` 里一个分区在一个小时上的采样。
 class ChargingPileStatsSample {
-  const ChargingPileStatsSample({
-    this.percent,
-    this.free,
-    this.total,
-  });
+  const ChargingPileStatsSample({this.percent, this.free, this.total});
 
   /// 占用率百分比；该小时没有采到数据时为 null。
   final double? percent;
@@ -108,7 +106,9 @@ class ChargingPileStatsClient {
   }) : _http = httpClient ?? ChargingPileHttpClient(),
        _ownsClient = httpClient == null;
 
-  static final Uri endpoint = Uri.parse('https://chd-charge.pages.dev/api/stats');
+  static final Uri endpoint = Uri.parse(
+    'https://chd-charge.pages.dev/api/stats',
+  );
 
   final ChargingPileHttpClient _http;
   final bool _ownsClient;
@@ -185,12 +185,13 @@ class ChargingPileStatsClient {
     final updatedSeconds = _asInt(decoded['updated']);
     return ChargingPileStats(
       points: points,
-      updatedAt: updatedSeconds == null || updatedSeconds <= 0
-          ? null
-          : DateTime.fromMillisecondsSinceEpoch(
-              updatedSeconds * 1000,
-              isUtc: true,
-            ),
+      updatedAt:
+          updatedSeconds == null || updatedSeconds <= 0
+              ? null
+              : DateTime.fromMillisecondsSinceEpoch(
+                updatedSeconds * 1000,
+                isUtc: true,
+              ),
     );
   }
 
@@ -224,10 +225,13 @@ Future<void> showChargingPileStats(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (context) => _ChargingPileStatsSheet(
-      areas: areas.where((area) => area.statsKey != null).toList(growable: false),
-      client: statsClient,
-    ),
+    builder:
+        (context) => _ChargingPileStatsSheet(
+          areas: areas
+              .where((area) => area.statsKey != null)
+              .toList(growable: false),
+          client: statsClient,
+        ),
   ).whenComplete(statsClient.close);
 }
 
@@ -238,7 +242,8 @@ class _ChargingPileStatsSheet extends StatefulWidget {
   final ChargingPileStatsClient client;
 
   @override
-  State<_ChargingPileStatsSheet> createState() => _ChargingPileStatsSheetState();
+  State<_ChargingPileStatsSheet> createState() =>
+      _ChargingPileStatsSheetState();
 }
 
 class _ChargingPileStatsSheetState extends State<_ChargingPileStatsSheet> {
@@ -264,7 +269,8 @@ class _ChargingPileStatsSheetState extends State<_ChargingPileStatsSheet> {
         _stats = stats;
         _loading = false;
       });
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _failed = true;

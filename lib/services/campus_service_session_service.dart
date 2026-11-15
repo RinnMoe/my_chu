@@ -11,9 +11,8 @@ import '../models/account.dart';
 import 'account_network_session_service.dart';
 import 'auth_service.dart';
 import 'campus_session_store.dart';
-import 'cold_start_trace.dart';
 import 'identity_silent_login_service.dart';
-import 'logger_service.dart';
+import 'logging/logger.dart';
 import 'login_required_notifier.dart';
 import 'mobile_campus_request_signer.dart';
 import 'federated_session.dart';
@@ -899,7 +898,6 @@ class CampusSessionService {
       );
       if (!committed.committed) return (null, false);
       AppLogger.info('${serviceId.value} 本地服务会话已建立并保存');
-      ColdStartTrace.exchange(serviceId.value);
       return (
         committed.stamp == null
             ? session
@@ -931,7 +929,6 @@ class CampusSessionService {
       );
       if (!committed.committed) return (null, false);
       AppLogger.info('移动校园 token 已换取并保存');
-      ColdStartTrace.exchange(serviceId.value);
       return (
         committed.stamp == null
             ? credential
@@ -1000,7 +997,6 @@ class CampusSessionService {
     );
     if (!committed.committed) return (null, false);
     AppLogger.info('${serviceId.value} 服务会话已换取并保存');
-    ColdStartTrace.exchange(serviceId.value);
     return (
       committed.stamp == null
           ? session
@@ -1179,18 +1175,12 @@ class CampusSessionService {
     CampusServiceDefinition definition,
     String reason,
   ) {
-    AppLogger.event(
-      level: 'WARN',
-      code: 'service.session.exchange_failed',
-      message: '${CampusServiceEndpoints.labelFor(definition.id)} 换票未取得可用会话',
-      domain: 'session',
-      failureReason: FailureReason.sessionUnavailable,
-      failureStage: FailureStage.sessionPrepare,
-      fields: {
-        'service': definition.id.value,
-        'phase': 'exchange',
-        'result': reason,
-      },
+    AppLogger.warn(
+      <Object?>[
+        'service.session.exchange_failed',
+        '${CampusServiceEndpoints.labelFor(definition.id)} 换票未取得可用会话',
+        {'service': definition.id.value, 'phase': 'exchange', 'result': reason},
+      ].join(' | '),
     );
   }
 
@@ -1474,8 +1464,12 @@ class CampusSessionService {
             .join('&'),
       );
       return await _readMobileCampusJson(request, label);
-    } catch (error) {
-      AppLogger.warn('$label 请求失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '$label 请求失败 (${error.runtimeType})',
+      );
       return null;
     }
   }
@@ -1498,8 +1492,12 @@ class CampusSessionService {
       request.headers.contentType = ContentType.json;
       request.write(jsonEncode(body));
       return await _readMobileCampusJson(request, label);
-    } catch (error) {
-      AppLogger.warn('$label 请求失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '$label 请求失败 (${error.runtimeType})',
+      );
       return null;
     }
   }
@@ -1527,14 +1525,26 @@ class CampusSessionService {
       final decoded = jsonDecode(body);
       if (decoded is! Map) return null;
       return Map<String, dynamic>.from(decoded);
-    } on TimeoutException {
-      AppLogger.warn('$label 响应超时');
+    } on TimeoutException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(
+        diagnosticError,
+        stackTrace: diagnosticStack,
+        context: '$label 响应超时',
+      );
       return null;
-    } on HttpException {
-      AppLogger.warn('$label 响应中断');
+    } on HttpException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(
+        diagnosticError,
+        stackTrace: diagnosticStack,
+        context: '$label 响应中断',
+      );
       return null;
-    } on FormatException {
-      AppLogger.warn('$label 返回非 JSON');
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(
+        diagnosticError,
+        stackTrace: diagnosticStack,
+        context: '$label 返回非 JSON',
+      );
       return null;
     }
   }
@@ -1754,7 +1764,8 @@ class CampusSessionService {
         _serviceExchangeCooldowns.recordFailure(key);
       }
       return session;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       _serviceExchangeCooldowns.recordFailure(key);
       rethrow;
     } finally {
@@ -1925,7 +1936,8 @@ class CampusSessionService {
       final response = await request.close().timeout(_requestTimeout);
       await _drainExchangeResponse(response, '会话校验');
       return response.statusCode == HttpStatus.ok;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
     } finally {
       client.close();
@@ -1942,10 +1954,18 @@ class CampusSessionService {
   ) async {
     try {
       await response.drain<void>().timeout(_requestTimeout);
-    } on HttpException catch (error) {
-      AppLogger.warn('$label SSO 响应提前关闭，继续使用已获取的会话信息 (${error.runtimeType})');
-    } on TimeoutException {
-      AppLogger.warn('$label SSO 响应读取超时，继续使用已获取的会话信息');
+    } on HttpException catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '$label SSO 响应提前关闭，继续使用已获取的会话信息 (${error.runtimeType})',
+      );
+    } on TimeoutException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(
+        diagnosticError,
+        stackTrace: diagnosticStack,
+        context: '$label SSO 响应读取超时，继续使用已获取的会话信息',
+      );
     }
   }
 
@@ -1975,7 +1995,8 @@ class CampusSessionService {
               ? data['home']
               : null;
       return json['code'] == 0 && home is List && home.isNotEmpty;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
     } finally {
       client.close(force: true);

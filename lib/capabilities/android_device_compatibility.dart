@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../services/logging/logger.dart';
+
 /// Named Android system/vendor signals available to built-in host features.
 ///
 /// This is intentionally an allowlist rather than a free-form system property
@@ -109,7 +111,8 @@ class AndroidDeviceCompatibilityCapability {
     try {
       final raw = await _invoke('supportsFeature', {'feature': feature.id});
       return raw == true;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
     }
   }
@@ -117,7 +120,8 @@ class AndroidDeviceCompatibilityCapability {
   Future<AndroidDeviceProfile?> _loadProfile() async {
     try {
       return _parseProfile(await _invoke('getProfile', null));
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }

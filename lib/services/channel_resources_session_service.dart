@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import 'logging/logger.dart';
+
 /// Authentication status for the external channel-resources service.
 enum ChannelResourcesSessionStatus {
   signedOut,
@@ -209,7 +211,8 @@ class ChannelResourcesSession {
       final refreshed = await _refresh(generation);
       if (!refreshed) return authState;
       return authState;
-    } on ChannelResourcesSessionException catch (error) {
+    } on ChannelResourcesSessionException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (error.type == ChannelResourcesSessionErrorType.stale) rethrow;
       if (_isGenerationCurrent(generation)) {
         _status = ChannelResourcesSessionStatus.unavailable;
@@ -217,7 +220,8 @@ class ChannelResourcesSession {
         _emitState();
       }
       return authState;
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (_isGenerationCurrent(generation)) {
         _status = ChannelResourcesSessionStatus.unavailable;
         _errorType = ChannelResourcesSessionErrorType.network;
@@ -329,11 +333,13 @@ class ChannelResourcesSession {
       _errorType = null;
       _emitState();
       return authState;
-    } on ChannelResourcesSessionException catch (error) {
+    } on ChannelResourcesSessionException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (error.type == ChannelResourcesSessionErrorType.stale) rethrow;
       _setLoginFailure(generation, error.type);
       return authState;
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       _setLoginFailure(generation, ChannelResourcesSessionErrorType.network);
       return authState;
     }
@@ -473,7 +479,8 @@ class ChannelResourcesSession {
           },
         );
       }
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Local sign-out must not be blocked by a network failure.
     }
     _checkFence(generation);
@@ -491,7 +498,8 @@ class ChannelResourcesSession {
     _emitState();
     try {
       await _storage.delete(key: _refreshStorageKey);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // A failed secure-storage cleanup is not exposed as credential data.
     }
   }
@@ -590,7 +598,8 @@ class ChannelResourcesSession {
       _errorType = null;
       _emitState();
       return true;
-    } on ChannelResourcesSessionException catch (error) {
+    } on ChannelResourcesSessionException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (error.type == ChannelResourcesSessionErrorType.stale) rethrow;
       if (_isGenerationCurrent(generation)) {
         _status = ChannelResourcesSessionStatus.unavailable;
@@ -598,7 +607,8 @@ class ChannelResourcesSession {
         _emitState();
       }
       return false;
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (_isGenerationCurrent(generation)) {
         _status = ChannelResourcesSessionStatus.unavailable;
         _errorType = ChannelResourcesSessionErrorType.network;
@@ -650,9 +660,14 @@ class ChannelResourcesSession {
         headers: Map<String, String>.unmodifiable(headers),
         body: body,
       );
-    } on ChannelResourcesSessionException {
+    } on ChannelResourcesSessionException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       rethrow;
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const ChannelResourcesSessionException(
         ChannelResourcesSessionErrorType.network,
       );
@@ -697,7 +712,8 @@ class ChannelResourcesSession {
     _emitState();
     try {
       await _storage.delete(key: _refreshStorageKey);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Do not expose storage details to the feature layer.
     }
   }
@@ -712,7 +728,8 @@ class ChannelResourcesSession {
     }
     try {
       await _storage.write(key: _refreshStorageKey, value: cookie);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const ChannelResourcesSessionException(
         ChannelResourcesSessionErrorType.network,
       );
@@ -723,7 +740,8 @@ class ChannelResourcesSession {
     _checkFence(generation);
     try {
       await _storage.delete(key: _refreshStorageKey);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const ChannelResourcesSessionException(
         ChannelResourcesSessionErrorType.network,
       );
@@ -813,7 +831,8 @@ class ChannelResourcesSession {
     Object? decoded;
     try {
       decoded = jsonDecode(response.body);
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const ChannelResourcesSessionException(
         ChannelResourcesSessionErrorType.malformed,
       );
@@ -829,7 +848,11 @@ class ChannelResourcesSession {
   static String? _detail(ChannelResourcesHttpResponse response) {
     try {
       return _string(_jsonMap(response)['detail']);
-    } on ChannelResourcesSessionException {
+    } on ChannelResourcesSessionException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -886,7 +909,8 @@ class ChannelResourcesSession {
       if (payload is! Map) return null;
       final subject = _string(payload['sub']);
       return subject == null || subject.isEmpty ? null : subject;
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }

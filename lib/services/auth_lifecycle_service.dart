@@ -12,7 +12,7 @@ import '../capabilities/desktop_widgets/desktop_widget_bridge.dart';
 import '../models/account.dart';
 import '../services/credential_sync_service.dart';
 import '../services/identity_silent_login_service.dart';
-import '../services/logger_service.dart';
+import '../services/logging/logger.dart';
 import '../services/login_required_notifier.dart';
 import '../services/auth_service.dart';
 import '../services/saved_login_credential_service.dart';
@@ -178,8 +178,12 @@ class AuthLifecycleService {
   static Future<void> prepareInteractiveLogin() async {
     try {
       await WebViewCookieCoordinator.resetCookies();
-    } catch (error) {
-      AppLogger.warn('进入手动登录前清理 WebView cookies 失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '进入手动登录前清理 WebView cookies 失败 (${error.runtimeType})',
+      );
     }
   }
 
@@ -198,17 +202,24 @@ class AuthLifecycleService {
     await RecentScheduleRepository.instance.clear();
     try {
       await TimeReminderService.clearAll();
-    } catch (_) {}
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+    }
     // The course activity belongs to the previous identity as well: invalidate
     // its generation before the new account is persisted.
     try {
       await CourseLiveActivityService.clearAll();
-    } catch (_) {}
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+    }
     // Saved passwords are host-scoped rather than Account-scoped. Clear the
     // previous user's value before replacing the active account; the login
     // page may save the newly captured password immediately afterwards.
     await SavedLoginCredentialService.clearCredential();
     final current = await AuthService.getCurrentAccount();
+    if (current != null && current.accountKey != account.accountKey) {
+      AppLogger.clear();
+    }
     if (current?.accountKey == account.accountKey &&
         rootIdentityCookies != null) {
       // An interactive login is an explicit identity reset: drop every derived
@@ -267,22 +278,34 @@ class AuthLifecycleService {
     final clearFuture = AuthService.clearAll();
     try {
       await RecentScheduleRepository.instance.clear();
-    } catch (error) {
-      AppLogger.warn('退出登录清理最近课表失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '退出登录清理最近课表失败 (${error.runtimeType})',
+      );
     }
     final initialResetFuture = WebViewCookieCoordinator.resetCookies();
     try {
       await TimeReminderService.clearAll();
-    } catch (_) {}
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+    }
     // Invalidate the course activity generation first, then rescind its
     // notification, alarms and plan snapshot.
     try {
       await CourseLiveActivityService.clearAll();
-    } catch (_) {}
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+    }
     try {
       await clearFuture;
-    } catch (error) {
-      AppLogger.warn('退出登录清理账号失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '退出登录清理账号失败 (${error.runtimeType})',
+      );
       // A cleanup step can fail after the account itself was removed. Only
       // surface a failure when the account is still present; otherwise the
       // sign-out is complete from the user's perspective.
@@ -291,18 +314,27 @@ class AuthLifecycleService {
       try {
         await clearWidgetFuture;
         await DesktopWidgetSyncService.clearSchedule();
-      } catch (error) {
-        AppLogger.warn('退出登录清理桌面课表小组件失败 (${error.runtimeType})');
+      } catch (error, diagnosticStack) {
+        AppLogger.error(
+          error,
+          stackTrace: diagnosticStack,
+          context: '退出登录清理桌面课表小组件失败 (${error.runtimeType})',
+        );
       }
       try {
         await initialResetFuture;
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // Always attempt the post-clear barrier even if the first reset failed.
       }
       try {
         await WebViewCookieCoordinator.resetCookies(finalBarrier: true);
-      } catch (error) {
-        AppLogger.warn('退出登录清理 WebView cookies 失败 (${error.runtimeType})');
+      } catch (error, diagnosticStack) {
+        AppLogger.error(
+          error,
+          stackTrace: diagnosticStack,
+          context: '退出登录清理 WebView cookies 失败 (${error.runtimeType})',
+        );
       }
     }
     LoginRequiredNotifier.markPromptDismissed();
@@ -312,12 +344,14 @@ class AuthLifecycleService {
     HostAuthCoordinator.signedOut();
     final electricityFailure = await clearElectricity;
     if (electricityFailure != null) {
-      AppLogger.warn('退出登录清理电费记录失败 (${electricityFailure.runtimeType})');
+      AppLogger.error(electricityFailure, context: '退出登录清理电费记录失败');
       // Same rule as the account cleanup above: a step that fails after the
       // account itself was removed is not a failed sign-out for the user.
       if (await AuthService.getCurrentAccount() != null) {
         throw StateError('dorm_electricity_storage');
       }
     }
+    // Explicit sign-out is one of the documented reset points for diagnostics.
+    AppLogger.clear();
   }
 }

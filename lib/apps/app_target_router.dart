@@ -13,6 +13,8 @@ import 'app.dart';
 import 'app_registry.dart';
 import 'app_service.dart';
 
+import '../services/logging/logger.dart';
+
 /// Opens either a host-owned capability or a registered app by its stable ID.
 Future<bool> openTargetId(
   BuildContext context,
@@ -71,7 +73,8 @@ Future<void> openAppDefinition(
     var opened = false;
     try {
       opened = await action(context);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return;
     }
     if (!opened) return;
@@ -105,8 +108,11 @@ Future<void> openAppDefinition(
 
 void _recordAppUsage(AppDefinition plugin) {
   unawaited(
-    AppService.recordUsage(
-      plugin.metadata.id,
-    ).then<void>((_) {}, onError: (Object _) {}),
+    AppService.recordUsage(plugin.metadata.id).then<void>(
+      (_) {},
+      onError: (Object diagnosticError, StackTrace diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+      },
+    ),
   );
 }

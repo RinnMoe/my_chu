@@ -5,6 +5,8 @@ import 'global_preferences_migration.dart';
 import 'host_auth_state.dart';
 import 'legacy_session_migration_executor.dart';
 
+import 'logging/logger.dart';
+
 class HostAuthCoordinator {
   static Future<void>? _check;
   static Future<void>? _initialization;
@@ -31,7 +33,8 @@ class HostAuthCoordinator {
         account == null ? HostAuthStatus.guest : HostAuthStatus.checking,
         accountKey: account?.accountKey,
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (generation == _generation) {
         HostAuthState.update(HostAuthStatus.storageError);
       }
@@ -94,7 +97,8 @@ class HostAuthCoordinator {
         _checkedRevision = AuthService.sessionRevision;
         AuthLifecycleService.warmUpPersistedAccount(owner);
       }
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (generation == _generation &&
           HostAuthState.snapshot.value.accountKey == owner) {
         HostAuthState.update(HostAuthStatus.unavailable, accountKey: owner);

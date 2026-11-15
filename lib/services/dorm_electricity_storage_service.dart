@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import 'logger_service.dart';
+import 'logging/logger.dart';
 
 /// Raw local storage shared by the feature and explicit host sign-out.
 /// Campus authentication and network session material never enter this store.
@@ -53,8 +53,8 @@ class DormElectricityStorageService {
     final future = _tail.then((_) async {
       try {
         await _storage.write(key: key, value: null);
-      } catch (error) {
-        AppLogger.warn('清除电费记录失败 (${error.runtimeType})');
+      } catch (error, stack) {
+        AppLogger.error(error, stackTrace: stack, context: '清除电费记录失败');
       }
     });
     _tail = future.then<void>((_) {}, onError: (Object _) {});
@@ -66,8 +66,8 @@ class DormElectricityStorageService {
   Future<void> _restore(String? previous) async {
     try {
       await _storage.write(key: key, value: previous);
-    } catch (error) {
-      AppLogger.warn('回滚电费记录失败 (${error.runtimeType})');
+    } catch (error, stack) {
+      AppLogger.error(error, stackTrace: stack, context: '回滚电费记录失败');
     }
   }
 }

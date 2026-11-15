@@ -15,12 +15,11 @@ import '../apps/portal_notices/mobile_campus_notice_service.dart';
 import '../services/portal_identity_service.dart';
 import '../services/app_remote_services_service.dart';
 import '../services/auth_service.dart';
-import '../services/cold_start_trace.dart';
 import '../services/credential_sync_service.dart';
 import '../services/home_layout_service.dart';
 import '../services/home_focus_service.dart';
 import '../services/tronclass_rollcall_store.dart';
-import '../services/logger_service.dart';
+import '../services/logging/logger.dart';
 import '../services/weather_service.dart';
 import '../services/campus_settings_service.dart';
 import '../services/demo_data_service.dart';
@@ -299,17 +298,12 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
           accountKey != (_account?.accountKey ?? 'anonymous')) {
         return;
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!_isCurrentRequest(generation, _bootstrapGeneration)) {
         return;
       }
-      AppLogger.recordSafeFailure(
-        code: 'home.bootstrap.failed',
-        message: '首页基础数据加载失败',
-        error: error,
-        domain: 'home',
-        fields: const {'stage': 'bootstrap'},
-      );
+      AppLogger.error(error, stackTrace: StackTrace.current);
       setState(() {
         _loading = false;
         if (accountChanged) {
@@ -324,17 +318,11 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
   Future<void> _preloadPortalPersonalData() async {
     try {
       await PortalApiService().fetchPersonalData();
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       // 后台预热失败不阻塞首页；打开“个人数据”页时会自行重试。
       if (!mounted) return;
-      AppLogger.recordSafeFailure(
-        level: 'WARN',
-        code: 'home.personal.preload.failed',
-        message: '首页个人数据预热失败',
-        error: error,
-        domain: 'home',
-        fields: const {'stage': 'preload'},
-      );
+      AppLogger.error(error, stackTrace: StackTrace.current);
     }
   }
 
@@ -372,22 +360,15 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
         _homeFocus = snapshot;
         _homeFocusLoading = false;
       });
-      ColdStartTrace.homeReady();
       _scheduleFocusRefresh(snapshot.nextRefreshAt);
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!_isCurrentRequest(generation, _homeFocusGeneration) ||
           (accountKey != null &&
               accountKey != (_account?.accountKey ?? 'anonymous'))) {
         return;
       }
-      AppLogger.recordSafeFailure(
-        level: 'WARN',
-        code: 'home.focus.unexpected_failed',
-        message: '首页焦点加载失败',
-        error: error,
-        domain: 'home',
-        fields: const {'stage': 'page'},
-      );
+      AppLogger.error(error, stackTrace: StackTrace.current);
       final previous = _homeFocus;
       setState(() {
         _homeFocus = HomeFocusSnapshot(
@@ -455,20 +436,14 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
         _quickAppsConfig = projection.config;
         _recentIds = projection.recentIds;
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!_isCurrentRequest(generation, _quickAppsGeneration) ||
           (accountKey != null &&
               accountKey != (_account?.accountKey ?? 'anonymous'))) {
         return;
       }
-      AppLogger.recordSafeFailure(
-        level: 'WARN',
-        code: 'home.quick_apps.failed',
-        message: '首页常用应用加载失败',
-        error: error,
-        domain: 'home',
-        fields: const {'stage': 'quick_apps_projection'},
-      );
+      AppLogger.error(error, stackTrace: StackTrace.current);
     }
   }
 
@@ -510,7 +485,8 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
         _weatherLoading = false;
         _weather = weather;
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!_isCurrentRequest(generation, _weatherGeneration) ||
           (accountKey != null &&
               accountKey != (_account?.accountKey ?? 'anonymous'))) {
@@ -518,14 +494,7 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
       }
       setState(() => _weatherLoading = false);
       // 天气为非关键信息：获取失败时静默隐藏，下拉刷新会重试。
-      AppLogger.recordSafeFailure(
-        level: 'WARN',
-        code: 'home.weather.failed',
-        message: '首页天气加载失败',
-        error: error,
-        domain: 'home',
-        fields: const {'source': 'weather'},
-      );
+      AppLogger.error(error, stackTrace: StackTrace.current);
     }
   }
 
@@ -568,15 +537,8 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
           await calendarService.ensureTermStartDateForSemester(
             schedule.semesterLabel,
           );
-        } catch (error) {
-          AppLogger.recordSafeFailure(
-            level: 'WARN',
-            code: 'home.widget_calendar.resolve.failed',
-            message: '桌面小组件学期日期解析失败',
-            error: error,
-            domain: 'home',
-            fields: const {'stage': 'widget_term_start'},
-          );
+        } catch (error, diagnosticStack) {
+          AppLogger.error(error, stackTrace: diagnosticStack);
         }
       }
       if (!_isCurrentRequest(generation, _teachingWeekGeneration) ||
@@ -591,20 +553,14 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
       // have finished loading. Publish again now that the schedule's date map
       // is available in the account-scoped cache.
       unawaited(DesktopWidgetSyncService.refresh());
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!_isCurrentRequest(generation, _teachingWeekGeneration) ||
           (accountKey != null &&
               accountKey != (_account?.accountKey ?? 'anonymous'))) {
         return;
       }
-      AppLogger.recordSafeFailure(
-        level: 'WARN',
-        code: 'home.teaching_week.failed',
-        message: '首页教学周加载失败',
-        error: error,
-        domain: 'home',
-        fields: const {'source': 'academic.calendar'},
-      );
+      AppLogger.error(error, stackTrace: StackTrace.current);
       setState(() => _teachingWeekLoading = false);
     }
   }
@@ -623,19 +579,13 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
       if (updated.name != _account?.name) {
         setState(() => _account = updated);
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!_isCurrentRequest(bootstrapGeneration, _bootstrapGeneration) ||
           _account?.accountKey != account.accountKey) {
         return;
       }
-      AppLogger.recordSafeFailure(
-        level: 'WARN',
-        code: 'home.account_name.failed',
-        message: '首页账号名称刷新失败',
-        error: error,
-        domain: 'home',
-        fields: const {'stage': 'account_name'},
-      );
+      AppLogger.error(error, stackTrace: StackTrace.current);
     }
   }
 

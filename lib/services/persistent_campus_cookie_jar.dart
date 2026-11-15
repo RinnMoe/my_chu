@@ -7,6 +7,8 @@ import 'campus_service_id.dart';
 import 'session_storage_support.dart';
 import 'session_materialization.dart';
 
+import 'logging/logger.dart';
+
 /// Complete cookie metadata retained by the account-scoped session store.
 class PersistentCampusCookie {
   final String name;
@@ -384,7 +386,8 @@ class PersistentCampusCookieJar {
       final result = await action();
       if (owned != null) await owned.end(commit: result is! bool || result);
       return result;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (owned != null) await owned.end(commit: false);
       rethrow;
     }
@@ -404,7 +407,8 @@ class PersistentCampusCookieJar {
     try {
       await action();
       if (owned != null) await owned.end(commit: true);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (owned != null) await owned.end(commit: false);
       rethrow;
     }
@@ -507,7 +511,8 @@ class PersistentCampusCookieJar {
         case 'expires':
           try {
             expires = HttpDate.parse(attributeValue).toUtc();
-          } catch (_) {
+          } catch (diagnosticError, diagnosticStack) {
+            AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
             expires = DateTime.tryParse(attributeValue)?.toUtc();
           }
         case 'max-age':

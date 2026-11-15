@@ -73,17 +73,17 @@ object AndroidDeviceCompatibilityChannel {
     }
 
     private fun profile(context: Context): Map<String, Any?> {
-        val osMajorVersion = runCatching { DeviceOs.getOsBigVersionCode() }
+        val osMajorVersion = runCatching { DeviceOs.getOsBigVersionCode() }.onFailure { NativeErrorLog.record(it, "AndroidDeviceCompatibilityChannel") }
             .getOrDefault(-1)
             .takeIf { it >= 0 }
         return mapOf(
-            "brandName" to safeText(runCatching { DeviceBrand.getBrandName() }.getOrNull()),
+            "brandName" to safeText(runCatching { DeviceBrand.getBrandName() }.onFailure { NativeErrorLog.record(it, "AndroidDeviceCompatibilityChannel") }.getOrNull()),
             "marketName" to safeText(
-                runCatching { DeviceMarketName.getMarketName(context) }.getOrNull(),
+                runCatching { DeviceMarketName.getMarketName(context) }.onFailure { NativeErrorLog.record(it, "AndroidDeviceCompatibilityChannel") }.getOrNull(),
             ),
-            "osName" to safeText(runCatching { DeviceOs.getOsName() }.getOrNull()),
+            "osName" to safeText(runCatching { DeviceOs.getOsName() }.onFailure { NativeErrorLog.record(it, "AndroidDeviceCompatibilityChannel") }.getOrNull()),
             "osVersionName" to safeText(
-                runCatching { DeviceOs.getOsVersionName() }.getOrNull(),
+                runCatching { DeviceOs.getOsVersionName() }.onFailure { NativeErrorLog.record(it, "AndroidDeviceCompatibilityChannel") }.getOrNull(),
             ),
             "osMajorVersion" to osMajorVersion,
             "androidSdkInt" to Build.VERSION.SDK_INT,
@@ -101,7 +101,7 @@ object AndroidDeviceCompatibilityChannel {
     }
 
     private fun safeBoolean(check: () -> Boolean): Boolean {
-        return runCatching { check() }.getOrDefault(false)
+        return runCatching { check() }.onFailure { NativeErrorLog.record(it, "AndroidDeviceCompatibilityChannel") }.getOrDefault(false)
     }
 
     private fun safeText(value: String?): String? {

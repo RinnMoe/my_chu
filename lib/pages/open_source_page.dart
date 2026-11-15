@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../services/logging/logger.dart';
+
 class OpenSourcePage extends StatelessWidget {
   const OpenSourcePage({super.key});
   static bool _electricityLicenseRegistered = false;
@@ -29,7 +31,8 @@ class OpenSourcePage extends StatelessWidget {
   Future<void> _openExternal(String url) async {
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // An unavailable browser should not prevent reading the local license list.
     }
   }
@@ -71,7 +74,7 @@ class OpenSourcePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('开源许可与致谢')),
+      appBar: AppBar(title: const Text('开源信息')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [

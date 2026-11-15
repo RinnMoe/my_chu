@@ -17,7 +17,7 @@ import '../capabilities/text_utils.dart';
 import 'app_content/app_announcement.dart';
 import 'app_content/app_content_service.dart';
 import 'demo_data_service.dart';
-import 'logger_service.dart';
+import 'logging/logger.dart';
 import 'auth_service.dart';
 
 typedef _CurrentTeachingWeekLoader =
@@ -300,15 +300,8 @@ class HomeFocusService {
         ),
         force: force,
       );
-    } catch (error) {
-      AppLogger.recordSafeFailure(
-        level: 'WARN',
-        code: 'home.focus.today.aggregate_failed',
-        message: '首页今日焦点聚合失败',
-        error: error,
-        domain: 'home',
-        fields: const {'stage': 'aggregate'},
-      );
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       final now = _clock();
       if (previous == null) {
         return _FocusSourceSnapshot(
@@ -388,7 +381,8 @@ class HomeFocusService {
         visibleNow: now.hour >= reminderHour,
         nextRefreshAt: nextRefreshAt,
       );
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       _recordEarlyClassFailure(error);
       return _EarlyClassFocusTiming(evaluatedAt: _clock());
     }
@@ -430,21 +424,15 @@ class HomeFocusService {
           appId: 'feature.academic.schedule',
         ),
       );
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       _recordEarlyClassFailure(error);
       return null;
     }
   }
 
   static void _recordEarlyClassFailure(Object error) {
-    AppLogger.recordSafeFailure(
-      level: 'WARN',
-      code: 'home.focus.early_class.failed',
-      message: '首页次日课程焦点加载失败',
-      error: error,
-      domain: 'home',
-      fields: const {'source': 'academic.schedule'},
-    );
+    AppLogger.error(error, stackTrace: StackTrace.current);
   }
 
   static Future<CurrentTeachingWeek?> _defaultCurrentWeekLoader(
@@ -453,7 +441,8 @@ class HomeFocusService {
     try {
       return (await AcademicCalendarService().fetchCurrentCalendarState())
           .teachingWeek;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -691,14 +680,8 @@ class HomeFocusService {
   }) async {
     try {
       return _FocusLoadResult(value: await loader());
-    } catch (error) {
-      AppLogger.recordSafeFailure(
-        level: 'WARN',
-        code: code,
-        message: message,
-        error: error,
-        domain: 'home',
-      );
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       return _FocusLoadResult(error: error);
     }
   }

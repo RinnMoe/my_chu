@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import 'host_platform.dart';
 
+import 'logging/logger.dart';
+
 @immutable
 class ExactAlarmStatus {
   final bool supported;
@@ -44,7 +46,8 @@ class PlatformCompatibilityService {
         supported: values['exactAlarmSupported'] == true,
         authorized: values['exactAlarmAuthorized'] == true,
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return const ExactAlarmStatus.unsupported();
     }
   }
@@ -56,7 +59,8 @@ class PlatformCompatibilityService {
           await (debugInvoke?.call('androidSdkInt') ??
               _channel.invokeMethod<Object?>('androidSdkInt'));
       return value is int && value > 0 ? value : null;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }

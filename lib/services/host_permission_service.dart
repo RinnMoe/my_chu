@@ -5,6 +5,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'platform_compatibility_service.dart';
 import 'host_platform.dart';
 
+import 'logging/logger.dart';
+
 typedef HostPermissionRequester =
     Future<PermissionStatus> Function(Permission permission);
 typedef HostPermissionStatusChecker =
@@ -210,13 +212,29 @@ class HostPermissionService {
     );
   }
 
+  Future<HostPermissionFeatureResult> requestCrashReportStoragePermission() {
+    if (_hostPlatform != HostPlatform.android) {
+      return Future.value(HostPermissionFeatureResult.unsupported);
+    }
+    return _serialize(
+      () => _requestFeatureLocked([
+        const HostPermissionPurpose(
+          permission: Permission.storage,
+          title: '存储权限申请',
+          message: '用于将崩溃报告自动保存至公共 Download 目录。',
+        ),
+      ]),
+    );
+  }
+
   Future<bool> isNotificationPermissionGranted() async {
     if (kIsWeb || _hostPlatform != HostPlatform.android) {
       return false;
     }
     try {
       return (await _checkPermission(Permission.notification)).isGranted;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
     }
   }
@@ -256,7 +274,8 @@ class HostPermissionService {
             permanentlyDenied: false,
           );
         }
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         return const HostPermissionFeatureResult(
           supported: true,
           granted: false,
@@ -267,14 +286,16 @@ class HostPermissionService {
       HostPermissionPromptHandle? prompt;
       try {
         prompt = await presentPurpose?.call(locationPurpose);
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // Keep the native request available if the explanatory UI fails.
       }
       var granted = false;
       try {
         granted =
             await _invokeHarmonyLocationPermission('requestPermission') == true;
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         granted = false;
       } finally {
         prompt?.dismiss();
@@ -307,7 +328,8 @@ class HostPermissionService {
       int? sdkInt;
       try {
         sdkInt = await _androidSdkIntProvider();
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // If the host cannot report its API level, avoid blocking modern
         // Android on a legacy location permission.
       }
@@ -325,7 +347,8 @@ class HostPermissionService {
     try {
       alreadyGranted =
           await _invokeHarmonyBlePermission('checkPermission') == true;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return HostPermissionFeatureResult.unsupported;
     }
     if (alreadyGranted) {
@@ -339,7 +362,8 @@ class HostPermissionService {
     HostPermissionPromptHandle? prompt;
     try {
       prompt = await presentPurpose?.call(harmonyBleCentralPurpose);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Permission requests still proceed when the explanatory UI fails.
     }
     try {
@@ -350,7 +374,8 @@ class HostPermissionService {
         granted: granted,
         permanentlyDenied: false,
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return const HostPermissionFeatureResult(
         supported: true,
         granted: false,
@@ -378,7 +403,8 @@ class HostPermissionService {
         PermissionStatus status;
         try {
           status = await _checkPermission(purpose.permission);
-        } catch (_) {
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           status = PermissionStatus.denied;
         }
         if (status.isGranted ||
@@ -390,12 +416,14 @@ class HostPermissionService {
         HostPermissionPromptHandle? prompt;
         try {
           prompt = await presentPurpose?.call(purpose);
-        } catch (_) {
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           // A presentation failure must not block the native permission flow.
         }
         try {
           await _requestPermission(purpose.permission);
-        } catch (_) {
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           // One unavailable or failed permission must not block the rest.
         } finally {
           prompt?.dismiss();
@@ -416,7 +444,8 @@ class HostPermissionService {
       PermissionStatus status;
       try {
         status = await _checkPermission(purpose.permission);
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         status = PermissionStatus.denied;
       }
       if (status.isGranted) continue;
@@ -429,7 +458,8 @@ class HostPermissionService {
       HostPermissionPromptHandle? prompt;
       try {
         prompt = await presentPurpose?.call(purpose);
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // Permission requests still proceed when the explanatory UI fails.
       }
       try {
@@ -441,7 +471,8 @@ class HostPermissionService {
               status.isPermanentlyDenied ||
               status.isRestricted;
         }
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         granted = false;
       } finally {
         prompt?.dismiss();
@@ -458,7 +489,9 @@ class HostPermissionService {
     final result = _permissionTail.then((_) => operation());
     _permissionTail = result.then<void>(
       (_) {},
-      onError: (Object _, StackTrace _) {},
+      onError: (Object diagnosticError, StackTrace diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+      },
     );
     return result;
   }

@@ -22,7 +22,7 @@ object TimeReminderEngine {
     private fun manager(c: Context) = c.getSystemService(NotificationManager::class.java)
     private fun alarms(c: Context) = c.getSystemService(AlarmManager::class.java)
     private fun read(c: Context): List<JSONObject> {
-        val array = runCatching { JSONArray(prefs(c).getString("events", "[]")) }.getOrElse { JSONArray() }
+        val array = runCatching { JSONArray(prefs(c).getString("events", "[]")) }.onFailure { NativeErrorLog.record(it, "TimeReminderEngine") }.getOrElse { JSONArray() }
         return (0 until array.length()).mapNotNull { array.optJSONObject(it) }
     }
     private fun write(c: Context, events: List<JSONObject>) {
@@ -127,7 +127,9 @@ object TimeReminderEngine {
         if (prefs(c).getString("owner", "").isNullOrBlank() || !exact(c) || !notifications(c)) return
         live.filter { !it.optBoolean("delivered") && it.optLong("triggerAt") > now }.sortedBy { it.getLong("triggerAt") }.take(64).forEach {
             try { alarms(c).setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, it.getLong("triggerAt"), pending(c, it)) }
-            catch (_: SecurityException) { return }
+            catch (diagnosticError: SecurityException) {
+                NativeErrorLog.record(diagnosticError, "TimeReminderEngine")
+                return }
         }
     }
     @Synchronized fun deliver(c: Context, intent: Intent) {
@@ -184,7 +186,7 @@ object TimeReminderEngine {
         val old = c.getSharedPreferences("mychu_scheduled_alerts", Context.MODE_PRIVATE)
         for ((name, raw) in old.all) {
             if (!name.startsWith("schedule.") || raw !is String) continue
-            val array = runCatching { JSONArray(raw) }.getOrElse { JSONArray() }
+            val array = runCatching { JSONArray(raw) }.onFailure { NativeErrorLog.record(it, "TimeReminderEngine") }.getOrElse { JSONArray() }
             for (i in 0 until array.length()) {
                 val e = array.optJSONObject(i) ?: continue
                 val legacyKey = "${e.optString("providerId")}|${e.optString("eventId")}|${e.optLong("triggerAt")}"
@@ -218,7 +220,7 @@ object TimeReminderEngine {
             val icon = notification.smallIcon
             if (icon != null && runCatching {
                 icon.resPackage == c.packageName && icon.resId == R.mipmap.ic_launcher
-            }.getOrDefault(false)) continue
+            }.onFailure { NativeErrorLog.record(it, "TimeReminderEngine") }.getOrDefault(false)) continue
             val builder = Notification.Builder.recoverBuilder(c, notification)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setOnlyAlertOnce(true)
@@ -255,7 +257,10 @@ object TimeReminderEngine {
                     "reschedule" -> { reschedule(c); result.success(null) }
                     else -> result.notImplemented()
                 }
-            } catch (_: Exception) { result.error("REMINDER_FAILED", "时间提醒操作失败", null) }
+            } catch (diagnosticError: Exception) {
+                NativeErrorLog.record(diagnosticError, "TimeReminderEngine")
+                result.error("REMINDER_FAILED", "时间提醒操作失败", null)
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
+import 'reliability_event.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -9,7 +10,7 @@ import 'auth_service.dart';
 import 'host_auth_state.dart';
 import 'privacy_agreement_service.dart';
 import 'user_error_message.dart';
-import 'logger_service.dart';
+import 'logging/logger.dart';
 
 /// Host-owned ephemeral state. No attendance codes, QR data or credentials are cached.
 class TronclassRollcallStore extends ChangeNotifier {
@@ -145,7 +146,8 @@ class TronclassRollcallStore extends ChangeNotifier {
         result.where((item) => !_completed.contains(item.id)),
       );
       _error = null;
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!_current(identity)) return;
       _error =
           error is RollcallException
@@ -155,6 +157,7 @@ class TronclassRollcallStore extends ChangeNotifier {
         logUserFacingError(
           UserErrorContext.network,
           error,
+          stackTrace: diagnosticStack,
           operationId: UserOperationId.tronclassRollcallLoad,
         );
       }
@@ -203,22 +206,26 @@ class TronclassRollcallStore extends ChangeNotifier {
       if (!_current(identity)) return false;
       _remove(item.id);
       return true;
-    } on RollcallException catch (error) {
+    } on RollcallException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!_current(identity)) return false;
       if (error.failure == RollcallFailure.ended) _remove(item.id);
       if (error.failure != RollcallFailure.authentication) {
         logUserFacingError(
           UserErrorContext.network,
           error,
+          stackTrace: diagnosticStack,
           operationId: UserOperationId.tronclassRollcallAnswer,
         );
       }
       rethrow;
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!_current(identity)) return false;
       logUserFacingError(
         UserErrorContext.network,
         error,
+        stackTrace: diagnosticStack,
         operationId: UserOperationId.tronclassRollcallAnswer,
       );
       throw const RollcallException(RollcallFailure.uncertain);

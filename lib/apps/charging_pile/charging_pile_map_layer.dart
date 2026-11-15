@@ -23,7 +23,7 @@ import "charging_pile_page.dart";
 import "charging_pile_service.dart";
 import "charging_pile_widgets.dart";
 
-
+import '../../services/logging/logger.dart';
 
 /// 把 Repository 状态映射为地图要素。
 ///
@@ -132,13 +132,10 @@ class ChargingPileLayerProvider implements MapLayerProvider {
         maxAge: Duration.zero,
         campusId: _campusId,
       );
-    } on ChargingPileException catch (error) {
+    } on ChargingPileException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (_disposed) return;
-      logUserFacingError(
-        UserErrorContext.map,
-        error,
-        operation: "charging_layer_refresh",
-      );
+      logUserFacingError(UserErrorContext.map, error);
     }
   }
 
@@ -169,26 +166,20 @@ class ChargingPileLayerProvider implements MapLayerProvider {
       if (!_active || _disposed || generation != _activationGeneration) return;
       _emitSnapshot();
       await _repository.refreshIfStale(campusId: _campusId);
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (_disposed) return;
-      logUserFacingError(
-        UserErrorContext.map,
-        error,
-        operation: "charging_layer_warmup",
-      );
+      logUserFacingError(UserErrorContext.map, error);
     }
   }
 
   Future<void> _refreshOne(String deviceId) async {
     try {
       await _repository.refreshDevice(deviceId);
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (_disposed) return;
-      logUserFacingError(
-        UserErrorContext.map,
-        error,
-        operation: "charging_layer_refresh_device",
-      );
+      logUserFacingError(UserErrorContext.map, error);
     }
   }
 
@@ -206,7 +197,7 @@ class ChargingPileLayerProvider implements MapLayerProvider {
     );
   }
 
-  /// 只产出该校区自己的点位：目录里同时有渭水与校本部的桩，坐标相隔十几公里，
+  /// 只产出该校区自己的点位：目录里同时有渭水、北院、雁塔的桩，坐标相隔十几公里，
   /// 混在一起会让另一校区的点全部落在视野外。
   List<MapLayerFeature> _buildFeatures(
     ChargingPileCatalogDocument catalog,

@@ -1,3 +1,4 @@
+import '../../services/logging/logger.dart';
 import "dart:async";
 
 import "campus_places_models.dart";
@@ -46,7 +47,15 @@ class CampusPlacesService {
   Future<void> load({bool refreshRelease = true}) async {
     _applySnapshot(await releaseCoordinator.loadForStartup());
     if (refreshRelease) {
-      unawaited(releaseCoordinator.refresh().catchError((_) => false));
+      unawaited(
+        releaseCoordinator.refresh().catchError((
+          Object error,
+          StackTrace stack,
+        ) {
+          AppLogger.error(error, stackTrace: stack, context: '地图资源后台刷新');
+          return false;
+        }),
+      );
     }
   }
 

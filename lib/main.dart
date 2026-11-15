@@ -1,6 +1,6 @@
+import 'services/logging/runtime_error_reporter.dart';
 import 'services/host_auth_state.dart';
 import 'services/auth_service.dart';
-import 'services/cold_start_trace.dart';
 import 'services/host_auth_coordinator.dart';
 import 'services/tronclass_rollcall_store.dart';
 import 'widgets/campus_auth_boundary.dart';
@@ -31,7 +31,7 @@ import 'apps/app_registry.dart';
 import 'apps/map_layer_catalog.dart';
 import 'apps/app_service.dart';
 import 'services/login_required_notifier.dart';
-import 'services/logger_service.dart';
+import 'services/logging/logger.dart';
 import 'services/navigation_layout_service.dart';
 import 'services/navigation_tab_presentation.dart';
 import 'services/privacy_agreement_service.dart';
@@ -68,10 +68,11 @@ void main() {
   runZonedGuarded(_bootstrap, RuntimeErrorReporter.handleZoneError);
 }
 
-void _bootstrap() {
-  ColdStartTrace.markLaunch();
-  RuntimeErrorReporter.install();
+Future<void> _bootstrap() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  RuntimeErrorReporter.install();
+  await AppLogger.startHostErrors();
+  await AppLogger.restoreCrashRecording();
   // Plugin debug callbacks serialize complete navigation requests, including
   // CAS tickets and short-lived access-token URLs. MyCHU emits its own
   // credential-free WebView lifecycle logs instead.
@@ -82,14 +83,28 @@ void _bootstrap() {
   registerBuiltInMapLayers();
   registerTimeReminders();
   unawaited(
-    TimeReminderService.initialize().catchError((Object error) {
-      AppLogger.warn('旧提醒清理失败 (${error.runtimeType})');
+    TimeReminderService.initialize().catchError((
+      Object error,
+      StackTrace diagnosticStack,
+    ) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '旧提醒清理失败 (${error.runtimeType})',
+      );
     }),
   );
   unawaited(themePreferencesNotifier.initialize());
   unawaited(
-    CourseLiveActivityService.initialize().catchError((Object error) {
-      AppLogger.warn('课程实时动态初始化失败 (${error.runtimeType})');
+    CourseLiveActivityService.initialize().catchError((
+      Object error,
+      StackTrace diagnosticStack,
+    ) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '课程实时动态初始化失败 (${error.runtimeType})',
+      );
     }),
   );
   unawaited(AppLaunchService.initialize());
@@ -141,9 +156,8 @@ class MyApp extends StatelessWidget {
       title: 'MyCHU',
       debugShowCheckedModeBanner: false,
       builder:
-          (context, child) => ScaffoldMessenger(
-            child: child ?? const SizedBox.shrink(),
-          ),
+          (context, child) =>
+              ScaffoldMessenger(child: child ?? const SizedBox.shrink()),
       themeMode: preferences.mode.materialThemeMode,
       theme: _buildTheme(
         Brightness.light,
@@ -383,8 +397,12 @@ class _AppShellState extends State<AppShell> {
       }
       await PrivacyAgreementService.accept(document);
       return true;
-    } catch (error) {
-      AppLogger.warn('隐私协议本地判定失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '隐私协议本地判定失败 (${error.runtimeType})',
+      );
       return true;
     }
   }
@@ -514,7 +532,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _handleAppLaunch();
     // 首页内容优先：更新检查与提醒重算都延后到首屏稳定之后。
     _updateCheckTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) unawaited(presentAppUpdateCheck(context, forceRefresh: false));
+      if (mounted) {
+        unawaited(presentAppUpdateCheck(context, forceRefresh: false));
+      }
     });
     _reminderRefreshTimer = Timer(const Duration(seconds: 2), () async {
       if (!mounted) return;
@@ -548,8 +568,12 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           }
         }
       }
-    } catch (error) {
-      AppLogger.warn('时间提醒权限初始化失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '时间提醒权限初始化失败 (${error.runtimeType})',
+      );
     } finally {
       _requestingReminderPermissions = false;
     }
@@ -727,7 +751,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 ? (_) => const PortalPersonalPage(initialTabIndex: 1)
                 : null,
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       /* Invalid/stale notification must never navigate. */
     }
   }
@@ -748,7 +773,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (!await CourseLiveActivityService.acceptsLaunch(payload)) return;
       if (!mounted) return;
       await openTargetId(context, CourseLiveActivityService.targetAppId);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       /* Invalid/stale notification must never navigate. */
     }
   }
@@ -1047,7 +1073,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         if (storedCampus == null) {
           await _showCampusSelection(accountKey);
         }
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // An unavailable campus store should not block the home screen.
       }
       await _guidePreferences.markCampusPromptSeen();

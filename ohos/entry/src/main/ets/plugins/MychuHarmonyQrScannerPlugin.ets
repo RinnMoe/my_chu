@@ -1,3 +1,4 @@
+import MychuHarmonyDiagnosticsPlugin from './MychuHarmonyDiagnosticsPlugin';
 import {
   AbilityAware,
   AbilityPluginBinding,
@@ -67,7 +68,8 @@ export default class MychuHarmonyQrScannerPlugin
           );
           return;
         }
-      } catch (_) {
+      } catch (diagnosticError) {
+        MychuHarmonyDiagnosticsPlugin.record(diagnosticError as Error, "MychuHarmonyQrScannerPlugin");
         // This support query was added after Scan Kit itself. Older systems
         // are checked by attempting the scanner API below.
       }
@@ -88,6 +90,7 @@ export default class MychuHarmonyQrScannerPlugin
           scan.source === scanCore.ScanSource.PHOTO ? 'gallery' : 'camera',
       });
     } catch (error) {
+      MychuHarmonyDiagnosticsPlugin.record(error as Error, "MychuHarmonyQrScannerPlugin");
       const code = (error as Record<string, Object>)['code'];
       if (code === USER_CANCELLED) {
         result.success(null);

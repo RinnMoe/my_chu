@@ -8,6 +8,8 @@ import '../../services/privacy_agreement_service.dart';
 import 'charging_pile_catalog_document.dart';
 import 'charging_pile_catalog_source.dart';
 
+import '../../services/logging/logger.dart';
+
 /// 目录快照的编排层：内置 → 本机缓存 → 站点目录。
 ///
 /// 站点新增桩位、改桩号、加分区时，**老版本 App 下一次启动就能跟上**，
@@ -77,12 +79,14 @@ class ChargingPileCatalogService extends ChangeNotifier {
       try {
         final registry = await CampusRegistryLoader().load();
         return chargingPileCampusResolverForRegistry(registry.campuses);
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // 清单读不出来时返回 null，交给内置表兜底。
         return (String prefix) => null;
       }
     }();
   }
+
   Future<ChargingPileCatalogDocument>? _loading;
   Future<void>? _refreshing;
   DateTime? _lastAttemptAt;
@@ -126,18 +130,15 @@ class ChargingPileCatalogService extends ChangeNotifier {
   bool _isDue() {
     final attempted = _lastAttemptAt;
     if (attempted == null) return true;
-    final wait = _failureCount == 0
-        ? refreshInterval
-        : _backoffFor(_failureCount);
+    final wait =
+        _failureCount == 0 ? refreshInterval : _backoffFor(_failureCount);
     return _now().difference(attempted) >= wait;
   }
 
   Duration _backoffFor(int failures) {
     final factor = failures.clamp(1, 8);
     final scaled = failureRetryInterval * factor;
-    return scaled > maxFailureRetryInterval
-        ? maxFailureRetryInterval
-        : scaled;
+    return scaled > maxFailureRetryInterval ? maxFailureRetryInterval : scaled;
   }
 
   Future<void> _runRefresh() async {
@@ -150,9 +151,11 @@ class ChargingPileCatalogService extends ChangeNotifier {
       if (_document?.catalogVersion == loaded.document.catalogVersion) return;
       _publish(loaded.document);
       await _writeCache(loaded.rawText);
-    } on ChargingPileCatalogException {
+    } on ChargingPileCatalogException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       _failureCount += 1;
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       _failureCount += 1;
     }
   }
@@ -169,7 +172,8 @@ class ChargingPileCatalogService extends ChangeNotifier {
         strictness: ChargingPileCatalogStrictness.tolerant,
         campusResolver: campusResolver,
       );
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 缓存损坏或结构超前：丢弃并退回内置，下一次成功拉取会重写。
       await _clearCacheQuietly();
       return null;
@@ -180,7 +184,8 @@ class ChargingPileCatalogService extends ChangeNotifier {
     try {
       final preferences = await _preferences();
       await preferences.setString(storageKey, rawText);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 缓存是加速手段，写失败只意味着下次冷启动要重新拉。
     }
   }
@@ -189,7 +194,8 @@ class ChargingPileCatalogService extends ChangeNotifier {
     try {
       final preferences = await _preferences();
       await preferences.remove(storageKey);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 忽略。
     }
   }

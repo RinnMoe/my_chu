@@ -1,3 +1,8 @@
+import 'dart:collection';
+import '../../capabilities/web_view_error_reporting.dart';
+import '../../services/failure_details.dart';
+import '../../services/usage_analytics_service.dart';
+import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
@@ -11,7 +16,7 @@ import '../../capabilities/web_view_bottom_bar.dart';
 import '../../capabilities/web_view_error_view.dart';
 import '../../capabilities/web_view_permission_capability.dart';
 import '../../services/academic_affairs_backend.dart';
-import '../../services/error_feedback_service.dart';
+import '../../services/logging/logger.dart';
 import '../../services/service_endpoints.dart';
 import '../../services/user_error_message.dart';
 import '../../capabilities/shuwei_request_proxy.dart';
@@ -60,14 +65,15 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
   var _resumeRefreshPending = false;
   var _resumeRefreshRunning = false;
   String? _error;
-  ErrorFeedbackAttempt? _feedbackAttempt;
+  AnalyticsOperation? _feedbackAttempt;
   // 教务系统网页版默认桌面视图：首次进入即按电脑模式渲染，避免
   // 移动端 UA 下页面布局异常；用户仍可通过底栏 UA 按钮切换。
   var _useDesktopUA = true;
   AcademicAffairsBackend? _backend;
 
   void _startFeedbackAttempt() {
-    _feedbackAttempt = ErrorFeedbackCoordinator.shared.begin(
+    _feedbackAttempt?.cancel();
+    _feedbackAttempt = UsageAnalyticsService.beginOperation(
       UserOperationId.academicWebView,
     );
   }
@@ -137,7 +143,8 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
       await controller.reload();
       if (_disposed || !mounted) return;
       await _updateNavigationState();
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       _showWebViewError(error, stage: failureStage);
       if (!mounted) return;
       setState(() => _loading = false);
@@ -156,6 +163,7 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
 
   @override
   void dispose() {
+    _feedbackAttempt?.cancel();
     _disposed = true;
     AuthenticatedWebViewCapability.resumeNotifier.removeListener(
       _onAppResumeRevisionChanged,
@@ -166,6 +174,7 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
   }
 
   void _onWebViewCreated(InAppWebViewController controller) {
+    WebViewErrorReporting.attach(controller);
     _webViewController = controller;
   }
 
@@ -184,7 +193,8 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
         _loading = true;
         _error = null;
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       _showWebViewError(error, stage: FailureStage.sessionPrepare);
     }
   }
@@ -229,7 +239,8 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
       if (await controller.canGoBack()) {
         await controller.goBack();
       }
-    } on PlatformException {
+    } on PlatformException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return;
     }
     await _updateNavigationState();
@@ -243,7 +254,8 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
       if (await controller.canGoForward()) {
         await controller.goForward();
       }
-    } on PlatformException {
+    } on PlatformException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return;
     }
     await _updateNavigationState();
@@ -272,7 +284,8 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
           urlRequest: URLRequest(url: WebUri(_entryUri.toString())),
         );
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       _showWebViewError(error, stage: failureStage);
       if (!mounted) return;
       setState(() => _loading = false);
@@ -311,7 +324,8 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
         _canGoBack = canGoBack;
         _canGoForward = canGoForward;
       });
-    } on PlatformException {
+    } on PlatformException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // WebView 可能在加载回调期间销毁，导航状态不是关键 UI。
     }
   }
@@ -321,7 +335,8 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
     try {
       await _webViewController?.setSettings(settings: _settings());
       await _webViewController?.reload();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 首屏尚未加载完成时切换 UA，重载失败可忽略。
     }
     if (!mounted) return;
@@ -373,6 +388,9 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
         children: [
           if (_webViewReady)
             InAppWebView(
+              initialUserScripts: UnmodifiableListView([
+                WebViewErrorReporting.script,
+              ]),
               initialUrlRequest: URLRequest(url: WebUri(_entryUri.toString())),
               initialSettings: _settings(),
               onWebViewCreated: _onWebViewCreated,
@@ -389,7 +407,7 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
                 return _proxy.intercept(request);
               },
               onLoadStart: (controller, url) {
-                if (_feedbackAttempt?.completed != false) {
+                if (_feedbackAttempt?.isFinished != false) {
                   _startFeedbackAttempt();
                 }
                 if (mounted) setState(() => _loading = true);
@@ -402,10 +420,18 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
                 await _updateNavigationState();
               },
               onReceivedError: (controller, request, error) {
+                AppLogger.error(
+                  error,
+                  context: 'WebView 资源加载失败\n${request.url}',
+                );
                 if (request.isForMainFrame != true) return;
                 _showWebViewError(error);
               },
               onReceivedHttpError: (controller, request, errorResponse) {
+                AppLogger.error(
+                  errorResponse,
+                  context: 'WebView HTTP 错误\n${request.url}',
+                );
                 final statusCode = errorResponse.statusCode;
                 if (request.isForMainFrame != true ||
                     statusCode == null ||
@@ -415,13 +441,16 @@ class _ShuweiWebViewPageState extends State<ShuweiWebViewPage>
                 _showWebViewError(errorResponse, statusCode: statusCode);
               },
               onRenderProcessGone: (controller, detail) {
-                if (!mounted) return;
-                if (_feedbackAttempt?.completed != false) {
+                if (!mounted) {
+                  AppLogger.error(detail, context: '教务 WebView 渲染进程退出');
+                  return;
+                }
+                if (_feedbackAttempt?.isFinished != false) {
                   _startFeedbackAttempt();
                 }
                 logUserFacingError(
                   UserErrorContext.webView,
-                  StateError('Academic WebView renderer exited'),
+                  detail,
                   operationId: UserOperationId.academicWebView,
                   renderProcessCrashed: detail.didCrash,
                   feedbackAttempt: _feedbackAttempt,

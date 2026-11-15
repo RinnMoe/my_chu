@@ -1,3 +1,4 @@
+import MychuHarmonyDiagnosticsPlugin from './MychuHarmonyDiagnosticsPlugin';
 import {
   AbilityAware,
   AbilityPluginBinding,
@@ -57,7 +58,8 @@ export default class MychuHarmonyDesktopWidgetPlugin
     const ability = this.ability;
     const snapshot = call.argument('snapshot') as string;
     if (ability === null || typeof snapshot !== 'string' ||
-      !writeDesktopWidgetSnapshot(ability.context.filesDir, snapshot)) {
+      !writeDesktopWidgetSnapshot(ability.context.filesDir, snapshot,
+        (error: Error) => MychuHarmonyDiagnosticsPlugin.record(error, '保存桌面课表快照'))) {
       result.error(
         'INVALID_SNAPSHOT',
         'Harmony desktop widget snapshot could not be published',
@@ -76,7 +78,8 @@ export default class MychuHarmonyDesktopWidgetPlugin
       );
       try {
         await formProvider.updateForm(registration.formId, data);
-      } catch (_) {
+      } catch (diagnosticError) {
+        MychuHarmonyDiagnosticsPlugin.record(diagnosticError as Error, "MychuHarmonyDesktopWidgetPlugin");
         // The local snapshot remains current; the system can retry on its next update.
       }
     }

@@ -11,6 +11,8 @@ import 'charging_pile_snapshot_client.dart';
 import 'charging_pile_models.dart';
 import 'charging_pile_status_cache.dart';
 
+import '../../services/logging/logger.dart';
+
 /// One process-wide source of truth shared by the native page, the campus map
 /// layer and future clients.
 ///
@@ -21,7 +23,7 @@ import 'charging_pile_status_cache.dart';
 /// share one request budget and one in-flight table:
 /// - a device is queried at most once at a time, later callers await the same
 ///   future;
-/// - at most six requests run at once across every consumer;
+/// - at most twelve device queries run at once across every consumer;
 /// - a device is not re-queried inside [deviceCooldown], even for an explicit
 ///   manual refresh; `force` only skips the batch dedupe window, so
 ///   pull-to-refresh hammering cannot turn into a request burst.
@@ -113,7 +115,9 @@ class ChargingPileRepository extends ChangeNotifier {
   Future<void>? _cacheWrites;
   bool _cacheDirty = false;
 
-  static const _maxConcurrent = 6;
+  /// 与 API 客户端的 12 台批量一致；同一刷新逐源完成，避免慢源占住槽位后
+  /// 快源只能按零散小批次发送。实际 HTTP 次数另受客户端的分钟预算约束。
+  static const _maxConcurrent = 12;
   static const _pageDedupWindow = Duration(seconds: 60);
   static const _networkFailureLimit = 5;
   static const _pauseDuration = Duration(minutes: 10);
@@ -192,6 +196,7 @@ class ChargingPileRepository extends ChangeNotifier {
     if (elapsed >= _pageDedupWindow) return null;
     return _pageDedupWindow - elapsed;
   }
+
   int get completed => _batches.fold(0, (sum, batch) => sum + batch.completed);
   int get total => _batches.fold(0, (sum, batch) => sum + batch.total);
   ChargingPileFailure? get failure => _failure;
@@ -304,10 +309,9 @@ class ChargingPileRepository extends ChangeNotifier {
   /// 单个分区没取到就保留该区上一次的结果；分区内某台没采到则记为未知 ——
   /// 站点自己的口径是「没采到 = 未知」，不是「占用」。
   ///
-  /// ⚠️ 源站的全校快照目前**只覆盖渭水校区**（校本部的 57 台不在
-  /// `/api/snap` 里，`area=beiyuan` 会直接回 `snapshot_unavailable`）。
-  /// 所以快照之后要把没覆盖到的设备交给 `/api/pile`，否则它们会永远停在
-  /// 「未知」——这也让本方法在源站把校本部并入快照后自动退化成一个请求。
+  /// ⚠️ 源站快照现在覆盖目录里的全部 10 个分区（渭水 5、北院 1、雁塔 4）。
+  /// 补集逻辑仍然保留：源站以后新增分区、或某个分区临时缺数据时，未覆盖的
+  /// 设备会交给 `/api/pile` 补齐；全量覆盖时它自动退化成一个请求。
   Future<void> refreshSnapshot({bool force = false}) async {
     if (_disposed) return;
     final runtime = _runtime;
@@ -337,14 +341,17 @@ class ChargingPileRepository extends ChangeNotifier {
       if (uncovered.isNotEmpty && !_disposed && !runtime.isCancelled) {
         await _refreshScope(uncovered, force: force, fullCatalog: false);
       }
-    } on ChargingPileException catch (error) {
+    } on ChargingPileException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (error.failure == ChargingPileFailure.cancelled) return;
-      _networkFailures = error.failure == ChargingPileFailure.network
-          ? _networkFailures + 1
-          : 0;
+      _networkFailures =
+          error.failure == ChargingPileFailure.network
+              ? _networkFailures + 1
+              : 0;
       _failure = error.failure;
       _emit();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       _failure = ChargingPileFailure.malformed;
       _emit();
     } finally {
@@ -367,15 +374,16 @@ class ChargingPileRepository extends ChangeNotifier {
       final sampledAt = areaSnapshot.sampledAt ?? _now();
       for (final device in devicesInArea(area.areaId)) {
         final slots = areaSnapshot.devices[device.id];
-        _states[device.id] = slots == null
-            ? const ChargingPileDeviceState()
-            : ChargingPileDeviceState(
-                status: ChargingPileDeviceStatus(
-                  device: device,
-                  slots: slots,
-                  fetchedAt: sampledAt,
-                ),
-              );
+        _states[device.id] =
+            slots == null
+                ? const ChargingPileDeviceState()
+                : ChargingPileDeviceState(
+                  status: ChargingPileDeviceStatus(
+                    device: device,
+                    slots: slots,
+                    fetchedAt: sampledAt,
+                  ),
+                );
         if (slots != null) covered.add(device.id);
       }
     }
@@ -424,7 +432,7 @@ class ChargingPileRepository extends ChangeNotifier {
   /// unknown, failed or older than [maxAge] (defaults to [liveWindow]). Used on
   /// foreground resume so a quick app switch does not stampede the platform.
   /// 刷新过期设备。[campusId] 非空时只刷该校区，供按校区渲染的地图图层使用 ——
-  /// 在渭水校区看图不该顺带把校本部的 57 台也查一遍。
+  /// 在渭水校区看图不该顺带把北院、雁塔的设备也查一遍。
   Future<void> refreshIfStale({Duration? maxAge, String? campusId}) async {
     if (_disposed) return;
     final limit = maxAge ?? liveWindow;
@@ -482,7 +490,8 @@ class ChargingPileRepository extends ChangeNotifier {
         return false;
       }
       return true;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       _failure = ChargingPileFailure.storage;
       _emit();
       return false;
@@ -531,7 +540,6 @@ class ChargingPileRepository extends ChangeNotifier {
     final before = <String, ChargingPileDeviceState?>{};
     final written = <String, ChargingPileDeviceState>{};
     ChargingPileFailure? stopReason;
-    var index = 0;
     // A pause is repository-wide: every running scope stops, not only the one
     // that hit the rate limit. An explicit `force` already passed the gate
     // above and must not be stopped by the pause it is retrying.
@@ -547,11 +555,12 @@ class ChargingPileRepository extends ChangeNotifier {
       _states[device.id] = state;
     }
 
-    Future<void> worker() async {
+    var index = 0;
+    Future<void> worker(List<ChargingPileDevice> sourceDevices) async {
       while (!stopped()) {
         final position = index++;
-        if (position >= eligible.length) return;
-        final device = eligible[position];
+        if (position >= sourceDevices.length) return;
+        final device = sourceDevices[position];
         final outcome = await _queryDevice(
           device,
           runtime,
@@ -587,10 +596,7 @@ class ChargingPileRepository extends ChangeNotifier {
             // 与站点口径一致：查询失败就清空插座数据、显示「未知」。
             // 站点在失败记录里写 `ports: []` 并把卡片画成未知状态，这里同样不
             // 保留上一次的绿点——否则「整片超时」会被误读成「刚才还有空位」。
-            publish(
-              device,
-              ChargingPileDeviceState(failure: failure),
-            );
+            publish(device, ChargingPileDeviceState(failure: failure));
             if (failure == ChargingPileFailure.rateLimited) {
               stopReason ??= failure;
               _pauseReason = failure;
@@ -613,12 +619,22 @@ class ChargingPileRepository extends ChangeNotifier {
     }
 
     try {
-      await Future.wait(
-        List.generate(
-          math.min(_maxConcurrent, eligible.length),
-          (_) => worker(),
-        ),
-      );
+      final bySource = <ChargingPileSource, List<ChargingPileDevice>>{};
+      for (final device in eligible) {
+        bySource.putIfAbsent(device.source, () => []).add(device);
+      }
+      for (final sourceDevices in bySource.values) {
+        if (stopped()) break;
+        index = 0;
+        // Drain even the last partial batch before admitting another source.
+        // Otherwise a slow source can turn the next source into one-device POSTs.
+        await Future.wait(
+          List.generate(
+            math.min(_maxConcurrent, sourceDevices.length),
+            (_) => worker(sourceDevices),
+          ),
+        );
+      }
       if (_disposed) return;
       if (runtime.isCancelled) {
         // The transaction never committed; keep the previous usable snapshot.
@@ -698,7 +714,8 @@ class ChargingPileRepository extends ChangeNotifier {
   Future<_QueryOutcome> _settle(Future<List<ChargingPileSlot>> flight) async {
     try {
       return _QuerySuccess(await flight);
-    } on ChargingPileException catch (error) {
+    } on ChargingPileException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       // `throttled` is the source's documented degradation: this batch was not
       // refreshed, so keep the previous snapshot and carry on. Only a real 429
       // pauses the whole scan.
@@ -706,7 +723,8 @@ class ChargingPileRepository extends ChangeNotifier {
         return const _QuerySkipped(degraded: true);
       }
       return _QueryFailure(error.failure);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return const _QueryFailure(ChargingPileFailure.platform);
     }
   }
@@ -740,7 +758,8 @@ class ChargingPileRepository extends ChangeNotifier {
         }
         try {
           return await _api.queryDevice(device, runtime, fresh: fresh);
-        } on ChargingPileException catch (e) {
+        } on ChargingPileException catch (e, diagnosticStack) {
+          AppLogger.error(e, stackTrace: diagnosticStack);
           if (e.failure != ChargingPileFailure.network || attempt == 1) rethrow;
           await Future.any([
             Future<void>.delayed(retryDelay),
@@ -781,7 +800,8 @@ class ChargingPileRepository extends ChangeNotifier {
         _cacheDirty = false;
         await _cache.save(Map<String, ChargingPileDeviceState>.of(_states));
       }
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Persistence is best effort and must never break a refresh.
     } finally {
       _cacheWrites = null;

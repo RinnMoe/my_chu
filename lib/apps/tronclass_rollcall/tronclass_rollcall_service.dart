@@ -10,6 +10,8 @@ import '../../services/service_endpoints.dart';
 import 'tronclass_rollcall_models.dart';
 import 'tronclass_rollcall_qr.dart';
 
+import '../../services/logging/logger.dart';
+
 typedef RollcallRequest =
     Future<AccountNetworkResponse> Function(
       String method,
@@ -50,11 +52,14 @@ class TronclassRollcallService {
       final response = await _request('GET', '/api/radar/rollcalls', null);
       final json = _decode(response);
       return TronclassRollcall.parseList(json);
-    } on RollcallException {
+    } on RollcallException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       rethrow;
-    } on CampusAuthenticationRequired {
+    } on CampusAuthenticationRequired catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const RollcallException(RollcallFailure.authentication);
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const RollcallException(RollcallFailure.invalidResponse);
     }
   }
@@ -107,15 +112,20 @@ class TronclassRollcallService {
           throw const RollcallException(RollcallFailure.rejected);
         }
       }
-    } on TimeoutException {
+    } on TimeoutException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const RollcallException(RollcallFailure.uncertain);
-    } on SocketException {
+    } on SocketException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const RollcallException(RollcallFailure.uncertain);
-    } on HttpException {
+    } on HttpException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const RollcallException(RollcallFailure.uncertain);
-    } on CampusAuthenticationRequired {
+    } on CampusAuthenticationRequired catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const RollcallException(RollcallFailure.authentication);
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const RollcallException(RollcallFailure.uncertain);
     }
   }
@@ -137,7 +147,8 @@ class TronclassRollcallService {
     Object? decoded;
     try {
       decoded = text.isEmpty ? null : jsonDecode(text);
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (response.statusCode == 200) rethrow;
     }
     if (answer && decoded is Map) {

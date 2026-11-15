@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import '../../capabilities/text_utils.dart';
 
+import '../logging/logger.dart';
+
 /// Wire values accepted by the `platform` column of `feature_policies`.
 ///
 /// `all` matches every host; `android`, `harmony`, `web` and `other` mirror
@@ -313,7 +315,8 @@ class RemoteFeaturePolicySnapshot {
     final Object? decoded;
     try {
       decoded = jsonDecode(raw);
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const RemoteFeaturePolicyFormatException('snapshot is not JSON');
     }
     if (decoded is! Map<String, dynamic>) {

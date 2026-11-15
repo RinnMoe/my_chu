@@ -8,6 +8,8 @@ import 'campus_session_store.dart';
 import 'scoped_cookie_jar.dart';
 import 'service_endpoints.dart';
 
+import 'logging/logger.dart';
+
 /// A long-lived HTTP session for one MyCHU account.
 ///
 /// Apps share this session instead of creating a new [HttpClient] for each
@@ -248,7 +250,8 @@ class AccountNetworkSession {
           await sink.close();
           sink = null;
         }
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         await sink?.close();
         rethrow;
       }
@@ -344,7 +347,8 @@ class AccountNetworkSession {
       if (portalSubHeader.isNotEmpty) {
         seedScoped(portalUri, portalSubPath, portalSubHeader);
       }
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Pure Dart callers (and tests) may run without a Flutter secure-storage
       // plugin. Response cookies are still retained in memory; the host Store
       // remains the durable source whenever it is available.

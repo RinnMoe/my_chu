@@ -1,5 +1,7 @@
 package moe.rinn.mychu.desktopwidgets
 
+import moe.rinn.mychu.NativeErrorLog
+
 import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -47,7 +49,8 @@ internal object WeekScheduleSnapshotParser {
         if (!schedule.has("firstWeekStartDate") || !schedule.has("maxWeek")) return initial
         val firstWeek = try {
             LocalDate.parse(schedule.getString("firstWeekStartDate"))
-        } catch (_: RuntimeException) {
+        } catch (diagnosticError: RuntimeException) {
+            NativeErrorLog.record(diagnosticError, "WeekScheduleWidgetData")
             throw JSONException("Invalid first week date")
         }
         val maxWeek = schedule.getInt("maxWeek")

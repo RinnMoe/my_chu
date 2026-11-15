@@ -86,12 +86,14 @@ class AppUpdateWorkspace(
     private fun canonical(file: File?): String? = try {
         file?.canonicalPath
     } catch (error: IOException) {
+        NativeErrorLog.record(error, "AppUpdateWorkspace")
         null
     }
 
     private fun isSymbolicLink(file: File): Boolean = try {
         Files.isSymbolicLink(file.toPath())
     } catch (error: IOException) {
+        NativeErrorLog.record(error, "AppUpdateWorkspace")
         true
     }
 
@@ -99,6 +101,7 @@ class AppUpdateWorkspace(
         val parsed = try {
             UUID.fromString(name)
         } catch (error: IllegalArgumentException) {
+            NativeErrorLog.record(error, "AppUpdateWorkspace")
             return false
         }
         return parsed.toString() == name

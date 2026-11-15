@@ -1,5 +1,7 @@
 package moe.rinn.mychu.courselive
 
+import moe.rinn.mychu.NativeErrorLog
+
 import android.content.Context
 import org.json.JSONObject
 
@@ -71,7 +73,7 @@ class CourseLiveStore(context: Context) {
 
     fun readPlan(): CourseLivePlan? {
         val raw = prefs.getString(KEY_PLAN, null) ?: return null
-        val json = runCatching { JSONObject(raw) }.getOrNull() ?: return null
+        val json = runCatching { JSONObject(raw) }.onFailure { NativeErrorLog.record(it, "CourseLiveStore") }.getOrNull() ?: return null
         return CourseLivePlan.fromRaw(json)
     }
 
@@ -81,7 +83,7 @@ class CourseLiveStore(context: Context) {
     /** Ledger entries expire with the occurrence they de-duplicate. */
     fun ledger(): Map<String, Long> {
         val raw = prefs.getString(KEY_LEDGER, null) ?: return emptyMap()
-        val json = runCatching { JSONObject(raw) }.getOrNull() ?: return emptyMap()
+        val json = runCatching { JSONObject(raw) }.onFailure { NativeErrorLog.record(it, "CourseLiveStore") }.getOrNull() ?: return emptyMap()
         return json.keys().asSequence().associateWith { json.optLong(it, 0L) }
     }
 

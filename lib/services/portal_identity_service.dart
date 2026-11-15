@@ -3,7 +3,7 @@ import 'dart:convert';
 import '../models/account.dart';
 import 'auth_service.dart';
 import 'campus_session.dart';
-import 'logger_service.dart';
+import 'logging/logger.dart';
 import 'mobile_campus_user_service.dart';
 import 'portal_route_service.dart';
 import 'service_endpoints.dart';
@@ -74,8 +74,12 @@ class PortalIdentityService {
       }
       AppLogger.info('已通过共享门户会话补全账号资料');
       return latest;
-    } catch (error) {
-      AppLogger.warn('补全账号姓名失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '补全账号姓名失败 (${error.runtimeType})',
+      );
       return account;
     }
   }
@@ -157,8 +161,12 @@ class PortalIdentityService {
         forceCredentialRefresh,
         sessionRevision,
       );
-    } catch (error) {
-      AppLogger.warn('移动校园用户资料获取失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '移动校园用户资料获取失败 (${error.runtimeType})',
+      );
       return _fetchPortalIdentity(
         account,
         forceCredentialRefresh,
@@ -219,8 +227,12 @@ class PortalIdentityService {
       );
       AppLogger.info('门户用户信息成功');
       return resolvedIdentity;
-    } catch (error) {
-      AppLogger.warn('门户用户信息获取失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '门户用户信息获取失败 (${error.runtimeType})',
+      );
       return null;
     }
   }
@@ -333,7 +345,8 @@ class PortalIdentityService {
       if (!(text.startsWith('{') || text.startsWith('['))) break;
       try {
         decoded = jsonDecode(text);
-      } on FormatException {
+      } on FormatException catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         break;
       }
     }

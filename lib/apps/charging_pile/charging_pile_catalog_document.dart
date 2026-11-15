@@ -5,6 +5,8 @@ import 'package:crypto/crypto.dart';
 
 import 'charging_pile_models.dart';
 
+import '../../services/logging/logger.dart';
+
 /// 把站点分区名的前缀（`渭水`）解析成本仓库的校区 ID；认不出返回 null。
 typedef ChargingPileCampusResolver = String? Function(String prefix);
 
@@ -32,8 +34,7 @@ class ChargingPileCatalogException implements Exception {
   final String detail;
 
   @override
-  String toString() =>
-      'ChargingPileCatalogException(${failure.name}): $detail';
+  String toString() => 'ChargingPileCatalogException(${failure.name}): $detail';
 }
 
 /// 解析严格度。
@@ -158,9 +159,7 @@ class ChargingPileCatalogDocument {
     return ChargingPileCatalogDocument._(
       siteVersion: siteVersion,
       catalogVersion: catalogVersion,
-      campusIds: Set<String>.unmodifiable(
-        areas.map((area) => area.campusId),
-      ),
+      campusIds: Set<String>.unmodifiable(areas.map((area) => area.campusId)),
       areas: List<ChargingPileArea>.unmodifiable(areas),
       devices: List<ChargingPileDevice>.unmodifiable(devices),
     );
@@ -176,7 +175,8 @@ class ChargingPileCatalogDocument {
     final Object? decoded;
     try {
       decoded = jsonDecode(jsonText);
-    } on FormatException catch (error) {
+    } on FormatException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw ChargingPileCatalogException(
         ChargingPileCatalogFailure.malformedJson,
         'JSON 无法解析：${error.message}',
@@ -297,7 +297,11 @@ class ChargingPileCatalogDocument {
             point: _parsePoint(map['lng'], map['lat'], path, strictness),
           ),
         );
-      } on ChargingPileCatalogException {
+      } on ChargingPileCatalogException catch (
+        diagnosticError,
+        diagnosticStack
+      ) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         if (strictness == ChargingPileCatalogStrictness.strict) rethrow;
         dropped += 1;
       }
@@ -322,9 +326,7 @@ class ChargingPileCatalogDocument {
           .convert(utf8.encode(jsonText))
           .toString()
           .substring(0, 12),
-      campusIds: Set<String>.unmodifiable(
-        areas.map((area) => area.campusId),
-      ),
+      campusIds: Set<String>.unmodifiable(areas.map((area) => area.campusId)),
       areas: List<ChargingPileArea>.unmodifiable(areas),
       devices: List<ChargingPileDevice>.unmodifiable(devices),
     );
@@ -376,7 +378,8 @@ class ChargingPileCatalogDocument {
         latitude: wgs.latitude,
         longitude: wgs.longitude,
       );
-    } on ChargingPileCatalogException {
+    } on ChargingPileCatalogException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 坐标坏掉只影响「能不能落图」，不该让整份目录作废。
       if (strictness == ChargingPileCatalogStrictness.strict) rethrow;
       return null;
@@ -443,10 +446,7 @@ class ChargingPileCatalogDocument {
 /// 站点与高德/腾讯底图用 GCJ-02，本仓库的地图资源是 WGS84；直接叠加会偏
 /// 400~600 米。这里做标准逆变换（Krasovsky 1940 椭球，定点迭代 3 次），
 /// 与站点生成坐标时用的正变换互为逆运算。
-({double latitude, double longitude}) gcj02ToWgs84(
-  double lng,
-  double lat,
-) {
+({double latitude, double longitude}) gcj02ToWgs84(double lng, double lat) {
   var wgsLng = lng;
   var wgsLat = lat;
   for (var i = 0; i < 3; i++) {
@@ -482,7 +482,8 @@ double _transformLat(double x, double y) {
       0.1 * x * y +
       0.2 * math.sqrt(x.abs());
   ret +=
-      (20.0 * math.sin(6.0 * x * math.pi) + 20.0 * math.sin(2.0 * x * math.pi)) *
+      (20.0 * math.sin(6.0 * x * math.pi) +
+          20.0 * math.sin(2.0 * x * math.pi)) *
       2.0 /
       3.0;
   ret +=
@@ -506,7 +507,8 @@ double _transformLng(double x, double y) {
       0.1 * x * y +
       0.1 * math.sqrt(x.abs());
   ret +=
-      (20.0 * math.sin(6.0 * x * math.pi) + 20.0 * math.sin(2.0 * x * math.pi)) *
+      (20.0 * math.sin(6.0 * x * math.pi) +
+          20.0 * math.sin(2.0 * x * math.pi)) *
       2.0 /
       3.0;
   ret +=

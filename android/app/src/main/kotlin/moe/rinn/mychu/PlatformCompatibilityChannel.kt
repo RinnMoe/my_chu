@@ -29,7 +29,8 @@ object PlatformCompatibilityChannel {
                                 )
                             }
                             result.success(null)
-                        } catch (_: Throwable) {
+                        } catch (diagnosticError: Throwable) {
+                            NativeErrorLog.record(diagnosticError, "PlatformCompatibilityChannel")
                             result.error("OPEN_SETTINGS_FAILED", "无法打开精确提醒设置", null)
                         }
                     }

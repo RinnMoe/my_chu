@@ -1,3 +1,8 @@
+import 'web_view_error_reporting.dart';
+import '../services/failure_classifier.dart';
+import '../services/failure_details.dart';
+import '../services/usage_analytics_service.dart';
+import '../services/reliability_event.dart';
 import '../services/host_auth_state.dart';
 import '../widgets/campus_auth_boundary.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
@@ -12,9 +17,8 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../services/auth_service.dart';
 import '../services/campus_service_session_service.dart';
-import '../services/error_feedback_service.dart';
+import '../services/logging/logger.dart';
 import '../services/federated_session.dart';
-import '../services/logger_service.dart';
 import '../services/service_endpoints.dart';
 import '../services/user_error_message.dart';
 import 'authentication_gate_monitor.dart';
@@ -278,6 +282,7 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
     final identityEpoch = _webViewIdentityEpoch;
     return UnmodifiableListView<UserScript>([
       ..._privacyUserScripts,
+      WebViewErrorReporting.script,
       if (identityEpoch != null &&
           _definition.webViewBootstrapMode == WebViewBootstrapMode.browserRelay)
         UserScript(
@@ -318,7 +323,7 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
   var _routeCurrent = true;
   var _resumeRefreshPending = false;
   var _resumeRefreshRunning = false;
-  ErrorFeedbackAttempt? _loadAttempt;
+  AnalyticsOperation? _loadAttempt;
 
   UserOperationId get _feedbackOperation =>
       operationForAuthenticatedService(widget.serviceId.value);
@@ -376,7 +381,9 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
       if (candidate != null && _definition.allowsUri(candidate)) {
         currentUri = candidate;
       }
-    } catch (_) {}
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+    }
     if (!mounted || _disposed) return;
     setState(() {
       _error = null;
@@ -387,6 +394,7 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
 
   @override
   void dispose() {
+    _loadAttempt?.cancel();
     _disposed = true;
     _authenticationGateMonitor?.cancel();
     AuthenticatedWebViewCapability._appResumeRevision.removeListener(
@@ -419,6 +427,7 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
   }
 
   void _onWebViewCreated(InAppWebViewController controller) {
+    WebViewErrorReporting.attach(controller);
     _controller = controller;
     if (!widget.waitForAuthenticationPage ||
         !widget.autoCompleteAuthentication ||
@@ -432,11 +441,11 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
         if (_disposed || !mounted || !identical(_controller, controller)) {
           return;
         }
-        AppLogger.event(
-          level: 'INFO',
-          code: 'webview.authentication.manual_fallback',
-          message: '自动授权等待超时，已显示网页以继续认证',
-          operation: _feedbackOperation,
+        AppLogger.info(
+          <Object?>[
+            'webview.authentication.manual_fallback',
+            '自动授权等待超时，已显示网页以继续认证',
+          ].join(' | '),
         );
         _releaseAuthenticationGate();
       },
@@ -444,7 +453,8 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
   }
 
   void _startLoadAttempt() {
-    _loadAttempt = ErrorFeedbackCoordinator.shared.begin(_feedbackOperation);
+    _loadAttempt?.cancel();
+    _loadAttempt = UsageAnalyticsService.beginOperation(_feedbackOperation);
   }
 
   Future<void> _prepareInitialLoad({Uri? requestedUri}) async {
@@ -491,13 +501,14 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
         _error = null;
         _loading = true;
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (shouldFallbackToPublicEntry) {
-        AppLogger.event(
-          level: 'INFO',
-          code: 'webview.session.fallback_public_entry',
-          message: '认证 WebView 服务会话不可用，已回退公共入口',
-          operation: operationForAuthenticatedService(widget.serviceId.value),
+        AppLogger.info(
+          <Object?>[
+            'webview.session.fallback_public_entry',
+            '认证 WebView 服务会话不可用，已回退公共入口',
+          ].join(' | '),
         );
         if (!mounted || _disposed) return;
         setState(() {
@@ -514,12 +525,11 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
         });
         return;
       }
-      AppLogger.event(
-        level: 'WARN',
-        code: 'webview.session.prepare_failed',
-        message: '认证 WebView 初始会话准备失败',
-        operation: operationForAuthenticatedService(widget.serviceId.value),
-        exceptionType: error.runtimeType.toString(),
+      AppLogger.warn(
+        <Object?>[
+          'webview.session.prepare_failed',
+          '认证 WebView 初始会话准备失败',
+        ].join(' | '),
       );
       _loadAttempt?.fail(error, stage: FailureStage.sessionPrepare);
       if (!mounted) return;
@@ -592,7 +602,8 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
           headers: _sessionLandingHeaders,
         ),
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted || _disposed) return true;
       setState(() {
         _error = '页面打开失败，请重试。';
@@ -677,7 +688,9 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
           (ready == true || '$ready' == 'true')) {
         _releaseAuthenticationGate();
       }
-    } catch (_) {}
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+    }
   }
 
   bool get _authenticationGateActive =>
@@ -742,21 +755,30 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
           headers: bootstrap.initialHeaders,
         ),
       );
-      AppLogger.event(
-        level: 'INFO',
-        code: 'webview.session.recovered',
-        message: '认证 WebView 已完成一次服务会话恢复',
-        operation: _feedbackOperation,
+      UsageAnalyticsService.recordReliability(
+        ReliabilityEvent.recovery(
+          source: 'webview',
+          result: 'reload_requested',
+          failureKind: 'none',
+          operation: _feedbackOperation,
+        ),
       );
-    } catch (error) {
-      AppLogger.recordSafeFailure(
-        error: error,
-        failureStage: FailureStage.sessionRecovery,
-        level: 'WARN',
-        code: 'webview.session.recovery_failed',
-        message: '认证 WebView 服务会话恢复失败',
-        operation: _feedbackOperation,
+      AppLogger.info(
+        <Object?>[
+          'webview.session.recovered',
+          '认证 WebView 已完成一次服务会话恢复',
+        ].join(' | '),
       );
+    } catch (error, diagnosticStack) {
+      UsageAnalyticsService.recordReliability(
+        ReliabilityEvent.recovery(
+          source: 'webview',
+          result: 'failed',
+          reason: classifyFailure(error),
+          operation: _feedbackOperation,
+        ),
+      );
+      AppLogger.error(error, stackTrace: diagnosticStack);
       recoveryAttempt?.fail(error, stage: FailureStage.sessionRecovery);
       if (mounted) {
         setState(() {
@@ -777,9 +799,11 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
       if (await controller.canGoBack()) {
         await controller.goBack();
       }
-    } on PlatformException {
+    } on PlatformException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return;
-    } on MissingPluginException {
+    } on MissingPluginException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return;
     }
     await _updateNavigationState(controller);
@@ -793,9 +817,11 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
       if (await controller.canGoForward()) {
         await controller.goForward();
       }
-    } on PlatformException {
+    } on PlatformException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return;
-    } on MissingPluginException {
+    } on MissingPluginException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return;
     }
     await _updateNavigationState(controller);
@@ -813,7 +839,8 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
     setState(() => _loading = true);
     try {
       await _controller?.reload();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -847,9 +874,11 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
         _canGoBack = canGoBack;
         _canGoForward = canGoForward;
       });
-    } on PlatformException {
+    } on PlatformException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // WebView 可能在加载回调期间销毁，导航状态不是关键 UI。
-    } on MissingPluginException {
+    } on MissingPluginException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Renderer/channel 退出后，导航状态不是关键 UI；等待重试重建 WebView。
     }
   }
@@ -858,11 +887,14 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
     InAppWebViewController controller,
     RenderProcessGoneDetail detail,
   ) {
-    if (_disposed || !mounted || !identical(_controller, controller)) return;
-    if (_loadAttempt?.completed != false) _startLoadAttempt();
+    if (_disposed || !mounted || !identical(_controller, controller)) {
+      AppLogger.error(detail, context: 'WebView 渲染进程退出');
+      return;
+    }
+    if (_loadAttempt?.isFinished != false) _startLoadAttempt();
     logUserFacingError(
       UserErrorContext.webView,
-      StateError('WebView renderer exited'),
+      detail,
       operationId: _feedbackOperation,
       renderProcessCrashed: detail.didCrash,
       feedbackAttempt: _loadAttempt,
@@ -879,12 +911,14 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
     if (script == null || script.isEmpty) return;
     try {
       await controller.evaluateJavascript(source: script);
-    } catch (_) {
-      AppLogger.event(
-        level: 'WARN',
-        code: 'webview.document.init_script_failed',
-        message: '认证 WebView 页面初始化脚本执行失败',
-        operation: _feedbackOperation,
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(
+        diagnosticError,
+        stackTrace: diagnosticStack,
+        context: <Object?>[
+          'webview.document.init_script_failed',
+          '认证 WebView 页面初始化脚本执行失败',
+        ].join(' | '),
       );
     }
   }
@@ -894,7 +928,8 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
     try {
       await _controller?.setSettings(settings: _settings());
       await _controller?.reload();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 首屏尚未加载完成时切换 UA，重载失败可忽略，后续加载使用新 UA。
     }
     if (!mounted) return;
@@ -916,19 +951,19 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
   ) async {
     final host = challenge.protectionSpace.host;
     if (shouldUseSystemCertificateValidation(host)) {
-      AppLogger.event(
-        level: 'INFO',
-        code: 'webview.tls.system_validation',
-        message: '认证 WebView 服务器证书使用系统校验',
-        operation: operationForAuthenticatedService(widget.serviceId.value),
+      AppLogger.info(
+        <Object?>[
+          'webview.tls.system_validation',
+          '认证 WebView 服务器证书使用系统校验',
+        ].join(' | '),
       );
       return null;
     }
-    AppLogger.event(
-      level: 'WARN',
-      code: 'webview.tls.compatibility_validation',
-      message: '认证 WebView 服务器证书使用校园兼容校验',
-      operation: operationForAuthenticatedService(widget.serviceId.value),
+    AppLogger.warn(
+      <Object?>[
+        'webview.tls.compatibility_validation',
+        '认证 WebView 服务器证书使用校园兼容校验',
+      ].join(' | '),
     );
     return ServerTrustAuthResponse(
       action: ServerTrustAuthResponseAction.PROCEED,
@@ -999,13 +1034,13 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
                     url == null ? null : Uri.tryParse(url.toString());
                 _observeAuthenticationPage(parsedUrl);
                 _observeBrowserRelayNavigation(parsedUrl);
-                AppLogger.event(
-                  level: 'INFO',
-                  code: 'webview.document.load_started',
-                  message: '认证 WebView 开始加载',
-                  operation: _feedbackOperation,
+                AppLogger.info(
+                  <Object?>[
+                    'webview.document.load_started',
+                    '认证 WebView 开始加载',
+                  ].join(' | '),
                 );
-                if (_loadAttempt?.completed != false) _startLoadAttempt();
+                if (_loadAttempt?.isFinished != false) _startLoadAttempt();
                 if (mounted) setState(() => _loading = true);
                 unawaited(_recoverFromAuthenticationRedirect(controller, url));
               },
@@ -1023,11 +1058,11 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
                     url == null ? null : Uri.tryParse(url.toString());
                 _observeAuthenticationPage(parsedUrl);
                 _observeBrowserRelayNavigation(parsedUrl);
-                AppLogger.event(
-                  level: 'INFO',
-                  code: 'webview.document.load_completed',
-                  message: '认证 WebView 加载完成',
-                  operation: _feedbackOperation,
+                AppLogger.info(
+                  <Object?>[
+                    'webview.document.load_completed',
+                    '认证 WebView 加载完成',
+                  ].join(' | '),
                 );
                 await _recoverFromAuthenticationRedirect(controller, url);
                 if (_recovering || _disposed) return;
@@ -1043,6 +1078,10 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
                 }
               },
               onReceivedError: (controller, request, error) {
+                AppLogger.error(
+                  error,
+                  context: 'WebView 资源加载失败\n${request.url}',
+                );
                 if (!mounted || request.isForMainFrame != true) return;
                 logUserFacingError(
                   UserErrorContext.webView,
@@ -1056,6 +1095,10 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
                 });
               },
               onReceivedHttpError: (controller, request, errorResponse) {
+                AppLogger.error(
+                  errorResponse,
+                  context: 'WebView HTTP 错误\n${request.url}',
+                );
                 final statusCode = errorResponse.statusCode;
                 if (request.isForMainFrame != true ||
                     statusCode == null ||
@@ -1075,12 +1118,11 @@ class _AuthenticatedWebViewPageState extends State<AuthenticatedWebViewPage>
                   );
                   return;
                 }
-                AppLogger.event(
-                  level: 'WARN',
-                  code: 'webview.document.http_error',
-                  message: '认证 WebView 主文档返回 HTTP 错误',
-                  operation: _feedbackOperation,
-                  statusCode: statusCode,
+                AppLogger.warn(
+                  <Object?>[
+                    'webview.document.http_error',
+                    '认证 WebView 主文档返回 HTTP 错误',
+                  ].join(' | '),
                 );
                 if (!mounted) return;
                 logUserFacingError(

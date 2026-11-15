@@ -12,6 +12,8 @@ import "../map_engine.dart";
 import "mapbox_layer_renderer.dart";
 import "mapbox_map_config.dart";
 
+import '../../../services/logging/logger.dart';
+
 const String _selectionSource = "mychu-selection";
 const String _selectionLayer = "mychu-selection-circle";
 const String _userLocationSource = "mychu-user-location";
@@ -237,7 +239,8 @@ class MapboxMapEngine implements CampusMapEngine {
       }
       if (!_isCurrentInstance(instanceToken)) return;
       await _layerRenderer.sync(_mapLayerStates);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // A style reload can invalidate runtime source/layer handles. The next
       // style-loaded callback retries the idempotent setup instead of leaving
       // the page with an unhandled callback future.
@@ -634,7 +637,8 @@ class MapboxMapEngine implements CampusMapEngine {
           );
           return;
         }
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // Fall back to the camera center if screen projection is unavailable.
       }
     }
@@ -889,7 +893,8 @@ class MapboxMapEngine implements CampusMapEngine {
           break;
         }
       }
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Imported styles may hide their internal labels. Their slot placement
       // remains the fallback for those styles.
     }

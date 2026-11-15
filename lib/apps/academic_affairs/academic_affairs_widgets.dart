@@ -4,6 +4,8 @@ import 'academic_affairs_models.dart';
 import '../../services/user_error_message.dart';
 import '../../services/academic_affairs_backend.dart';
 
+import '../../services/logging/logger.dart';
+
 /// 考试安排 / 成绩查询页面共享的加载/错误/空态与细节组件。
 class AcademicSectionResult<T> {
   final T? value;
@@ -17,7 +19,8 @@ Future<AcademicSectionResult<T>> captureAcademicSection<T>(
 ) async {
   try {
     return AcademicSectionResult(value: await loader());
-  } catch (error) {
+  } catch (error, diagnosticStack) {
+    AppLogger.error(error, stackTrace: diagnosticStack);
     return AcademicSectionResult(error: error);
   }
 }

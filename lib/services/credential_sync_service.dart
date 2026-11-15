@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../services/auth_service.dart';
-import '../services/logger_service.dart';
+import '../services/logging/logger.dart';
 import '../services/service_endpoints.dart';
 import '../services/session_readiness_service.dart';
 
@@ -164,18 +164,16 @@ class CredentialSyncService {
       if (!available) {
         // 未就绪是“部分校园服务暂不可用”横幅的唯一来源，但此前只存在于 UI 状态里，
         // 诊断导出看不到是哪个服务、在哪一步失败。
-        AppLogger.event(
-          level: 'WARN',
-          code: 'credential.sync.item_not_ready',
-          message: '${CampusServiceEndpoints.labelFor(serviceId)} 预热未就绪',
-          domain: 'credential',
-          failureReason: FailureReason.sessionUnavailable,
-          failureStage: FailureStage.sessionPrepare,
-          fields: {
-            'service': serviceId.value,
-            'phase': 'warmup',
-            'result': 'not_ready',
-          },
+        AppLogger.warn(
+          <Object?>[
+            'credential.sync.item_not_ready',
+            '${CampusServiceEndpoints.labelFor(serviceId)} 预热未就绪',
+            {
+              'service': serviceId.value,
+              'phase': 'warmup',
+              'result': 'not_ready',
+            },
+          ].join(' | '),
         );
       }
       _publishItem(
@@ -191,10 +189,13 @@ class CredentialSyncService {
           message: available ? '已就绪' : '暂未就绪',
         ),
       );
-    } catch (error) {
-      AppLogger.warn(
-        '后台准备 ${CampusServiceEndpoints.labelFor(serviceId)} 会话失败 '
-        '(${error.runtimeType})',
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context:
+            '后台准备 ${CampusServiceEndpoints.labelFor(serviceId)} 会话失败 '
+            '(${error.runtimeType})',
       );
       _publishItem(
         accountKey: accountKey,

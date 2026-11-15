@@ -1,3 +1,4 @@
+import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_boundary.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
@@ -6,7 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../../capabilities/campus_map/campus_map_capability.dart';
 import '../../capabilities/text_utils.dart';
-import '../../services/error_feedback_service.dart';
+import '../../services/logging/logger.dart';
 import '../../services/user_error_message.dart';
 import 'academic_affairs_models.dart';
 import 'academic_affairs_service.dart';
@@ -77,13 +78,15 @@ class _AcademicExamsPageState extends State<AcademicExamsPage>
       try {
         options =
             await (widget.examSemesterLoader ?? service.fetchExamSemesters)();
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         semesterOptionsFailed = true;
         // 学期选项为可选增强，失败时仍按服务端默认学期加载考试安排。
       }
       try {
         batches = await (widget.examBatchLoader ?? service.fetchExamBatches)();
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // 批次选项为可选增强，失败时按全部批次加载。
       }
       final semesterId = defaultSemesterId(options);

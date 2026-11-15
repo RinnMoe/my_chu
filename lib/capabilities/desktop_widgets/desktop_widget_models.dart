@@ -1,6 +1,8 @@
 import '../academic_schedule/recent_schedule.dart';
 import 'dart:convert';
 
+import '../../services/logging/logger.dart';
+
 enum DesktopWidgetScheduleStatus {
   signedOut,
   noSchedule,
@@ -177,7 +179,8 @@ class DesktopWidgetScheduleV1 {
         maxWeek: maxWeek as int?,
         occurrences: occurrences,
       );
-    } on ArgumentError {
+    } on ArgumentError catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const FormatException('桌面课表状态与课程内容不匹配');
     }
   }
@@ -284,7 +287,8 @@ class DesktopWidgetLaunchRequestV1 {
       return DesktopWidgetLaunchRequestV1.fromJson(
         Map<String, dynamic>.from(decoded),
       );
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }

@@ -10,7 +10,7 @@ import '../../services/account_network_session_service.dart';
 import '../../services/academic_affairs_backend.dart';
 import '../../services/auth_service.dart';
 import '../../services/campus_session.dart';
-import '../../services/logger_service.dart';
+import '../../services/logging/logger.dart';
 import '../../services/portal_identity_service.dart';
 import '../../services/portal_route_service.dart';
 import '../../services/service_endpoints.dart';
@@ -72,7 +72,11 @@ class PortalApiService {
     final cacheKey = _accountCacheKey(accountKey, route);
     try {
       return await _fetchPersonalData(accountKey, route);
-    } on PortalAuthenticationException {
+    } on PortalAuthenticationException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       _personalPageBootstrapCache.invalidate(cacheKey);
       final session = await CampusSession.open(accountKey: accountKey);
       await session.invalidateService(CampusServices.informationPortal);
@@ -142,7 +146,8 @@ class PortalApiService {
         route: route,
       );
       taskCenter = PortalApiParser.parseTaskCenterSummary(taskResponse);
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       // Task center is an optional card. Its layout/configuration may be
       // absent on one portal identity or temporarily return a non-JSON
       // response; personal status must remain usable when detail calls have
@@ -172,9 +177,14 @@ class PortalApiService {
         route: route,
       );
       return MapEntry(kind, PortalApiParser.parsePersonalInfo(response, kind));
-    } on PortalAuthenticationException {
+    } on PortalAuthenticationException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       rethrow;
-    } on PortalApiException catch (error) {
+    } on PortalApiException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       // One optional personal card must not hide the other successfully
       // retrieved cards. Keep the list snapshot as a visible fallback.
       AppLogger.warn('门户个人数据详情不可用，使用列表值 (${kind.name}, ${error.runtimeType})');
@@ -206,9 +216,14 @@ class PortalApiService {
       final seeds = PortalApiParser.parsePersonalSeeds(response);
       if (seeds.isNotEmpty) return seeds;
       AppLogger.warn('门户个人数据快速读取返回空列表，按兼容顺序重试');
-    } on PortalAuthenticationException {
+    } on PortalAuthenticationException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       rethrow;
-    } on PortalApiException catch (error) {
+    } on PortalApiException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       // A few deployments respond with an HTML fallback while their card
       // context is still settling. Re-run the proven serial sequence once.
       AppLogger.warn('门户个人数据快速读取失败，按兼容顺序重试 (${error.runtimeType})');
@@ -292,10 +307,18 @@ class PortalApiService {
   Future<void> _warmUpPortalPage(Future<Object?> Function() request) async {
     try {
       await request();
-    } on PortalAuthenticationException {
+    } on PortalAuthenticationException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       rethrow;
-    } on PortalApiException catch (error) {
-      AppLogger.warn('门户个人空间预热调用失败，继续初始化卡片上下文 (${error.runtimeType})');
+    } on PortalApiException catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '门户个人空间预热调用失败，继续初始化卡片上下文 (${error.runtimeType})',
+      );
     }
   }
 
@@ -343,9 +366,14 @@ class PortalApiService {
           route: route,
         );
       }
-    } on PortalAuthenticationException {
+    } on PortalAuthenticationException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       rethrow;
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       // The list call remains worthwhile for older portal deployments that do
       // not require this initialization sequence.
       AppLogger.warn('门户个人数据卡片初始化未完成 (${error.runtimeType})');
@@ -526,8 +554,12 @@ class PortalApiService {
       if (decoded == null) throw _unrecognizedPortalResponse(response.body);
       PortalApiParser.throwIfFailedResponse(decoded);
       return decoded;
-    } on TimeoutException {
-      AppLogger.warn('门户接口超时: $requestLabel');
+    } on TimeoutException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(
+        diagnosticError,
+        stackTrace: diagnosticStack,
+        context: '门户接口超时: $requestLabel',
+      );
       throw const PortalApiException('门户响应超时，请稍后重试。');
     }
   }
@@ -742,7 +774,8 @@ class PortalApiParser {
       if (text.isEmpty) return decoded;
       try {
         decoded = jsonDecode(text);
-      } on FormatException {
+      } on FormatException catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         return decoded;
       }
     }
@@ -757,7 +790,8 @@ class PortalApiParser {
     final body = rawBody.startsWith('\uFEFF') ? rawBody.substring(1) : rawBody;
     try {
       return jsonDecode(body);
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }

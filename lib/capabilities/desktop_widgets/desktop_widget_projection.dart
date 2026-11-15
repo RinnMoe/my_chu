@@ -11,6 +11,8 @@ import '../../services/campus_settings_service.dart';
 import '../../services/teaching_schedule_service.dart';
 import 'desktop_widget_models.dart';
 
+import '../../services/logging/logger.dart';
+
 String desktopWidgetDateForInstant(DateTime instant) {
   final east8 = instant.toUtc().add(east8Offset);
   return _formatDate(east8);
@@ -252,7 +254,8 @@ class DesktopWidgetProjectionService {
             );
           }
         }
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         scheduleProjection = DesktopWidgetScheduleV1(
           status: DesktopWidgetScheduleStatus.calendarUnavailable,
         );
@@ -266,7 +269,8 @@ class DesktopWidgetProjectionService {
           accountKey!,
           academicForRecent.semesterLabel,
         );
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // A calendar cache failure does not hide the dated widget courses.
       }
     }

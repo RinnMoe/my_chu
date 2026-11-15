@@ -1,8 +1,9 @@
+import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'package:flutter/material.dart';
 
 import '../../capabilities/in_app_download/in_app_download.dart';
-import '../../services/logger_service.dart';
+import '../../services/logging/logger.dart';
 import '../../services/user_error_message.dart';
 import 'tronclass_models.dart';
 import 'tronclass_service.dart';
@@ -90,9 +91,15 @@ class _CoursewareTabState extends State<_CoursewareTab>
         _loading = false;
       });
       await _autoLoadRemaining();
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted) return;
-      logUserFacingError(UserErrorContext.network, error, operation: 'courses');
+      logUserFacingError(
+        UserErrorContext.network,
+        error,
+        stackTrace: diagnosticStack,
+        operationId: UserOperationId.tronclassCourses,
+      );
       setState(() {
         _error = userFacingError(UserErrorContext.network, error);
         _loading = false;
@@ -115,17 +122,11 @@ class _CoursewareTabState extends State<_CoursewareTab>
           _courses = _sortedCourses([...?_courses, ...result.courses]);
         });
         current = next;
-      } catch (error) {
+      } catch (error, diagnosticStack) {
+        AppLogger.error(error, stackTrace: diagnosticStack);
         // 自动加载失败时保留已加载内容，之后由手动下滑重试。
         if (!mounted) return;
-        AppLogger.recordSafeFailure(
-          level: 'WARN',
-          code: 'tronclass.courses.auto_page.failed',
-          message: '畅课课程自动分页失败',
-          error: error,
-          domain: 'tronclass',
-          fields: const {'stage': 'auto_page'},
-        );
+        AppLogger.error(error, stackTrace: StackTrace.current);
         break;
       }
     }
@@ -146,17 +147,11 @@ class _CoursewareTabState extends State<_CoursewareTab>
         _pages = result.pages;
         _courses = _sortedCourses([...courses, ...result.courses]);
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       // 加载更多失败不打断已有列表，滚动到底部会再次触发。
       if (!mounted) return;
-      AppLogger.recordSafeFailure(
-        level: 'WARN',
-        code: 'tronclass.courses.load_more.failed',
-        message: '畅课课程加载更多失败',
-        error: error,
-        domain: 'tronclass',
-        fields: const {'stage': 'load_more'},
-      );
+      AppLogger.error(error, stackTrace: StackTrace.current);
     } finally {
       if (mounted) setState(() => _loadingMore = false);
     }
@@ -411,12 +406,14 @@ class _CoursewareFilesPageState extends State<_CoursewareFilesPage>
         _loading = false;
         _progress = null;
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted) return;
       logUserFacingError(
         UserErrorContext.network,
         error,
-        operation: 'courseware',
+        stackTrace: diagnosticStack,
+        operationId: UserOperationId.tronclassCourseware,
       );
       setState(() {
         _error = userFacingError(UserErrorContext.network, error);
@@ -455,12 +452,21 @@ class _CoursewareFilesPageState extends State<_CoursewareFilesPage>
       if (!mounted) return;
       setState(() => _downloadedFiles[file.fileId] = downloaded);
       await _showFeedback('已保存到「下载 / MyCHU」：${downloaded.fileName}');
-    } catch (error) {
-      if (!mounted) return;
+    } catch (error, diagnosticStack) {
+      if (!mounted) {
+        AppLogger.error(
+          error,
+          stackTrace: diagnosticStack,
+          context: '畅课课件下载 ${file.name} (${file.fileId})',
+        );
+        return;
+      }
       logUserFacingError(
         UserErrorContext.download,
         error,
-        operation: 'courseware',
+        stackTrace: diagnosticStack,
+        details: '课件 ${file.name}，文件 ID ${file.fileId}',
+        operationId: UserOperationId.tronclassCoursewareDownload,
       );
       await _showFeedback(userFacingError(UserErrorContext.download, error));
     } finally {
@@ -528,10 +534,7 @@ class _CoursewareFilesPageState extends State<_CoursewareFilesPage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.course.chineseName),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text(widget.course.chineseName), centerTitle: true),
       body: _buildBody(theme),
     );
   }

@@ -1,3 +1,4 @@
+import MychuHarmonyDiagnosticsPlugin from './MychuHarmonyDiagnosticsPlugin';
 import {
   AbilityAware,
   AbilityPluginBinding,
@@ -51,7 +52,8 @@ export default class MychuHarmonyLocationPlugin
       case 'checkPermission':
         try {
           result.success(await this.hasLocationPermission());
-        } catch (_) {
+        } catch (diagnosticError) {
+          MychuHarmonyDiagnosticsPlugin.record(diagnosticError as Error, "MychuHarmonyLocationPlugin");
           result.success(false);
         }
         return;
@@ -93,7 +95,8 @@ export default class MychuHarmonyLocationPlugin
         request.authResults.length > 0 &&
           request.authResults[0] === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED,
       );
-    } catch (_) {
+    } catch (diagnosticError) {
+      MychuHarmonyDiagnosticsPlugin.record(diagnosticError as Error, "MychuHarmonyLocationPlugin");
       result.success(false);
     }
   }
@@ -109,7 +112,8 @@ export default class MychuHarmonyLocationPlugin
         latitude: location.latitude,
         longitude: location.longitude,
       });
-    } catch (_) {
+    } catch (diagnosticError) {
+      MychuHarmonyDiagnosticsPlugin.record(diagnosticError as Error, "MychuHarmonyLocationPlugin");
       result.success(null);
     }
   }

@@ -39,7 +39,8 @@ class TemporalChangeChannel(
     fun dispose() {
         try {
             context.unregisterReceiver(receiver)
-        } catch (_: Throwable) {
+        } catch (diagnosticError: Throwable) {
+            NativeErrorLog.record(diagnosticError, "TemporalChangeChannel")
         }
     }
 }

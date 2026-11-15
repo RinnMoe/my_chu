@@ -1,3 +1,4 @@
+import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_boundary.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
@@ -7,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:mychu/widgets/dual_pane_placeholder.dart';
 
 import '../../capabilities/text_utils.dart';
-import '../../services/error_feedback_service.dart';
 import '../../theme/app_palette.dart';
 import '../../services/platform_environment.dart';
 import '../../services/user_error_message.dart';

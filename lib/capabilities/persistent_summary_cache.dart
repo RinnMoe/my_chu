@@ -7,6 +7,8 @@ import 'package:path_provider/path_provider.dart';
 
 import 'account_scoped_cache.dart';
 
+import '../services/logging/logger.dart';
+
 typedef SummaryDecoder<T> = T Function(Map<String, dynamic> json);
 typedef SummaryEncoder<T> = Map<String, dynamic> Function(T value);
 
@@ -123,7 +125,12 @@ class PersistentSummaryCache<T> {
       unawaited(
         _memoryCache
             .load(key, refresh, force: true)
-            .then<void>((_) {}, onError: (Object _) {}),
+            .then<void>(
+              (_) {},
+              onError: (Object diagnosticError, StackTrace diagnosticStack) {
+                AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+              },
+            ),
       );
       return value;
     }
@@ -174,7 +181,9 @@ class PersistentSummaryCache<T> {
         if (entity.uri.pathSegments.last.startsWith(filePrefix)) {
           try {
             await entity.delete();
-          } catch (_) {}
+          } catch (diagnosticError, diagnosticStack) {
+            AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+          }
         }
       }
     }
@@ -203,7 +212,9 @@ class PersistentSummaryCache<T> {
     if (await dir.exists()) {
       try {
         await dir.delete(recursive: true);
-      } catch (_) {}
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+      }
     }
     revision.value++;
   }
@@ -216,7 +227,8 @@ class PersistentSummaryCache<T> {
     if (changed != null) {
       try {
         changed(accountKey, previous, fresh);
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // Change callbacks are best-effort and must never break loading.
       }
     }
@@ -278,7 +290,8 @@ class PersistentSummaryCache<T> {
         }),
       );
       await _prune();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Disk persistence is best-effort; never fail the request path.
     }
   }
@@ -299,7 +312,8 @@ class PersistentSummaryCache<T> {
       final valueRaw = decoded['value'];
       if (fetchedAt == null || valueRaw is! Map<String, dynamic>) return null;
       return _DiskSummary(fetchedAt: fetchedAt, value: fromJson(valueRaw));
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -308,7 +322,9 @@ class PersistentSummaryCache<T> {
     try {
       final file = await _fileFor(accountKey, resourceKey);
       if (await file.exists()) await file.delete();
-    } catch (_) {}
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+    }
   }
 
   Future<void> _prune() async {
@@ -324,16 +340,22 @@ class PersistentSummaryCache<T> {
       for (final file in files) {
         try {
           withModified.add((file, await file.lastModified()));
-        } catch (_) {}
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+        }
       }
       withModified.sort((a, b) => a.$2.compareTo(b.$2));
       final excess = withModified.length - maxEntries;
       for (var i = 0; i < excess; i++) {
         try {
           await withModified[i].$1.delete();
-        } catch (_) {}
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+        }
       }
-    } catch (_) {}
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+    }
   }
 
   static Future<Directory> _defaultDirectory() async {

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../services/course_live_activity_service.dart';
 import '../services/platform_compatibility_service.dart';
 
+import '../services/logging/logger.dart';
+
 class CourseLiveTestPage extends StatefulWidget {
   const CourseLiveTestPage({super.key});
 
@@ -41,7 +43,8 @@ class _CourseLiveTestPageState extends State<CourseLiveTestPage> {
           );
         }
       }
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) setState(() => _message = '操作失败，请确认隐私协议及系统通知设置后重试。');
     } finally {
       if (mounted) setState(() => _busy = false);

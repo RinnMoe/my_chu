@@ -1,12 +1,14 @@
+import '../services/reliability_event.dart';
+import '../services/usage_analytics_service.dart';
+import '../services/failure_details.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-import '../services/logger_service.dart';
+import '../services/logging/logger.dart';
 import '../services/failure_classifier.dart';
 import 'campus_webview_cookie_bridge.dart';
 import 'web_view_cookie_coordinator.dart';
@@ -150,7 +152,8 @@ class ShuweiRequestProxy {
         _recordFallback(FailureReason.riskGuardPage, riskGuard: true);
       }
       return result.response;
-    } on WebViewCookieReadException {
+    } on WebViewCookieReadException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       _recordFallback(FailureReason.cookieRead);
       // Cookie 读取失败时不发送一个未认证的 Dio 请求；返回 null 让原生
       // WebView 接管，避免把“读取失败”误判成合法的空 Cookie。
@@ -159,16 +162,22 @@ class ShuweiRequestProxy {
   }
 
   void _recordFallback(FailureReason reason, {bool riskGuard = false}) {
-    AppLogger.event(
-      level: 'WARN',
-      code:
-          riskGuard
-              ? 'webview.proxy.risk_guard'
-              : 'webview.proxy.native_fallback',
-      message: '教务代理恢复结果',
-      operation: UserOperationId.academicWebView,
-      failureReason: reason,
-      failureStage: FailureStage.proxy,
+    UsageAnalyticsService.recordReliability(
+      ReliabilityEvent.recovery(
+        source: 'webview_proxy',
+        result: riskGuard ? 'interaction_required' : 'fallback_requested',
+        reason: reason,
+        operation: UserOperationId.academicWebView,
+        stage: FailureStage.proxy,
+      ),
+    );
+    AppLogger.warn(
+      <Object?>[
+        riskGuard
+            ? 'webview.proxy.risk_guard'
+            : 'webview.proxy.native_fallback',
+        '教务代理恢复结果',
+      ].join(' | '),
     );
   }
 
@@ -219,8 +228,12 @@ class ShuweiRequestProxy {
             final refreshed = await refresher(staleBinding);
             if (identical(_binding, staleBinding)) _binding = refreshed;
             return _binding;
-          } catch (error) {
-            AppLogger.warn('教务 WebView 会话刷新失败 (${error.runtimeType})');
+          } catch (error, diagnosticStack) {
+            AppLogger.error(
+              error,
+              stackTrace: diagnosticStack,
+              context: '教务 WebView 会话刷新失败 (${error.runtimeType})',
+            );
             return null;
           } finally {
             if (identical(_bindingRefresh, future)) _bindingRefresh = null;
@@ -247,7 +260,8 @@ class ShuweiRequestProxy {
     String cookieHeader;
     try {
       cookieHeader = await _readCookieHeader(request.url, binding);
-    } on _ShuweiSessionStaleException {
+    } on _ShuweiSessionStaleException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return (
         response: _staleResponse(),
         riskGuard: false,
@@ -268,14 +282,22 @@ class ShuweiRequestProxy {
 
       try {
         await _writeResponseCookies(request.url, response.headers, binding);
-      } on _ShuweiSessionStaleException {
+      } on _ShuweiSessionStaleException catch (
+        diagnosticError,
+        diagnosticStack
+      ) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         return (
           response: _staleResponse(),
           riskGuard: false,
           stale: true,
           failure: FailureReason.sessionStale,
         );
-      } on _ShuweiCookieCommitException {
+      } on _ShuweiCookieCommitException catch (
+        diagnosticError,
+        diagnosticStack
+      ) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         _onFailure?.call(ShuweiRequestProxyFailureStage.cookieCommit);
         if (_onFailure != null) {
           return (
@@ -336,8 +358,12 @@ class ShuweiRequestProxy {
         stale: false,
         failure: null,
       );
-    } catch (error) {
-      AppLogger.warn('教务 WebView 主文档代理失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '教务 WebView 主文档代理失败 (${error.runtimeType})',
+      );
       return (
         response: null,
         riskGuard: false,
@@ -433,7 +459,8 @@ class ShuweiRequestProxy {
             !await CampusWebViewCookieBridge.isBindingCurrent(binding)) {
           throw const _ShuweiSessionStaleException();
         }
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         for (final mutation in written.reversed) {
           try {
             if (mutation.previous == null) {
@@ -441,7 +468,9 @@ class ShuweiRequestProxy {
             } else {
               await context.setCookie(mutation.url, mutation.previous!);
             }
-          } catch (_) {}
+          } catch (diagnosticError, diagnosticStack) {
+            AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+          }
         }
         rethrow;
       }
@@ -462,20 +491,18 @@ class ShuweiRequestProxy {
           cookie.name,
         );
         if (confirmed?.value == cookie.value) return;
-      } on StateError catch (error) {
+      } on StateError catch (error, diagnosticStack) {
+        AppLogger.error(error, stackTrace: diagnosticStack);
         if (attempt == 1) {
           _debugStage(
             'webview.proxy.cookie_commit_failed',
             '教务 WebView Cookie 提交失败',
-            error: error,
-            level: 'WARN',
           );
           throw const _ShuweiCookieCommitException();
         }
         _debugStage(
           'webview.proxy.cookie_commit_retry',
           '教务 WebView Cookie 提交重试',
-          error: error,
         );
         await Future<void>.delayed(const Duration(milliseconds: 200));
         continue;
@@ -491,27 +518,14 @@ class ShuweiRequestProxy {
       _debugStage(
         'webview.proxy.cookie_commit_failed',
         '教务 WebView Cookie 提交失败',
-        level: 'WARN',
       );
       throw const _ShuweiCookieCommitException();
     }
     throw const _ShuweiCookieCommitException();
   }
 
-  void _debugStage(
-    String code,
-    String message, {
-    Object? error,
-    String level = 'INFO',
-  }) {
-    if (!kDebugMode) return;
-    AppLogger.event(
-      level: level,
-      code: code,
-      message: message,
-      domain: 'academic',
-      exceptionType: error?.runtimeType.toString(),
-    );
+  void _debugStage(String code, String message) {
+    AppLogger.debug('$code | $message');
   }
 
   Future<void> _removeLegacyRootSession(
@@ -583,7 +597,8 @@ class ShuweiRequestProxy {
         case 'expires':
           try {
             expires = HttpDate.parse(attributeValue).toUtc();
-          } catch (_) {
+          } catch (diagnosticError, diagnosticStack) {
+            AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
             expires = DateTime.tryParse(attributeValue)?.toUtc();
           }
         case 'max-age':

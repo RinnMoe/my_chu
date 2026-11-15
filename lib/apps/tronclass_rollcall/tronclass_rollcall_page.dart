@@ -1,3 +1,4 @@
+import '../../services/reliability_event.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -7,7 +8,7 @@ import '../../capabilities/qr_scanner_capability.dart';
 import '../../services/host_platform.dart';
 import '../../services/tronclass_rollcall_store.dart';
 import '../../services/user_error_message.dart';
-import '../../services/logger_service.dart';
+import '../../services/logging/logger.dart';
 import 'tronclass_rollcall_models.dart';
 import 'tronclass_rollcall_qr.dart';
 import 'rollcall_code_input.dart';
@@ -89,7 +90,8 @@ class _TronclassRollcallPageState extends State<TronclassRollcallPage> {
           _message = '应答成功';
         });
       }
-    } on RollcallException catch (error) {
+    } on RollcallException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || identity != _identity) return;
       setState(() {
         _message = error.message;
@@ -117,11 +119,13 @@ class _TronclassRollcallPageState extends State<TronclassRollcallPage> {
       if (!mounted || identity != _identity) return;
       _working = false;
       if (result != null) await _submit(item, qr: result);
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || identity != _identity) return;
       logUserFacingError(
         UserErrorContext.network,
         error,
+        stackTrace: diagnosticStack,
         operationId: UserOperationId.tronclassRollcallAnswer,
       );
       setState(() => _message = '扫码暂时无法使用，请重试。');

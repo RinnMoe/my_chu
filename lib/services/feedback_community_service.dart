@@ -10,6 +10,8 @@ import 'public_http_client.dart';
 import 'supabase/supabase_privacy_gate.dart';
 import 'supabase/supabase_project_config.dart';
 
+import 'logging/logger.dart';
+
 /// Optional public feedback. This identity is separate from all campus sessions.
 class FeedbackCommunityService {
   FeedbackCommunityService({
@@ -97,7 +99,8 @@ class FeedbackCommunityService {
     try {
       return jsonDecode(utf8.decode(response.bodyBytes))
           as Map<String, dynamic>;
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const CommunityException('响应未能确认，请刷新后重试。', uncertain: true);
     }
   }
@@ -133,7 +136,8 @@ class FeedbackCommunityService {
     if (saved != null) {
       try {
         session = jsonDecode(saved) as Map<String, dynamic>;
-      } on Object {
+      } on Object catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         throw const CommunityException('无法读取参与身份，请联系开发者。');
       }
       if (session['access_token'] is! String ||
@@ -220,7 +224,8 @@ class FeedbackCommunityService {
         token: identity!['access_token'] as String,
       );
       if (result['ok'] != true) throw const CommunityException('操作过于频繁，请稍后再试。');
-    } on PublicHttpException {
+    } on PublicHttpException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const CommunityException('提交结果未知，请刷新后确认。', uncertain: true);
     }
   }

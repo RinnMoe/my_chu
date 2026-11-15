@@ -5,6 +5,8 @@ import 'channel_resources_models.dart';
 import 'channel_resources_service.dart';
 import 'channel_resources_widgets.dart';
 
+import '../../services/logging/logger.dart';
+
 class ChannelResourcesProfilePage extends StatefulWidget {
   final ChannelResourcesService service;
   final ValueListenable<int>? pointsInvalidation;
@@ -69,7 +71,8 @@ class _ChannelResourcesProfilePageState
     int? points;
     try {
       points = await widget.service.loadCurrentPoints();
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       points = null;
     }
     if (mounted && requestGeneration == _pointsRequestGeneration) {
@@ -93,13 +96,16 @@ class _ChannelResourcesProfilePageState
             ? '今天已经签到过了。'
             : '签到成功，获得 ${result.rewardPoints} 积分。',
       );
-    } on ChannelAccountException catch (error) {
+    } on ChannelAccountException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) {
         showChannelResourcesSnack(context, error.userMessage);
       }
-    } on ChannelResourcesServiceException catch (error) {
+    } on ChannelResourcesServiceException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) showChannelResourcesSnack(context, error.message);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) showChannelResourcesSnack(context, '签到失败，请稍后重试。');
     } finally {
       if (mounted) setState(() => _checkingIn = false);
@@ -212,7 +218,8 @@ class _ChannelResourcesSubmitResourcePageState
     try {
       final tags = await widget.service.loadTags();
       if (mounted) setState(() => _availableTags = tags);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Tag selection is optional; the form remains usable if this read fails.
     }
   }
@@ -305,11 +312,14 @@ class _ChannelResourcesSubmitResourcePageState
         showChannelResourcesSnack(context, '资料已提交，等待管理员审核。');
         Navigator.pop(context);
       }
-    } on ChannelAccountException catch (error) {
+    } on ChannelAccountException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) setState(() => _error = error.userMessage);
-    } on ChannelResourcesServiceException catch (error) {
+    } on ChannelResourcesServiceException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) setState(() => _error = error.message);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) setState(() => _error = '资料提交失败，请稍后重试。');
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -461,19 +471,22 @@ class _ChannelResourcesContactAdminPageState
         _selectedAdminId = admins.isEmpty ? null : admins.first.id;
         _loading = false;
       });
-    } on ChannelAccountException catch (error) {
+    } on ChannelAccountException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _loading = false;
         _error = error.userMessage;
       });
-    } on ChannelResourcesServiceException catch (error) {
+    } on ChannelResourcesServiceException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _loading = false;
         _error = error.message;
       });
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -498,11 +511,14 @@ class _ChannelResourcesContactAdminPageState
       if (!mounted) return;
       _content.clear();
       showChannelResourcesSnack(context, '发送成功');
-    } on ChannelAccountException catch (error) {
+    } on ChannelAccountException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) showChannelResourcesSnack(context, error.userMessage);
-    } on ChannelResourcesServiceException catch (error) {
+    } on ChannelResourcesServiceException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) showChannelResourcesSnack(context, error.message);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) showChannelResourcesSnack(context, '发送失败，请稍后重试。');
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -637,21 +653,24 @@ class _ChannelResourcesMessagesPageState
           _loading = false;
         });
       }
-    } on ChannelAccountException catch (error) {
+    } on ChannelAccountException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) {
         setState(() {
           _loading = false;
           _error = error.userMessage;
         });
       }
-    } on ChannelResourcesServiceException catch (error) {
+    } on ChannelResourcesServiceException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) {
         setState(() {
           _loading = false;
           _error = error.message;
         });
       }
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) {
         setState(() {
           _loading = false;
@@ -667,9 +686,11 @@ class _ChannelResourcesMessagesPageState
     try {
       await widget.service.deleteMessage(id);
       await _load();
-    } on ChannelAccountException catch (error) {
+    } on ChannelAccountException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) showChannelResourcesSnack(context, error.userMessage);
-    } on ChannelResourcesServiceException catch (error) {
+    } on ChannelResourcesServiceException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) showChannelResourcesSnack(context, error.message);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -701,9 +722,11 @@ class _ChannelResourcesMessagesPageState
     try {
       await widget.service.deleteAllMessages();
       await _load();
-    } on ChannelAccountException catch (error) {
+    } on ChannelAccountException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) showChannelResourcesSnack(context, error.userMessage);
-    } on ChannelResourcesServiceException catch (error) {
+    } on ChannelResourcesServiceException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) showChannelResourcesSnack(context, error.message);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -803,11 +826,14 @@ class _ChannelResourcesReviewPageState
     try {
       final stats = await widget.service.loadReviewStats();
       if (mounted) setState(() => _stats = stats);
-    } on ChannelAccountException catch (error) {
+    } on ChannelAccountException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) setState(() => _error = error.userMessage);
-    } on ChannelResourcesServiceException catch (error) {
+    } on ChannelResourcesServiceException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) setState(() => _error = error.message);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) setState(() => _error = '审核记录加载失败，请稍后重试。');
     }
   }

@@ -1,5 +1,7 @@
 package moe.rinn.mychu.courselive
 
+import moe.rinn.mychu.NativeErrorLog
+
 import android.content.Context
 import moe.rinn.mychu.BuildConfig
 import org.json.JSONArray
@@ -34,6 +36,7 @@ object CourseLiveDeveloperTest {
             CourseLiveEngine.replacePlan(context, owner, generation, payload)
             return mapOf("windowStart" to opens, "startAt" to starts)
         } catch (error: Exception) {
+            NativeErrorLog.record(error, "CourseLiveDeveloperTest")
             stop(context)
             throw error
         }

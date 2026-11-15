@@ -1,3 +1,5 @@
+import 'dart:collection';
+import '../capabilities/web_view_error_reporting.dart';
 import '../services/auth_service.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -9,7 +11,7 @@ import '../models/account.dart';
 import '../services/auth_lifecycle_service.dart';
 import '../services/platform_compatibility_service.dart';
 import '../services/cookie_service.dart';
-import '../services/logger_service.dart';
+import '../services/logging/logger.dart';
 import '../services/saved_login_credential_service.dart';
 import '../services/scoped_cookie_jar.dart';
 import '../services/service_endpoints.dart';
@@ -20,7 +22,7 @@ import '../capabilities/dev_visibility.dart';
 import '../capabilities/web_view_permission_capability.dart';
 import '../capabilities/web_view_error_view.dart';
 import '../capabilities/web_view_rendering_policy.dart';
-import 'log_page.dart';
+import 'diagnostics_page.dart';
 import '../widgets/adaptive_login_scaffold.dart';
 
 class LoginPage extends StatefulWidget {
@@ -115,7 +117,8 @@ class _LoginHintDialogState extends State<_LoginHintDialog> {
     try {
       await widget.onAcknowledged();
       if (mounted) Navigator.of(context).pop();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) {
         setState(() => _errorMessage = '暂时无法保存选择，请重试。');
       }
@@ -262,8 +265,12 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
         } else {
           await controller.pause();
         }
-      } catch (error) {
-        AppLogger.warn('登录页面渲染状态更新失败 (${error.runtimeType})');
+      } catch (error, diagnosticStack) {
+        AppLogger.error(
+          error,
+          stackTrace: diagnosticStack,
+          context: '登录页面渲染状态更新失败 (${error.runtimeType})',
+        );
       }
     });
   }
@@ -303,7 +310,8 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
         _registerLoginCaptureHandler(controller);
         await _installLoginCapture(_lastLoadedUrl);
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       _hintShown = false;
       AppLogger.warn('登录告知加载失败 (${error.runtimeType})');
       _showLoginHintRetry();
@@ -427,7 +435,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   }
 
   void _showWebViewError(Object error) {
-    logUserFacingError(UserErrorContext.webView, error, operation: 'login');
+    logUserFacingError(UserErrorContext.webView, error);
     if (!mounted) return;
     setState(() {
       _webViewError = userFacingError(UserErrorContext.webView, error);
@@ -443,8 +451,12 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     });
     try {
       await _loadInitialPage();
-    } catch (error) {
-      AppLogger.warn('重新加载统一身份认证页面失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '重新加载统一身份认证页面失败 (${error.runtimeType})',
+      );
       _showWebViewError(error);
     }
   }
@@ -628,16 +640,16 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
         await WidgetsBinding.instance.endOfFrame;
         if (mounted) widget.onLoginSuccess();
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) setState(() => _committingAccount = false);
       await _discardCapturedLogin();
-      AppLogger.event(
-        level: 'ERROR',
-        code: 'identity.login.confirm_failed',
-        message: '统一身份认证确认失败',
-        domain: 'identity',
-        exceptionType: error.runtimeType.toString(),
-        fields: {'automatic': automatic},
+      AppLogger.info(
+        <Object?>[
+          'identity.login.confirm_failed',
+          '统一身份认证确认失败',
+          {'automatic': automatic},
+        ].join(' | '),
       );
       if (!automatic) {
         _showLoginError(userFacingError(UserErrorContext.webView, error));
@@ -673,8 +685,12 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     if (!uri.path.contains('/authserver')) return;
     try {
       await _controller?.evaluateJavascript(source: loginCaptureScript);
-    } catch (error) {
-      AppLogger.warn('登录表单捕获脚本安装失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '登录表单捕获脚本安装失败 (${error.runtimeType})',
+      );
     }
   }
 
@@ -687,7 +703,8 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
       final password = (decoded['password'] ?? '').toString();
       if (username.isEmpty || password.isEmpty) return null;
       return (username: username, password: password);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -700,7 +717,8 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
             'window.__mychuClearLoginCapture(); '
             '} else { window.__mychuLoginCapture = null; }',
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 页面已离开登录页时清理失败可忽略；Dart 内存仍会在 finally 清空。
     }
   }
@@ -723,8 +741,12 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
         captured.password,
       );
       AppLogger.info('已保存账号密码用于自动重新登录');
-    } catch (error) {
-      AppLogger.warn('保存登录信息流程异常 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '保存登录信息流程异常 (${error.runtimeType})',
+      );
     } finally {
       await _clearLoginCapture();
       _capturedLogin = null;
@@ -767,7 +789,8 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
       try {
         final decoded = jsonDecode(text);
         if (decoded is String) return decoded;
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // Fall back to the raw value below.
       }
     }
@@ -775,12 +798,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   }
 
   void _showLoginError(String message) {
-    AppLogger.event(
-      level: 'WARN',
-      code: 'identity.login.user_error',
-      message: message,
-      domain: 'identity',
-    );
+    AppLogger.warn(<Object?>['identity.login.user_error', message].join(' | '));
     if (!mounted) return;
 
     ScaffoldMessenger.of(
@@ -788,10 +806,12 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _openLogPage() {
+  void _openDiagnostics() {
     if (!DevelopmentModeService.isDev) return;
 
-    final route = MaterialPageRoute<void>(builder: (_) => const LogPage());
+    final route = MaterialPageRoute<void>(
+      builder: (_) => const DiagnosticsPage(),
+    );
     Navigator.of(context).push(route);
   }
 
@@ -815,8 +835,8 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
           DevOnly(
             child: IconButton(
               icon: const Icon(Icons.article_outlined),
-              tooltip: '查看日志',
-              onPressed: _openLogPage,
+              tooltip: '诊断信息',
+              onPressed: _openDiagnostics,
             ),
           ),
         ],
@@ -854,7 +874,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     return PopScope(
       canPop: !_committingAccount,
       child: AdaptiveLoginScaffold(
-        onOpenLog: _openLogPage,
+        onOpenDiagnostics: _openDiagnostics,
         onConfirm: _manualConfirm,
         isConfirming: _isConfirmingLogin,
         child: body,
@@ -868,6 +888,9 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
       children: [
         if (_webViewVisible)
           InAppWebView(
+            initialUserScripts: UnmodifiableListView([
+              WebViewErrorReporting.script,
+            ]),
             initialSettings: WebViewRenderingPolicy.visible(
               InAppWebViewSettings(
                 javaScriptEnabled: true,
@@ -875,12 +898,17 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
               ),
             ),
             onWebViewCreated: (controller) async {
+              WebViewErrorReporting.attach(controller);
               _controller = controller;
               _updateWebViewRendering();
               try {
                 await _loadInitialPage();
-              } catch (error) {
-                AppLogger.warn('统一身份认证页面加载失败 (${error.runtimeType})');
+              } catch (error, diagnosticStack) {
+                AppLogger.error(
+                  error,
+                  stackTrace: diagnosticStack,
+                  context: '统一身份认证页面加载失败 (${error.runtimeType})',
+                );
                 _showWebViewError(error);
               }
             },
@@ -909,8 +937,12 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
                   _registerLoginCaptureHandler(controller);
                 }
                 await _installLoginCapture(_lastLoadedUrl);
-              } catch (error) {
-                AppLogger.warn('登录页面准备失败 (${error.runtimeType})');
+              } catch (error, diagnosticStack) {
+                AppLogger.error(
+                  error,
+                  stackTrace: diagnosticStack,
+                  context: '登录页面准备失败 (${error.runtimeType})',
+                );
                 if (mounted) _showLoginPageRetry();
               }
               _scheduleAutoConfirm(url?.toString() ?? '');
@@ -920,10 +952,18 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
               setState(() => _loadProgress = progress.clamp(0, 100) / 100);
             },
             onReceivedError: (controller, request, error) {
+              AppLogger.error(
+                error,
+                context: '登录 WebView 加载失败\n${request.url}',
+              );
               if (request.isForMainFrame != true) return;
               _showWebViewError(error);
             },
             onReceivedHttpError: (controller, request, errorResponse) {
+              AppLogger.error(
+                errorResponse,
+                context: '登录 WebView HTTP 错误\n${request.url}',
+              );
               final statusCode = errorResponse.statusCode;
               if (request.isForMainFrame != true ||
                   statusCode == null ||
@@ -932,6 +972,8 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
               }
               _showWebViewError(errorResponse);
             },
+            onRenderProcessGone:
+                (controller, detail) => _showWebViewError(detail),
           )
         else
           const SizedBox.expand(),

@@ -2,6 +2,10 @@
 # 禁止 Git 在检出时做行尾转换，保证资产字节级一致（否则 style/manifest 校验会失败）。
 assets/maps/** -text
 
+# 充电桩目录快照按站点原始字节保存；`tool/sync_charging_pile_catalog.dart --check`
+# 用整份字节比对，行尾被转换会让它把「同一版本」误报成漂移。
+assets/charging_pile/** -text
+
 # Published policy hashes bind exact UTF-8 bytes.
 privacy/**/*.json -text
 privacy/latest.json -text

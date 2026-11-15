@@ -1,3 +1,6 @@
+import 'failure_details.dart';
+import 'usage_analytics_service.dart';
+import 'reliability_event.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -7,9 +10,8 @@ import 'package:html/parser.dart' as html_parser;
 
 import 'auth_service.dart';
 import 'campus_session_store.dart';
-import 'cold_start_trace.dart';
 import 'identity_login_encryptor.dart';
-import 'logger_service.dart';
+import 'logging/logger.dart';
 import 'failure_classifier.dart';
 import 'saved_login_credential_service.dart';
 import 'scoped_cookie_jar.dart';
@@ -97,7 +99,6 @@ class IdentitySilentLoginService {
     _active[activeKey] = future;
     try {
       final result = await future;
-      ColdStartTrace.silentLogin(result.outcome.name);
       return result;
     } finally {
       if (identical(_active[activeKey], future)) _active.remove(activeKey);
@@ -122,13 +123,11 @@ class IdentitySilentLoginService {
     final account = await AuthService.getCurrentAccount();
     if (account == null ||
         (accountKey != null && account.accountKey != accountKey)) {
-      ColdStartTrace.probeResult(IdentityProbeStatus.unauthenticated.name);
       return IdentityProbeStatus.unauthenticated;
     }
     final probeOverride = debugProbe;
     if (probeOverride != null) {
       final status = await probeOverride(account.accountKey);
-      ColdStartTrace.probeResult(status.name);
       return status;
     }
     final sessionStore = await CampusSessionStore.open(
@@ -136,7 +135,6 @@ class IdentitySilentLoginService {
     );
     final authCookies = await sessionStore.rootCookieHeader();
     final status = await probeCookies(authCookies);
-    ColdStartTrace.probeResult(status.name);
     return status;
   }
 
@@ -202,7 +200,8 @@ class IdentitySilentLoginService {
           runner != null
               ? await runner(credential)
               : await _runHttpRecovery(credential, accountKey: accountKey);
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       result = IdentitySilentLoginResult(
         IdentityRecoveryOutcome.networkError,
         '网络或登录页异常',
@@ -213,40 +212,68 @@ class IdentitySilentLoginService {
     switch (result.outcome) {
       case IdentityRecoveryOutcome.success:
         _cooldownUntil = null;
-        AppLogger.event(
-          level: 'INFO',
-          code: 'identity.silent_login.succeeded',
-          message: '统一身份静默重登成功',
-          domain: 'identity',
+        UsageAnalyticsService.recordReliability(
+          ReliabilityEvent.recovery(
+            source: 'identity',
+            result: 'success',
+            failureKind: 'none',
+          ),
+        );
+        AppLogger.info(
+          <Object?>[
+            'identity.silent_login.succeeded',
+            '统一身份静默重登成功',
+          ].join(' | '),
         );
       case IdentityRecoveryOutcome.invalidCredential:
         // 密码已失效：清除本地保存，避免后续反复失败，并进入冷却。
         await SavedLoginCredentialService.clearCredential();
         _cooldownUntil = DateTime.now().add(_failureCooldown);
-        AppLogger.event(
-          level: 'WARN',
-          code: 'identity.silent_login.invalid_credential',
-          message: '统一身份静默重登失败，账号密码已失效并清除本地保存',
-          domain: 'identity',
+        UsageAnalyticsService.recordReliability(
+          ReliabilityEvent.recovery(
+            source: 'identity',
+            result: 'failed',
+            failureKind: 'authentication',
+          ),
+        );
+        AppLogger.warn(
+          <Object?>[
+            'identity.silent_login.invalid_credential',
+            '统一身份静默重登失败，账号密码已失效并清除本地保存',
+          ].join(' | '),
         );
       case IdentityRecoveryOutcome.captchaRequired:
         _cooldownUntil = DateTime.now().add(_failureCooldown);
-        AppLogger.event(
-          level: 'WARN',
-          code: 'identity.silent_login.captcha_required',
-          message: '统一身份静默重登需要验证码',
-          domain: 'identity',
+        UsageAnalyticsService.recordReliability(
+          ReliabilityEvent.recovery(
+            source: 'identity',
+            result: 'interaction_required',
+            failureKind: 'none',
+          ),
+        );
+        AppLogger.warn(
+          <Object?>[
+            'identity.silent_login.captcha_required',
+            '统一身份静默重登需要验证码',
+          ].join(' | '),
         );
       case IdentityRecoveryOutcome.networkError:
         _cooldownUntil = DateTime.now().add(_failureCooldown);
-        AppLogger.event(
-          level: 'WARN',
-          code: 'identity.silent_login.network_error',
-          failureReason:
-              result.failureReason ?? FailureReason.networkOrResponse,
-          failureStage: FailureStage.sessionRecovery,
-          message: '统一身份静默重登遇到网络或登录页异常',
-          domain: 'identity',
+        UsageAnalyticsService.recordReliability(
+          ReliabilityEvent.recovery(
+            source: 'identity',
+            result: 'failed',
+            failureKind:
+                (result.failureReason ?? FailureReason.networkOrResponse).kind,
+            reason: result.failureReason ?? FailureReason.networkOrResponse,
+            stage: FailureStage.sessionRecovery,
+          ),
+        );
+        AppLogger.warn(
+          <Object?>[
+            'identity.silent_login.network_error',
+            '统一身份静默重登遇到网络或登录页异常',
+          ].join(' | '),
         );
       case IdentityRecoveryOutcome.noSavedCredential:
       case IdentityRecoveryOutcome.coolingDown:
@@ -325,15 +352,15 @@ class IdentitySilentLoginService {
           requestFailure ?? FailureReason.networkOrResponse,
         );
       }
-      AppLogger.event(
-        level: 'INFO',
-        code: 'identity.silent_login.form_result',
-        message: '静默重登表单处理完成',
-        domain: 'identity',
-        fields: {
-          'leftLoginPage': postResult.leftLoginPage,
-          'failure': postResult.failure?.name ?? 'none',
-        },
+      AppLogger.info(
+        <Object?>[
+          'identity.silent_login.form_result',
+          '静默重登表单处理完成',
+          {
+            'leftLoginPage': postResult.leftLoginPage,
+            'failure': postResult.failure?.name ?? 'none',
+          },
+        ].join(' | '),
       );
       if (!postResult.leftLoginPage) {
         final failure = postResult.failure;
@@ -422,7 +449,8 @@ class IdentitySilentLoginService {
         return null;
       }
       return body;
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       onFailure?.call(classifyFailure(error));
       return null;
     }
@@ -455,7 +483,8 @@ class IdentitySilentLoginService {
       if (response.statusCode != HttpStatus.ok) return false;
       final decoded = jsonDecode(body);
       return decoded is Map && decoded['isNeed'] == true;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 预判失败不阻断登录尝试，与参考实现一致。
       return false;
     }
@@ -536,7 +565,8 @@ class IdentitySilentLoginService {
         finalUri: uri,
         failure: stillLogin ? IdentityRecoveryOutcome.networkError : null,
       );
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       onFailure?.call(classifyFailure(error));
       return null;
     }
@@ -565,12 +595,12 @@ class IdentitySilentLoginService {
         location: response.headers.value(HttpHeaders.locationHeader),
         body: body,
       );
-      AppLogger.event(
-        level: 'INFO',
-        code: 'identity.silent_login.probe_user_info',
-        message: '统一身份用户信息探针完成',
-        domain: 'identity',
-        fields: {'result': probe.name},
+      AppLogger.info(
+        <Object?>[
+          'identity.silent_login.probe_user_info',
+          '统一身份用户信息探针完成',
+          {'result': probe.name},
+        ].join(' | '),
       );
       if (probe == IdentityProbeStatus.authenticated) {
         final decoded = _tryDecodeJson(body);
@@ -585,15 +615,16 @@ class IdentitySilentLoginService {
       // probe validates the same root identity session without depending on
       // that path-specific application session.
       final secondary = await _probeAuthServerIndex(client, jar);
-      AppLogger.event(
-        level: 'INFO',
-        code: 'identity.silent_login.probe_index',
-        message: '统一身份入口探针完成',
-        domain: 'identity',
-        fields: {'result': secondary.name},
+      AppLogger.info(
+        <Object?>[
+          'identity.silent_login.probe_index',
+          '统一身份入口探针完成',
+          {'result': secondary.name},
+        ].join(' | '),
       );
       return combineProbeStatuses(primary: probe, secondary: secondary);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return IdentityProbeStatus.indeterminate;
     }
   }
@@ -624,23 +655,23 @@ class IdentitySilentLoginService {
       jar.collect(uri, response);
       final location = response.headers.value(HttpHeaders.locationHeader);
       await response.drain<void>();
-      AppLogger.event(
-        level: 'INFO',
-        code: 'identity.silent_login.probe_index_response',
-        message: '统一身份入口响应已读取',
-        domain: 'identity',
-        statusCode: response.statusCode,
-        fields: {
-          'personCenter':
-              location?.contains('/personalInfo/personCenter') ?? false,
-          'login': location?.contains('/authserver/login') ?? false,
-        },
+      AppLogger.info(
+        <Object?>[
+          'identity.silent_login.probe_index_response',
+          '统一身份入口响应已读取',
+          {
+            'personCenter':
+                location?.contains('/personalInfo/personCenter') ?? false,
+            'login': location?.contains('/authserver/login') ?? false,
+          },
+        ].join(' | '),
       );
       return classifyIndexResponse(
         statusCode: response.statusCode,
         location: location,
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return IdentityProbeStatus.indeterminate;
     }
   }
@@ -793,7 +824,8 @@ class IdentitySilentLoginService {
   static Object? _tryDecodeJson(String body) {
     try {
       return jsonDecode(body);
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -819,7 +851,8 @@ class IdentitySilentLoginService {
           scope.querySelector('input[name="execution"]')?.attributes['value'];
       if (execution == null || execution.isEmpty) return null;
       return (lt: lt ?? '', execution: execution, salt: salt);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -840,10 +873,12 @@ class IdentitySilentLoginService {
           .transform(utf8.decoder)
           .join()
           .timeout(_requestTimeout);
-    } on HttpException {
+    } on HttpException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 部分校园服务会提前关闭响应体；已收集的 Cookie 仍然有效。
       return '';
-    } on TimeoutException {
+    } on TimeoutException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return '';
     }
   }

@@ -72,6 +72,7 @@ class AppUpdateEngine(context: Context) {
             verifyTarget(output, target)
             result(output)
         } catch (error: Throwable) {
+            NativeErrorLog.record(error, "AppUpdateEngine")
             output.delete()
             throw error
         } finally {
@@ -102,6 +103,7 @@ class AppUpdateEngine(context: Context) {
         val installed = try {
             AppUpdateVerifier.digest(session.source, HashAlgorithm.SHA256)
         } catch (error: IOException) {
+            NativeErrorLog.record(error, "AppUpdateEngine")
             throw Failure("BASE_CHANGED")
         }
         if (installed != session.sourceHash) throw Failure("BASE_CHANGED")

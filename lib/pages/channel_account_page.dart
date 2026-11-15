@@ -4,6 +4,8 @@ import '../capabilities/channel_account_capability.dart';
 import '../capabilities/channel_resources_link_capability.dart';
 import '../capabilities/saved_login_credential.dart';
 
+import '../services/logging/logger.dart';
+
 class ChannelAccountPage extends StatefulWidget {
   final ChannelAccountCapability? capability;
   final ChannelResourcesLinkCapability linkCapability;
@@ -53,7 +55,8 @@ class _ChannelAccountPageState extends State<ChannelAccountPage> {
   Future<void> _restore() async {
     try {
       await _capability.restore();
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // The account state contains a user-safe error category for the page.
     }
   }
@@ -62,7 +65,8 @@ class _ChannelAccountPageState extends State<ChannelAccountPage> {
     SavedLoginCredential? credential;
     try {
       credential = await _capability.readRememberedCredential();
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // A secure-storage read failure must not block a manual login.
     }
     if (!mounted) return;
@@ -107,9 +111,11 @@ class _ChannelAccountPageState extends State<ChannelAccountPage> {
       _username.clear();
       _password.clear();
       await _loadRememberedCredential();
-    } on ChannelAccountException catch (error) {
+    } on ChannelAccountException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) setState(() => _error = error.userMessage);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) setState(() => _error = '登录失败，请稍后重试。');
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -178,7 +184,8 @@ class _ChannelAccountPageState extends State<ChannelAccountPage> {
           context,
         ).showSnackBar(const SnackBar(content: Text('已退出校园频道账号。')));
       }
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -451,9 +458,11 @@ class _ChannelAccountChangePasswordPageState
         ).showSnackBar(const SnackBar(content: Text('密码已修改，请使用新密码重新登录。')));
         Navigator.pop(context);
       }
-    } on ChannelAccountException catch (error) {
+    } on ChannelAccountException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) setState(() => _error = error.userMessage);
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) setState(() => _error = '密码修改失败，请稍后重试。');
     } finally {
       if (mounted) setState(() => _busy = false);

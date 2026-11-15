@@ -107,7 +107,8 @@ class CourseLiveActivityChannel(
                     }
                     else -> result.notImplemented()
                 }
-            } catch (_: Exception) {
+            } catch (diagnosticError: Exception) {
+                NativeErrorLog.record(diagnosticError, "CourseLiveActivityChannel")
                 result.error("COURSE_LIVE_FAILED", "课程实时动态操作失败", null)
             }
         }

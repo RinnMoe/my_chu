@@ -6,6 +6,8 @@ import '../capabilities/campus_places/campus_registry.dart';
 import '../services/campus_settings_service.dart';
 import '../widgets/compact_badge.dart';
 
+import '../services/logging/logger.dart';
+
 typedef CampusSelectionSaved = void Function(String campusId);
 
 /// Campus selector used by onboarding. The profile settings sheet has its own
@@ -90,7 +92,8 @@ class _CampusSelectionPanelState extends State<CampusSelectionPanel> {
         _defaultFallback = !hasCurrent && hasDefault;
         _loading = false;
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || !(await _isCurrentSession())) return;
       setState(() {
         _campuses = const [];
@@ -121,7 +124,8 @@ class _CampusSelectionPanelState extends State<CampusSelectionPanel> {
         return;
       }
       widget.onSaved?.call(selected);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _saving = false;
@@ -315,10 +319,7 @@ class _CampusOption extends StatelessWidget {
         title: Row(
           children: [
             Flexible(
-              child: Text(
-                campus.displayName,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(campus.displayName, overflow: TextOverflow.ellipsis),
             ),
             if (showDefaultLabel) ...[
               const SizedBox(width: 8),

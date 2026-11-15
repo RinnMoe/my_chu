@@ -19,6 +19,8 @@ import "map_layer_provider.dart";
 import "map_layer_registry.dart";
 import "map_layer_render_state.dart";
 
+import '../../../services/logging/logger.dart';
+
 /// 单个图层的加载状态。
 enum MapLayerLoadStatus {
   /// 未加载（图层未可见或刚刚停用）。
@@ -259,7 +261,9 @@ class MapLayerManager extends ChangeNotifier {
             );
     _preferenceWrites = next.then<void>(
       (_) {},
-      onError: (Object _, StackTrace __) {},
+      onError: (Object diagnosticError, StackTrace diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+      },
     );
     return next;
   }
@@ -379,13 +383,10 @@ class MapLayerManager extends ChangeNotifier {
     final runtime = _runtimes[layerId];
     try {
       await runtime?.provider?.refresh();
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (_disposed) return;
-      logUserFacingError(
-        UserErrorContext.map,
-        error,
-        operation: "layer_refresh",
-      );
+      logUserFacingError(UserErrorContext.map, error);
     }
     if (_disposed) return;
     final entry = entryFor(layerId);
@@ -646,13 +647,10 @@ class MapLayerManager extends ChangeNotifier {
     final provider = layerId == null ? null : _runtimes[layerId]?.provider;
     try {
       provider?.onFeatureSelected(featureId);
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (_disposed) return;
-      logUserFacingError(
-        UserErrorContext.map,
-        error,
-        operation: "layer_feature_selected",
-      );
+      logUserFacingError(UserErrorContext.map, error);
     }
   }
 
@@ -709,34 +707,29 @@ class MapLayerManager extends ChangeNotifier {
           if (stream != null) {
             runtime.subscription = stream.listen(
               (update) => _applyUpdate(layerId, update),
-              onError: (Object error) {
+              onError: (Object error, StackTrace diagnosticStack) {
+                AppLogger.error(error, stackTrace: diagnosticStack);
                 if (_disposed) return;
-                logUserFacingError(
-                  UserErrorContext.map,
-                  error,
-                  operation: "layer_stream",
-                );
+                logUserFacingError(UserErrorContext.map, error);
               },
             );
           }
         }
-      } catch (error) {
+      } catch (error, diagnosticStack) {
+        AppLogger.error(error, stackTrace: diagnosticStack);
         if (runtime.activated) {
           runtime.activated = false;
           try {
             await runtime.provider?.deactivate();
-          } catch (_) {
+          } catch (diagnosticError, diagnosticStack) {
+            AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
             // Preserve the activation error while releasing partial setup.
           }
         }
         if (_disposed) return;
         _status[layerId] = MapLayerLoadStatus.error;
         _errors[layerId] = userFacingError(UserErrorContext.map, error);
-        logUserFacingError(
-          UserErrorContext.map,
-          error,
-          operation: "layer_activate",
-        );
+        logUserFacingError(UserErrorContext.map, error);
         if (!_disposed) notifyListeners();
         return;
       }
@@ -775,13 +768,10 @@ class MapLayerManager extends ChangeNotifier {
         runtime.activated = false;
         try {
           await runtime.provider?.deactivate();
-        } catch (error) {
+        } catch (error, diagnosticStack) {
+          AppLogger.error(error, stackTrace: diagnosticStack);
           if (_disposed) return;
-          logUserFacingError(
-            UserErrorContext.map,
-            error,
-            operation: "layer_deactivate",
-          );
+          logUserFacingError(UserErrorContext.map, error);
         }
       }
     });
@@ -794,7 +784,9 @@ class MapLayerManager extends ChangeNotifier {
     final next = runtime.transition.then((_) => action());
     runtime.transition = next.then<void>(
       (_) {},
-      onError: (Object _, StackTrace __) {},
+      onError: (Object diagnosticError, StackTrace diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+      },
     );
     return next;
   }
@@ -846,13 +838,15 @@ class MapLayerManager extends ChangeNotifier {
         return;
       }
       _applySnapshot(layerId, features);
-    } on MapLayerCancelledException {
+    } on MapLayerCancelledException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return;
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (_isStale(layerId, runtime, generation, cancellation, campusId)) {
         return;
       }
-      logUserFacingError(UserErrorContext.map, error, operation: "layer_load");
+      logUserFacingError(UserErrorContext.map, error);
       _status[layerId] = MapLayerLoadStatus.error;
       _errors[layerId] = userFacingError(UserErrorContext.map, error);
       notifyListeners();
@@ -934,7 +928,8 @@ class MapLayerManager extends ChangeNotifier {
         runtime.activated = false;
         try {
           unawaited(runtime.provider?.deactivate());
-        } catch (_) {
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           // 释放阶段的失败不再上报，避免销毁流程抛异常。
         }
       }

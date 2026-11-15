@@ -1,5 +1,7 @@
 package moe.rinn.mychu.courselive
 
+import moe.rinn.mychu.NativeErrorLog
+
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
@@ -308,7 +310,7 @@ object CourseLiveEngine {
                     boundary,
                     pending,
                 )
-            }
+            }.onFailure { NativeErrorLog.record(it, "CourseLiveEngine") }
         } else {
             cancelSlot(
                 app,

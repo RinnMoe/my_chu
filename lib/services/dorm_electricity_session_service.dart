@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'privacy_agreement_service.dart';
-import 'logger_service.dart';
+import 'logging/logger.dart';
 import 'remote_feature_policy/feature_access_guard.dart';
 import 'remote_feature_policy/remote_feature_policy_service.dart';
 import 'scoped_cookie_jar.dart';
@@ -182,13 +182,10 @@ class DormElectricitySessionService {
     http.Client? client;
     var stage = 'entry';
     int? statusCode;
-    void recordFailure(String reason) => AppLogger.event(
-      level: 'WARN',
-      code: 'dorm_electricity_failed',
-      message: '电费查询失败',
-      domain: 'dorm_electricity',
-      statusCode: statusCode,
-      fields: {'stage': stage, 'reason': reason},
+    void recordFailure(Object error, StackTrace stack) => AppLogger.error(
+      error,
+      stackTrace: stack,
+      context: '电费查询失败 ($stage, HTTP $statusCode)',
     );
     void close() => client?.close();
     Future<void> check() async {
@@ -317,17 +314,15 @@ class DormElectricitySessionService {
       final result = await action(send);
       await check();
       return result;
-    } on DormElectricityException catch (error) {
-      if (error.code != 'blocked' && error.code != 'cancelled') {
-        recordFailure(error.code);
-      }
+    } on DormElectricityException catch (error, stack) {
+      recordFailure(error, stack);
       rethrow;
-    } on FormatException {
-      recordFailure('malformed');
+    } on FormatException catch (error, stack) {
+      recordFailure(error, stack);
       throw const DormElectricityException('malformed');
-    } catch (_) {
+    } catch (error, stack) {
+      recordFailure(error, stack);
       request.check();
-      recordFailure('network');
       throw const DormElectricityException('network');
     } finally {
       request._closers.remove(close);

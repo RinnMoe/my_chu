@@ -1,3 +1,4 @@
+import MychuHarmonyDiagnosticsPlugin from './MychuHarmonyDiagnosticsPlugin';
 import {
   FlutterPlugin,
   FlutterPluginBinding,
@@ -71,7 +72,8 @@ export default class MychuHarmonyCaptchaOcrPlugin
           result.notImplemented();
           return;
       }
-    } catch (_) {
+    } catch (diagnosticError) {
+      MychuHarmonyDiagnosticsPlugin.record(diagnosticError as Error, "MychuHarmonyCaptchaOcrPlugin");
       result.error('OCR_INFERENCE_FAILED', 'Local captcha recognition failed.', null);
     }
   }

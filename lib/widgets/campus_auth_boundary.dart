@@ -4,6 +4,8 @@ import '../services/auth_service.dart';
 import '../services/host_auth_state.dart';
 import 'campus_auth_prompt.dart';
 
+import '../services/logging/logger.dart';
+
 /// Prevents account-owned pages (including WebViews) from being constructed for
 /// a guest. Existing same-account content survives transient auth failures.
 class CampusAuthBoundary extends StatefulWidget {
@@ -62,7 +64,8 @@ class _CampusAuthBoundaryState extends State<CampusAuthBoundary> {
           _ready = true;
         });
       }
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) setState(() => _ready = true);
     }
   }

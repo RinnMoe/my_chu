@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/public_http_client.dart';
 import 'public_holiday_models.dart';
 
+import '../../services/logging/logger.dart';
+
 class PublicHolidayParseException implements Exception {
   final String message;
 
@@ -87,11 +89,14 @@ class PublicHolidayParser {
         sourceUrl: sourceUrl,
         fetchedAt: fetchedAt,
       );
-    } on PublicHolidayParseException {
+    } on PublicHolidayParseException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       rethrow;
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const PublicHolidayParseException('公共节假日数据不是有效 JSON');
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const PublicHolidayParseException('公共节假日数据格式无效');
     }
   }
@@ -280,7 +285,8 @@ class PublicHolidayRepository {
     try {
       final remote = await _loadRemote(sourceYear);
       if (remote != null) _remember(sourceYear, remote);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Background refresh must never replace usable local data with an error.
     }
   }
@@ -299,7 +305,8 @@ class PublicHolidayRepository {
         );
         await _saveCache(sourceYear, uri, body, fetchedAt);
         return parsed;
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // A parse failure is also isolated to this endpoint so the CDN can be
         // tried before falling back to local data.
       }
@@ -330,7 +337,8 @@ class PublicHolidayRepository {
         expectedSourceYear: sourceYear,
         sourceType: PublicHolidaySourceType.bundled,
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -359,7 +367,8 @@ class PublicHolidayRepository {
         return rightTime.compareTo(leftTime);
       });
       return candidates.first;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -381,7 +390,8 @@ class PublicHolidayRepository {
         sourceUrl: expectedUri.toString(),
         fetchedAt: fetchedAt.toUtc(),
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -402,7 +412,8 @@ class PublicHolidayRepository {
           'body': body,
         }),
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Caching is optional; a valid response is still usable in memory.
     }
   }
@@ -481,7 +492,8 @@ class PublicHolidayCapability
             sourceYears[index],
             force: force,
           );
-        } catch (_) {
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           loaded[index] = _unavailable(sourceYears[index]);
         }
       }

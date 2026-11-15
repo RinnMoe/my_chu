@@ -39,8 +39,10 @@ class AppUpdateChannel(context: Context, flutterEngine: FlutterEngine) {
                         if (!disposed) result.success(value)
                     }
                 } catch (error: CancellationException) {
+                    NativeErrorLog.record(error, "AppUpdateChannel")
                     throw error
                 } catch (error: Throwable) {
+                    NativeErrorLog.record(error, "AppUpdateChannel")
                     withContext(Dispatchers.Main.immediate) {
                         if (!disposed) result.error(
                             (error as? AppUpdateEngine.Failure)?.code ?: "UPDATE_FAILED",

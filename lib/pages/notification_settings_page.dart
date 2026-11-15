@@ -7,6 +7,8 @@ import '../services/host_permission_service.dart';
 import '../services/platform_compatibility_service.dart';
 import 'host_permission_purpose_overlay.dart';
 
+import '../services/logging/logger.dart';
+
 class NotificationSettingsPage extends StatefulWidget {
   const NotificationSettingsPage({super.key});
   @override
@@ -59,10 +61,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
 
   /// The two features are independent: each half publishes its own state, so
   /// neither one can delay, hide or fail the other.
-  Future<void> _load({bool refresh = false}) => Future.wait([
-    _loadLiveActivity(),
-    _loadReminders(refresh: refresh),
-  ]);
+  Future<void> _load({bool refresh = false}) =>
+      Future.wait([_loadLiveActivity(), _loadReminders(refresh: refresh)]);
 
   Future<void> _loadReminders({required bool refresh}) async {
     try {
@@ -76,7 +76,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
           _error = false;
         });
       }
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) setState(() => _error = true);
     }
   }
@@ -97,7 +98,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
         _liveStatus = status;
         _liveError = false;
       });
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted && token == _liveLoadToken) {
         setState(() => _liveError = true);
       }
@@ -108,7 +110,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
     setState(() => _liveBusy = true);
     try {
       await CourseLiveActivityService.updateEnabled(enabled);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -135,7 +138,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
     try {
       await TimeReminderService.updateSetting(category, setting);
       await _load();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -622,8 +626,10 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
                         ),
                       ),
                       for (final category in TimeReminderCategory.values.where(
-                        (category) => !PlatformCompatibilityService.isAndroid ||
-                            category != TimeReminderCategory.course))
+                        (category) =>
+                            !PlatformCompatibilityService.isAndroid ||
+                            category != TimeReminderCategory.course,
+                      ))
                         _reminderGroup(context, category),
                       _liveActivityGroup(context),
                       Padding(

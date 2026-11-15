@@ -7,11 +7,13 @@ import 'package:zxing2/qrcode.dart';
 ///
 /// The implementation is pure Dart so HarmonyOS can scan gallery images even
 /// when the system camera scanner is unavailable, such as in the emulator.
-String? decodeQrImageBytes(Uint8List bytes) {
-  if (bytes.isEmpty) return null;
+({String? value, String? error, String? stack}) decodeQrImageBytes(
+  Uint8List bytes,
+) {
+  if (bytes.isEmpty) return (value: null, error: null, stack: null);
   try {
     final decoded = image.decodeImage(bytes);
-    if (decoded == null) return null;
+    if (decoded == null) return (value: null, error: null, stack: null);
     final rgba = decoded
         .convert(numChannels: 4)
         .getBytes(order: image.ChannelOrder.abgr);
@@ -21,8 +23,16 @@ String? decodeQrImageBytes(Uint8List bytes) {
       rgba.buffer.asInt32List(),
     );
     final bitmap = BinaryBitmap(GlobalHistogramBinarizer(source));
-    return QRCodeReader().decode(bitmap).text;
-  } catch (_) {
-    return null;
+    return (
+      value: QRCodeReader().decode(bitmap).text,
+      error: null,
+      stack: null,
+    );
+  } catch (error, stack) {
+    return (
+      value: null,
+      error: '${error.runtimeType}\n$error',
+      stack: '$stack',
+    );
   }
 }

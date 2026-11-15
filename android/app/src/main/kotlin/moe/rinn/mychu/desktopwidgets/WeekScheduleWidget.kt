@@ -1,5 +1,7 @@
 package moe.rinn.mychu.desktopwidgets
 
+import moe.rinn.mychu.NativeErrorLog
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -36,7 +38,7 @@ internal class WeekScheduleWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val now = Instant.now()
         val data = withContext(Dispatchers.IO) { WidgetSnapshotStore(context).readWeek(now) }
-        runCatching { DesktopWidgetScheduler.schedule(context.applicationContext, now) }
+        runCatching { DesktopWidgetScheduler.schedule(context.applicationContext, now) }.onFailure { NativeErrorLog.record(it, "WeekScheduleWidget") }
         provideContent { GlanceTheme { WeekScheduleContent(data) } }
     }
 }
@@ -45,7 +47,7 @@ internal class WeekScheduleWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget = WeekScheduleWidget()
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         super.onDeleted(context, appWidgetIds)
-        runCatching { DesktopWidgetScheduler.schedule(context.applicationContext) }
+        runCatching { DesktopWidgetScheduler.schedule(context.applicationContext) }.onFailure { NativeErrorLog.record(it, "WeekScheduleWidget") }
     }
 }
 

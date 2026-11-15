@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'saved_login_credential.dart';
 import '../services/channel_resources_session_service.dart';
 
+import '../services/logging/logger.dart';
+
 export '../services/channel_resources_session_service.dart'
     show
         ChannelResourcesAuthState,
@@ -112,7 +114,8 @@ class ChannelAccountCapability {
     String? decodedPath;
     try {
       if (uri != null) decodedPath = Uri.decodeComponent(uri.path);
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       decodedPath = null;
     }
     final pathSegments = decodedPath?.split('/') ?? const <String>[];

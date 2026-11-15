@@ -14,6 +14,8 @@ import "../capabilities/campus_map/campus_map_capability.dart";
 import "app_registry.dart";
 import "charging_pile/charging_pile_map_layer.dart";
 
+import '../services/logging/logger.dart';
+
 /// 编译期注册的地图图层定义。
 ///
 /// 与 `AppRegistry.builtIns` 一样是编译期清单：仓库不支持运行时加载或远程图层。
@@ -37,8 +39,9 @@ void registerBuiltInMapLayers({MapLayerRegistry? registry}) {
     if (target.byId(definition.layerId) != null) continue;
     try {
       target.register(definition);
-    } on MapLayerRegistrationException catch (error) {
-      debugPrint(
+    } on MapLayerRegistrationException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
+      AppLogger.debug(
         "map layer registration failed: ${definition.layerId} (${error.error.name})",
       );
     }

@@ -9,6 +9,8 @@ import '../../services/host_permission_service.dart';
 import 'smart_socket_protocol.dart';
 import 'smart_socket_protocol_service.dart';
 
+import '../../services/logging/logger.dart';
+
 enum _SmartSocketView {
   ready,
   scanning,
@@ -110,13 +112,15 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
           decoder: (symbol) {
             try {
               return QrDecodeResult.success(BleQrInfo.parse(symbol.rawValue));
-            } catch (_) {
+            } catch (diagnosticError, diagnosticStack) {
+              AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
               return const QrDecodeResult.failure('不支持的设备');
             }
           },
         ),
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _failure = '扫码失败';
@@ -197,14 +201,16 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
         _openingMessage = '开启成功';
         _view = _SmartSocketView.success;
       });
-    } on SmartSocketFailure catch (error) {
+    } on SmartSocketFailure catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _failure = error.uncertainDeviceState ? '连接中断' : '连接超时';
         _failureHint = '请检查手机蓝牙和设备状态后重试';
         _view = _SmartSocketView.error;
       });
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _failure = '连接超时';
@@ -305,10 +311,7 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
     key: const ValueKey('ready'),
     padding: const EdgeInsets.fromLTRB(16, 32, 16, 24),
     children: [
-      const _SmartSocketState(
-        icon: Icons.power_outlined,
-        title: '扫码启动插座',
-      ),
+      const _SmartSocketState(icon: Icons.power_outlined, title: '扫码启动插座'),
       const SizedBox(height: 16),
       FilledButton.icon(
         onPressed: _prepareScanner,

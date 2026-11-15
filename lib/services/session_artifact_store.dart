@@ -6,6 +6,8 @@ import 'campus_service_id.dart';
 import 'session_storage_support.dart';
 import 'session_materialization.dart';
 
+import 'logging/logger.dart';
+
 class TokenArtifact {
   final CampusServiceId serviceId;
   final String rawValue;
@@ -229,7 +231,8 @@ class SessionArtifactStore {
       final result = await action();
       if (owned != null) await owned.end(commit: result is! bool || result);
       return result;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (owned != null) await owned.end(commit: false);
       rethrow;
     }
@@ -252,7 +255,8 @@ class SessionArtifactStore {
     try {
       await action();
       if (owned != null) await owned.end(commit: true);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (owned != null) await owned.end(commit: false);
       rethrow;
     }

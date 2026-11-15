@@ -1,8 +1,10 @@
+import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'package:flutter/material.dart';
 
 import '../../capabilities/east8_time.dart';
 import '../../services/user_error_message.dart';
+import '../../services/logging/logger.dart';
 import '../tronclass/tronclass_models.dart';
 import '../tronclass/tronclass_service.dart';
 
@@ -66,10 +68,16 @@ class _PortalTodosViewState extends State<PortalTodosView>
         _todos = todos;
         _loading = false;
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted) return;
       if (widget.active) {
-        logUserFacingError(UserErrorContext.network, error, operation: 'todos');
+        logUserFacingError(
+          UserErrorContext.network,
+          error,
+          stackTrace: diagnosticStack,
+          operationId: UserOperationId.portalTodos,
+        );
       }
       setState(() {
         _error = userFacingError(UserErrorContext.network, error);

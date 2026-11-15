@@ -7,7 +7,7 @@ import '../capabilities/account_scoped_cache.dart';
 import '../capabilities/persistent_summary_cache.dart';
 import '../models/account.dart';
 import '../services/account_network_session_service.dart';
-import '../services/logger_service.dart';
+import '../services/logging/logger.dart';
 import '../services/saved_login_credential_service.dart';
 import '../services/network_self_service_auth_service.dart';
 import '../services/campus_session_store.dart';

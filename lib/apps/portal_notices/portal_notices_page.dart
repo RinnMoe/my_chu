@@ -1,3 +1,4 @@
+import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
@@ -6,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:mychu/widgets/dual_pane_placeholder.dart';
 
 import '../../services/platform_environment.dart';
-import '../../services/logger_service.dart';
+import '../../services/logging/logger.dart';
 import '../../services/user_error_message.dart';
 import 'mobile_campus_notice_models.dart';
 import 'mobile_campus_notice_service.dart';
@@ -110,9 +111,15 @@ class PortalNoticesPanelState extends State<PortalNoticesPanel>
         _pageNumber = 1;
         _hasMore = _hasMoreFor(page);
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || generation != _requestGeneration) return;
-      logUserFacingError(UserErrorContext.network, error, operation: 'notices');
+      logUserFacingError(
+        UserErrorContext.network,
+        error,
+        stackTrace: diagnosticStack,
+        operationId: UserOperationId.portalNotices,
+      );
       setState(() => _error = userFacingError(UserErrorContext.network, error));
     } finally {
       if (mounted && generation == _requestGeneration) {
@@ -133,9 +140,15 @@ class PortalNoticesPanelState extends State<PortalNoticesPanel>
         _pageNumber += 1;
         _hasMore = _hasMoreFor(page);
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || generation != _requestGeneration) return;
-      logUserFacingError(UserErrorContext.network, error, operation: 'notices');
+      logUserFacingError(
+        UserErrorContext.network,
+        error,
+        stackTrace: diagnosticStack,
+        operationId: UserOperationId.portalNotices,
+      );
       _showMessage('加载更多失败，请稍后重试');
     } finally {
       if (mounted && generation == _requestGeneration) {
@@ -177,17 +190,11 @@ class PortalNoticesPanelState extends State<PortalNoticesPanel>
       final columns = await _service.fetchColumns();
       if (!mounted) return;
       setState(() => _columns = columns);
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       // 栏目摘要加载失败不阻塞公告列表。
       if (!mounted) return;
-      AppLogger.recordSafeFailure(
-        level: 'WARN',
-        code: 'portal.notices.columns.failed',
-        message: '公告栏目加载失败',
-        error: error,
-        domain: 'portal',
-        fields: const {'stage': 'columns'},
-      );
+      AppLogger.error(error, stackTrace: StackTrace.current);
     }
   }
 
@@ -241,9 +248,15 @@ class PortalNoticesPanelState extends State<PortalNoticesPanel>
         _searchGroups = groups;
         _searchLoading = false;
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || generation != _requestGeneration) return;
-      logUserFacingError(UserErrorContext.network, error, operation: 'notices');
+      logUserFacingError(
+        UserErrorContext.network,
+        error,
+        stackTrace: diagnosticStack,
+        operationId: UserOperationId.portalNotices,
+      );
       setState(() {
         _searchGroups = const [];
         _searchLoading = false;

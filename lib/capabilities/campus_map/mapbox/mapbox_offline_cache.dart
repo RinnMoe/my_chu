@@ -8,6 +8,8 @@ import "../../campus_places/campus_places.dart";
 import "../map_engine.dart";
 import "mapbox_map_config.dart";
 
+import '../../../services/logging/logger.dart';
+
 enum MapboxOfflineCacheStatus { unavailable, missing, partial, ready }
 
 class MapboxOfflineRegionBudget {
@@ -382,7 +384,8 @@ class MapboxOfflineCache {
         return await _returnStalePreparation(store, campus, identity);
       }
       _preparedIdentities.add(identity);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!_isCurrentVisualPreparation(campus.campusId, identity, generation)) {
         return _returnStalePreparation(store, campus, identity);
       }
@@ -415,7 +418,8 @@ class MapboxOfflineCache {
         await store.removeTileRegion(identity);
       }
       _preparedIdentities.remove(identity);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Stale cache cleanup is best-effort; the current identity will prune it.
     }
   }

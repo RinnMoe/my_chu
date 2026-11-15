@@ -11,7 +11,7 @@ import '../services/auth_service.dart';
 import '../services/file_save_service.dart';
 import '../services/auth_lifecycle_service.dart';
 import '../services/ip_status_service.dart';
-import '../services/logger_service.dart';
+import '../services/logging/logger.dart';
 import '../services/portal_identity_service.dart';
 import '../services/campus_settings_service.dart';
 import '../services/updates/app_update_service.dart';
@@ -135,7 +135,8 @@ class _ProfilePageState extends State<ProfilePage>
           unawaited(_refreshAccountName(account));
         }
       }
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() => _accountPhase = _AccountPhase.failed);
     }
@@ -179,7 +180,8 @@ class _ProfilePageState extends State<ProfilePage>
       final info = await PackageInfo.fromPlatform();
       if (!mounted) return;
       setState(() => _versionLabel = 'v${info.version}');
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Version display is optional; AboutPage still loads it independently.
     }
   }
@@ -219,15 +221,10 @@ class _ProfilePageState extends State<ProfilePage>
       var signOutFailed = false;
       try {
         await AuthLifecycleService.signOut();
-      } catch (error) {
+      } catch (error, diagnosticStack) {
+        AppLogger.error(error, stackTrace: diagnosticStack);
         signOutFailed = true;
-        AppLogger.recordSafeFailure(
-          level: 'WARN',
-          code: 'profile.sign_out_failed',
-          message: '退出登录失败',
-          error: error,
-          domain: 'profile',
-        );
+        AppLogger.error(error, stackTrace: StackTrace.current);
         if (mounted) {
           ScaffoldMessenger.of(
             context,

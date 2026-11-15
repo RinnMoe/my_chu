@@ -7,8 +7,9 @@ import '../services/app_content/app_feedback.dart';
 import '../services/app_remote_services_service.dart';
 import '../services/diagnostic_report_service.dart';
 import '../services/feedback_community_service.dart';
-import '../services/platform_environment.dart';
 import '../services/public_http_client.dart';
+
+import '../services/logging/logger.dart';
 
 /// 提出建议：公开与私密共用一份表单，由「公开我的建议」决定提交目标。
 class FeedbackComposerPage extends StatefulWidget {
@@ -50,6 +51,7 @@ class _FeedbackComposerPageState extends State<FeedbackComposerPage> {
   String? _error;
   bool _attachDiagnostics = false;
   String? _diagnosticLog;
+  int? _diagnosticResetVersion;
   bool _diagnosticLoading = false;
 
   FeedbackCommunityService get _community =>
@@ -88,6 +90,12 @@ class _FeedbackComposerPageState extends State<FeedbackComposerPage> {
   }
 
   Future<String> _ensureDiagnosticLog() async {
+    final resetVersion = AppLogger.resetVersion;
+    if (_diagnosticResetVersion != resetVersion) {
+      _diagnosticLog = null;
+      _diagnosticResetVersion = resetVersion;
+    }
+    if (AppLogger.entries.isEmpty) return '';
     final current = _diagnosticLog;
     if (current != null) return current;
     final supplied = widget.diagnosticService;
@@ -103,7 +111,8 @@ class _FeedbackComposerPageState extends State<FeedbackComposerPage> {
       final info = await PackageInfo.fromPlatform();
       version = info.version;
       build = info.buildNumber;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Keep explicit unknown metadata if package information is unavailable.
     }
     AndroidDeviceProfile? deviceProfile;
@@ -112,15 +121,15 @@ class _FeedbackComposerPageState extends State<FeedbackComposerPage> {
           await (widget.deviceCompatibility ??
                   androidDeviceCompatibilityCapability)
               .getProfile();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Device compatibility is optional; the feedback remains useful without it.
     }
-    if (!mounted) return '';
+    if (!mounted || resetVersion != AppLogger.resetVersion) return '';
     final service = DiagnosticReportService(
       appVersion: version,
       appBuild: build,
       deviceProfile: deviceProfile,
-      environment: PlatformEnvironment.fromContext(context),
     );
     final text = service.feedbackText();
     _diagnosticLog = text;
@@ -163,38 +172,53 @@ class _FeedbackComposerPageState extends State<FeedbackComposerPage> {
         _busy = false;
         _submitted = true;
       });
-    } on CommunityException catch (error) {
+    } on CommunityException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _busy = false;
         _uncertain = error.uncertain;
         _error = error.message;
       });
-    } on AppRemoteServicesDisabledException {
+    } on AppRemoteServicesDisabledException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _busy = false;
         _error = AppRemoteServicesDisabledException.userMessage;
       });
-    } on AppContentUnavailableException {
+    } on AppContentUnavailableException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _busy = false;
         _error = AppContentUnavailableException.userMessage;
       });
-    } on FeedbackSubmissionUnknownException {
+    } on FeedbackSubmissionUnknownException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _busy = false;
         _error = FeedbackSubmissionUnknownException.userMessage;
       });
-    } on PublicHttpException catch (error) {
+    } on PublicHttpException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _busy = false;
         _error = error.statusCode == 429 ? '提交过于频繁，请稍后再试。' : '提交失败，请稍后重试。';
       });
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -226,9 +250,10 @@ class _FeedbackComposerPageState extends State<FeedbackComposerPage> {
       setState(() {
         _attachDiagnostics = diagnostics.isNotEmpty;
         _diagnosticLoading = false;
-        if (diagnostics.isEmpty) _error = '暂无可附带的诊断信息。';
+        if (diagnostics.isEmpty) _error = '暂无错误记录。';
       });
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       setState(() {
         _diagnosticLoading = false;
@@ -409,7 +434,7 @@ class _FeedbackComposerPageState extends State<FeedbackComposerPage> {
       value: _attachDiagnostics,
       onChanged: _busy || _diagnosticLoading ? null : _setAttachDiagnostics,
       title: const Text('附带诊断信息'),
-      subtitle: const Text('不包含账号与课程信息。'),
+      subtitle: const Text('原始错误摘要，可预览实际附加内容。'),
       secondary: IconButton(
         tooltip: '预览诊断信息',
         onPressed: _busy || _diagnosticLoading ? null : _showDiagnosticsPreview,

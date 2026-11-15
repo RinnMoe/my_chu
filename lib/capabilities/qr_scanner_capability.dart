@@ -10,6 +10,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../pages/host_permission_purpose_overlay.dart';
 import '../services/host_permission_service.dart';
 import '../services/host_platform.dart';
+import '../services/logging/logger.dart';
 import 'qr_image_decoder.dart';
 
 /// Shown when a decoded payload is not a valid symbol for the requesting app.
@@ -436,15 +437,18 @@ class _HarmonyQrScannerPageState<T> extends State<_HarmonyQrScannerPage<T>> {
               ? QrScanSource.gallery
               : QrScanSource.camera;
       await _deliver(rawValue, source);
-    } on MissingPluginException {
+    } on MissingPluginException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) {
         setState(() => _message = '系统扫码器暂不可用，可以改为从图片选择二维码。');
       }
-    } on PlatformException {
+    } on PlatformException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) {
         setState(() => _message = '系统扫码器暂不可用，可以改为从图片选择二维码。');
       }
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) {
         setState(() => _message = '扫码失败，可以改为从图片选择二维码。');
       }
@@ -475,17 +479,30 @@ class _HarmonyQrScannerPageState<T> extends State<_HarmonyQrScannerPage<T>> {
         setState(() => _message = '图片过大，请选择小于 20 MB 的二维码图片。');
         return;
       }
-      final rawValue = await compute(decodeQrImageBytes, bytes);
+      final decoded = await AppLogger.guardAsync(
+        () => compute(decodeQrImageBytes, bytes),
+      );
+      if (decoded.error != null) {
+        AppLogger.error(
+          decoded.error!,
+          stackTrace: StackTrace.fromString(decoded.stack!),
+          context: '二维码图片识别',
+        );
+      }
+      final rawValue = decoded.value;
       if (rawValue == null || rawValue.trim().isEmpty) {
         setState(() => _message = '图片中未找到二维码，请选择清晰的二维码图片。');
         return;
       }
       await _deliver(rawValue, QrScanSource.gallery);
-    } on MissingPluginException {
+    } on MissingPluginException catch (error, stack) {
+      AppLogger.error(error, stackTrace: stack);
       if (mounted) setState(() => _message = '无法打开图片选择器，可以继续用相机扫码。');
-    } on PlatformException {
+    } on PlatformException catch (error, stack) {
+      AppLogger.error(error, stackTrace: stack);
       if (mounted) setState(() => _message = '图片无法识别，请重新选择。');
-    } catch (_) {
+    } catch (error, stack) {
+      AppLogger.error(error, stackTrace: stack);
       if (mounted) setState(() => _message = '图片无法识别，请重新选择。');
     } finally {
       if (mounted) setState(() => _working = false);
@@ -502,7 +519,8 @@ class _HarmonyQrScannerPageState<T> extends State<_HarmonyQrScannerPage<T>> {
           source: source,
         ),
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       decoded = const QrDecodeResult.failure(_unrecognizedQrMessage);
     }
     if (decoded.isSuccess && decoded.value != null) {
@@ -680,7 +698,8 @@ class _QrScannerPageState<T> extends State<_QrScannerPage<T>>
       }
       _dedupe.reset();
       if (!preserveMessage) setState(() => _message = null);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) setState(() => _message = '相机启动失败，请检查权限后重试。');
     }
   }
@@ -688,7 +707,8 @@ class _QrScannerPageState<T> extends State<_QrScannerPage<T>>
   Future<void> _stopCameraQuietly() async {
     try {
       await _controller.stop();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Nothing left to release.
     }
   }
@@ -758,7 +778,8 @@ class _QrScannerPageState<T> extends State<_QrScannerPage<T>>
     QrDecodeResult<T> result;
     try {
       result = widget.request.decoder(symbol);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       result = const QrDecodeResult.failure(_unrecognizedQrMessage);
     }
     if (result.isSuccess && result.value != null) {
@@ -768,12 +789,14 @@ class _QrScannerPageState<T> extends State<_QrScannerPage<T>>
       // open with a latched `_delivering` that disables every later detection.
       try {
         await HapticFeedback.mediumImpact();
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // A missing haptics channel is not a scan failure.
       }
       try {
         await _controller.stop();
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // The route is popped below, which releases the session anyway.
       }
       if (mounted) Navigator.pop<T>(context, result.value);
@@ -812,7 +835,8 @@ class _QrScannerPageState<T> extends State<_QrScannerPage<T>>
         if (!_controller.value.isRunning) continue;
         try {
           await _controller.setZoomScale(target);
-        } catch (_) {
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           break;
         }
       }
@@ -868,11 +892,14 @@ class _QrScannerPageState<T> extends State<_QrScannerPage<T>>
           );
         }
       }
-    } on MissingPluginException {
+    } on MissingPluginException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) setState(() => _message = '无法打开图片选择器，可以继续用相机扫码。');
-    } on PlatformException {
+    } on PlatformException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) setState(() => _message = '图片无法识别，请重新选择。');
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) setState(() => _message = '图片无法识别，请重新选择。');
     } finally {
       _galleryActive = false;

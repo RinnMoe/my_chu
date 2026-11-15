@@ -4,6 +4,8 @@ import 'dart:math';
 import 'federated_session.dart';
 import 'service_endpoints.dart';
 
+import 'logging/logger.dart';
+
 /// Host-only acquisition. No password or token is exposed to a feature.
 class OidcCodeSession {
   static Future<({String? token, bool authExpired})> acquire(
@@ -105,7 +107,8 @@ class OidcCodeSession {
         token: token is String && token.isNotEmpty ? token : null,
         authExpired: false,
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return (token: null, authExpired: false);
     } finally {
       client.close(force: true);

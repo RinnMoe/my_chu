@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'logging/logger.dart';
+
 class AppLaunchService {
   static const MethodChannel _channel = MethodChannel('mychu/app_launch');
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
@@ -27,7 +29,8 @@ class AppLaunchService {
     });
     try {
       _receive(await _channel.invokeMethod<Object?>('consume'));
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // The host launch channel is available only in the regular app engine.
     }
   }

@@ -4,6 +4,8 @@ import '../services/privacy_policy_document.dart';
 import '../services/privacy_policy_repository.dart';
 import '../services/privacy_agreement_service.dart';
 
+import '../services/logging/logger.dart';
+
 class PrivacyPolicyPage extends StatefulWidget {
   const PrivacyPolicyPage({super.key, this.document});
   final PrivacyPolicyDocument? document;
@@ -48,7 +50,8 @@ class _PrivacyPolicyPageState extends State<PrivacyPolicyPage> {
             acceptedHash: await PrivacyAgreementService.acceptedHash(),
           );
           documents = await repository.cached();
-        } catch (_) {
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           if (mounted) setState(() => _failed = true);
         }
       }
@@ -65,7 +68,8 @@ class _PrivacyPolicyPageState extends State<PrivacyPolicyPage> {
           _selected = documents.first;
         }
       });
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) setState(() => _failed = true);
     } finally {
       if (mounted) setState(() => _loading = false);

@@ -6,6 +6,8 @@ import '../../services/campus_session.dart';
 import '../../services/service_endpoints.dart';
 import 'classroom_usage_models.dart';
 
+import '../../services/logging/logger.dart';
+
 /// 空教室查询服务：只声明 URL 与请求参数，凭证/换票由统一身份层负责。
 class ClassroomUsageService {
   static final _client = CampusSession.client(CampusServices.roomReservation);
@@ -59,7 +61,8 @@ class ClassroomUsageService {
   static Future<String?> _tryCurrentAccountKey() async {
     try {
       return (await AuthService.getCurrentAccount())?.accountKey;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }

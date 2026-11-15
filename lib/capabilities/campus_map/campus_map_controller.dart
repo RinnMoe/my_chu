@@ -1,3 +1,4 @@
+import '../../services/reliability_event.dart';
 import "dart:math" as math;
 
 import "package:flutter/foundation.dart";
@@ -5,6 +6,7 @@ import "package:flutter/foundation.dart";
 import "../campus_places/campus_places.dart";
 import "../external_navigation/external_navigation.dart";
 import "../../services/user_error_message.dart";
+import "../../services/logging/logger.dart";
 import "campus_map_models.dart";
 import "map_engine.dart";
 import "indoor_map.dart";
@@ -157,9 +159,15 @@ class CampusMapController extends ChangeNotifier {
           CampusPlaceId(campusId: campusId, placeId: campus.defaultPlaceId!),
         );
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (generation != _generation) return;
-      logUserFacingError(UserErrorContext.map, error, operation: 'load');
+      logUserFacingError(
+        UserErrorContext.map,
+        error,
+        stackTrace: diagnosticStack,
+        operationId: UserOperationId.mapLoad,
+      );
       _setError(
         error is CampusMapConfigurationException
             ? error.message
@@ -326,12 +334,8 @@ class CampusMapController extends ChangeNotifier {
         selectionGeneration: selectionGeneration,
         fitCamera: fitCamera,
       );
-    } catch (error) {
-      logUserFacingError(
-        UserErrorContext.map,
-        error,
-        operation: "enter_indoor",
-      );
+    } catch (error, stack) {
+      logUserFacingError(UserErrorContext.map, error, stackTrace: stack);
       return false;
     }
   }
@@ -514,12 +518,8 @@ class CampusMapController extends ChangeNotifier {
         fitCamera: false,
       );
       if (!_isCurrent(generation)) return;
-    } catch (error) {
-      logUserFacingError(
-        UserErrorContext.map,
-        error,
-        operation: "restore_indoor_after_zoom_reversal",
-      );
+    } catch (error, stack) {
+      logUserFacingError(UserErrorContext.map, error, stackTrace: stack);
       if (!_isCurrent(generation)) return;
       _state = _state.copyWith(clearIndoorView: true);
       notifyListeners();
@@ -629,12 +629,8 @@ class CampusMapController extends ChangeNotifier {
         indoorBuilding = await indoorMapRepository.loadForBuildingPlaceId(
           classroomBuildingPlaceId,
         );
-      } catch (error) {
-        logUserFacingError(
-          UserErrorContext.map,
-          error,
-          operation: "load_indoor_building",
-        );
+      } catch (error, stack) {
+        logUserFacingError(UserErrorContext.map, error, stackTrace: stack);
       }
       if (!_isCurrentSelection(activeGeneration, selectionGeneration)) return;
     }
@@ -726,23 +722,19 @@ class CampusMapController extends ChangeNotifier {
           selectedIndoorSpaceId: selectedIndoorSpaceId,
           fitCamera: fitCamera,
         );
-      } catch (error) {
-        logUserFacingError(
-          UserErrorContext.map,
-          error,
-          operation: "enter_indoor_engine",
-        );
+      } catch (error, stack) {
+        logUserFacingError(UserErrorContext.map, error, stackTrace: stack);
         if (!_isCurrentSelection(generation, selectionGeneration) ||
             indoorGeneration != _indoorGeneration) {
           return false;
         }
         try {
           await engine.exitIndoor();
-        } catch (cleanupError) {
+        } catch (cleanupError, cleanupStack) {
           logUserFacingError(
             UserErrorContext.map,
             cleanupError,
-            operation: "exit_indoor_after_failure",
+            stackTrace: cleanupStack,
           );
         }
         return false;

@@ -1,5 +1,7 @@
 package moe.rinn.mychu.desktopwidgets
 
+import moe.rinn.mychu.NativeErrorLog
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -32,7 +34,8 @@ internal class DesktopWidgetRefreshReceiver : BroadcastReceiver() {
                         }
                     }
                 }
-            } catch (_: Exception) {
+            } catch (diagnosticError: Exception) {
+                NativeErrorLog.record(diagnosticError, "DesktopWidgetRefreshReceiver")
                 // The widget refresh is best-effort; the next snapshot retries it.
             } finally {
                 pendingResult.finish()

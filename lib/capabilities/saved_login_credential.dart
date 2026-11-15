@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../services/logging/logger.dart';
+
 /// A credential selected by the user for silent sign-in.
 ///
 /// The value is intentionally kept out of account models, logs, and feature
@@ -97,7 +99,8 @@ class SavedLoginCredentialCapability {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return null;
       return SavedLoginCredential.fromJson(Map<String, dynamic>.from(decoded));
-    } on Object {
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }

@@ -8,6 +8,8 @@ import "package:flutter/foundation.dart";
 
 import "map_layer_definition.dart";
 
+import '../../../services/logging/logger.dart';
+
 /// 注册失败原因。
 enum MapLayerRegistrationError {
   duplicateLayerId,
@@ -72,7 +74,8 @@ class MapLayerRegistry extends ChangeNotifier {
   void register(MapLayerDefinition definition) {
     try {
       definition.validate();
-    } on ArgumentError catch (error) {
+    } on ArgumentError catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw MapLayerRegistrationException(
         MapLayerRegistrationError.invalidDefinition,
         "${definition.layerId}: ${error.message}",
@@ -103,7 +106,8 @@ class MapLayerRegistry extends ChangeNotifier {
         register(definition);
         added.add(definition.layerId);
       }
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       for (final layerId in added) {
         _definitions.remove(layerId);
       }

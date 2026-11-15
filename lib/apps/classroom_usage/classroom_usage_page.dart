@@ -1,9 +1,10 @@
+import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_boundary.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'package:flutter/material.dart';
 
 import '../../capabilities/east8_time.dart';
-import '../../services/error_feedback_service.dart';
+import '../../services/logging/logger.dart';
 import '../../theme/app_palette.dart';
 import '../../services/user_error_message.dart';
 import 'classroom_usage_models.dart';
@@ -85,11 +86,13 @@ class _ClassroomUsagePageState extends State<ClassroomUsagePage>
           _selectedBuildingId = null;
         }
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || generation != _buildingsRequestGeneration) return;
       logUserFacingError(
         UserErrorContext.network,
         error,
+        stackTrace: diagnosticStack,
         operationId: UserOperationId.classroomUsage,
       );
       setState(() {
@@ -124,11 +127,13 @@ class _ClassroomUsagePageState extends State<ClassroomUsagePage>
         _items = items;
         _itemsLoading = false;
       });
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || generation != _spacesRequestGeneration) return;
       logUserFacingError(
         UserErrorContext.network,
         error,
+        stackTrace: diagnosticStack,
         operationId: UserOperationId.classroomUsage,
       );
       setState(() {
@@ -437,10 +442,7 @@ class _ClassroomUsagePageState extends State<ClassroomUsagePage>
   Widget _buildList(BuildContext context) {
     final theme = Theme.of(context);
     if (!_queried) {
-      return const _EmptyState(
-        icon: Icons.search,
-        message: '尚未查询',
-      );
+      return const _EmptyState(icon: Icons.search, message: '尚未查询');
     }
     if (_itemsLoading && _items.isEmpty) {
       final skeletonColor = theme.colorScheme.surfaceContainerHigh;

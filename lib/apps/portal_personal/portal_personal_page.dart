@@ -1,3 +1,4 @@
+import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/user_error_message.dart';
+import '../../services/logging/logger.dart';
 import '../information_portal/information_portal_models.dart';
 import '../information_portal/information_portal_service.dart';
 import 'portal_todos_view.dart';
@@ -172,13 +174,15 @@ class PortalPersonalStatusPanelState extends State<PortalPersonalStatusPanel>
               : await loader(force: force);
       if (!mounted) return;
       setState(() => _data = data);
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted) return;
       if (widget.active) {
         logUserFacingError(
           UserErrorContext.network,
           error,
-          operation: 'personal',
+          stackTrace: diagnosticStack,
+          operationId: UserOperationId.portalPersonal,
         );
       }
       setState(() => _error = userFacingError(UserErrorContext.network, error));

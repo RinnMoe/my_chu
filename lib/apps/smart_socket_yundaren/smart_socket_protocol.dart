@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:pointycastle/export.dart';
 
+import '../../services/logging/logger.dart';
+
 class BleProtocolException implements Exception {
   final String message;
 
@@ -126,7 +128,8 @@ class BleNotificationDecoder {
     String text;
     try {
       text = ascii.decode(bytes, allowInvalid: false);
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const BleProtocolException('设备通知不是 ASCII 数据');
     }
     _buffer.write(text);

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../services/logging/logger.dart';
+
 /// Account-scoped layered data cache shared by feature coordinators.
 ///
 /// Layer 1 (single-flight): concurrent callers for the same account and
@@ -138,11 +140,18 @@ class AccountScopedCache<T> {
     final future = _run(accountKey, generation, loader);
     _inFlight[accountKey] = future;
     unawaited(
-      future.then<void>((_) {}, onError: (Object _) {}).whenComplete(() {
-        if (identical(_inFlight[accountKey], future)) {
-          _inFlight.remove(accountKey);
-        }
-      }),
+      future
+          .then<void>(
+            (_) {},
+            onError: (Object diagnosticError, StackTrace diagnosticStack) {
+              AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+            },
+          )
+          .whenComplete(() {
+            if (identical(_inFlight[accountKey], future)) {
+              _inFlight.remove(accountKey);
+            }
+          }),
     );
   }
 
@@ -155,6 +164,7 @@ class AccountScopedCache<T> {
     try {
       value = await loader();
     } catch (error, stack) {
+      AppLogger.error(error, stackTrace: stack);
       if (_generationOf(accountKey) == generation) {
         _failures[accountKey] = (
           DateTime.now().add(failureCooldown),

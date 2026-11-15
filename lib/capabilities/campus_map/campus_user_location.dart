@@ -6,6 +6,8 @@ import "../campus_places/campus_places.dart";
 import "../../services/host_permission_service.dart";
 import "../../services/host_platform.dart";
 
+import '../../services/logging/logger.dart';
+
 /// 用户定位获取结果状态。
 enum CampusUserLocationStatus { located, denied, serviceUnavailable }
 
@@ -82,7 +84,8 @@ class CampusUserLocationService {
         CampusUserLocationStatus.located,
         coordinate,
       );
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return const CampusUserLocationResult(
         CampusUserLocationStatus.serviceUnavailable,
       );

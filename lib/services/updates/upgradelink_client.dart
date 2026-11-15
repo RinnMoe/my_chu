@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../capabilities/app_update/app_update_package.dart';
 import '../../capabilities/in_app_download/in_app_download.dart';
-import '../logger_service.dart';
+import '../logging/logger.dart';
 import '../public_http_client.dart';
 import 'upgradelink_delta.dart';
 import 'update_offer.dart';
@@ -119,8 +119,12 @@ class UpgradeLinkClient {
           ),
         ),
       );
-    } on FormatException {
-      AppLogger.warn('原生差分查询不可用，改为完整更新查询');
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(
+        diagnosticError,
+        stackTrace: diagnosticStack,
+        context: '原生差分查询不可用，改为完整更新查询',
+      );
     }
     return _envelope(
       await _post('/v1/apk/upgrade', _strategyPayload(versionCode, 0)),
@@ -261,10 +265,18 @@ class UpgradeLinkClient {
           'code': 0,
         },
       });
-    } on PublicHttpException {
-      AppLogger.warn('更新下载统计上报失败');
-    } on FormatException {
-      AppLogger.warn('更新下载统计响应无效');
+    } on PublicHttpException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(
+        diagnosticError,
+        stackTrace: diagnosticStack,
+        context: '更新下载统计上报失败',
+      );
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(
+        diagnosticError,
+        stackTrace: diagnosticStack,
+        context: '更新下载统计响应无效',
+      );
     }
   }
 
@@ -301,8 +313,12 @@ class UpgradeLinkClient {
           await entity.delete(recursive: true);
         }
       }
-    } on FileSystemException {
-      AppLogger.warn('更新缓存清理失败');
+    } on FileSystemException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(
+        diagnosticError,
+        stackTrace: diagnosticStack,
+        context: '更新缓存清理失败',
+      );
     }
     if (!await isAllowed()) {
       throw const InAppDownloadException(InAppDownloadErrorType.cancelled);
@@ -413,8 +429,12 @@ class UpgradeLinkClient {
       if (!verified) {
         try {
           if (await directory.exists()) await directory.delete(recursive: true);
-        } on FileSystemException {
-          AppLogger.warn('更新缓存清理失败');
+        } on FileSystemException catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(
+            diagnosticError,
+            stackTrace: diagnosticStack,
+            context: '更新缓存清理失败',
+          );
         }
       }
     }

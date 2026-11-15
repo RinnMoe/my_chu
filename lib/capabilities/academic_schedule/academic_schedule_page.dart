@@ -1,3 +1,5 @@
+import '../../services/usage_analytics_service.dart';
+import '../../services/reliability_event.dart';
 import '../../services/host_auth_state.dart';
 import 'package:mychu/widgets/campus_auth_boundary.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
@@ -22,12 +24,11 @@ import '../../apps/academic_affairs/academic_affairs_widgets.dart';
 import '../../services/auth_service.dart';
 import '../../services/academic_affairs_backend.dart';
 import '../../services/user_error_message.dart';
-import '../../services/error_feedback_service.dart';
+import '../../services/logging/logger.dart';
 import '../../services/campus_settings_service.dart';
 import '../../services/guide_preferences.dart';
 import '../../services/onboarding_flow_service.dart';
 import '../../services/file_save_service.dart';
-import '../../services/logger_service.dart';
 import '../../services/teaching_schedule_service.dart';
 import '../../services/temporal_change_service.dart';
 import '../east8_time.dart';
@@ -383,160 +384,168 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
 
   Future<void> _loadInitial() async {
     if (campusAuthGuest) return;
-    final feedback = ErrorFeedbackCoordinator.shared.begin(
+    final feedback = UsageAnalyticsService.beginOperation(
       UserOperationId.academicSchedule,
     );
-    final generation = ++_loadGeneration;
-    if (mounted) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
-    }
-    try {
-      if (widget.acquisitionLoader == null) {
-        _academicBackend =
-            widget.backendOverride ??
-            await AcademicAffairsBackendResolver.resolveCurrent();
-      } else {
-        _academicBackend = widget.backendOverride;
-      }
-      final accountKey = await _accountKeyLoader();
-      if (accountKey == null || accountKey.trim().isEmpty) {
-        throw const CampusAuthenticationRequired(HostAuthStatus.guest);
-      }
-      final scheduleMode = await campusSettingsService.scheduleModeFor();
-      if (!mounted || generation != _loadGeneration) return;
-      _scheduleMode = scheduleMode;
 
-      final catalog = await _store.readCachedSemesterCatalog(accountKey);
-      var semesters = academicSemestersNewestFirst(
-        catalog?.semesters ?? const <AcademicSemesterOption>[],
-      );
-      AcademicPersonalSchedule? schedule;
-      AcademicScheduleCalendarSelection? initialCalendarSelection;
-      final currentCalendar = await _readCurrentCalendar();
-      if (currentCalendar != null) {
-        final currentSemesterId =
-            semesters
-                .where(
-                  (semester) => academicSemesterLabelsMatch(
-                    currentCalendar.term.label,
-                    semester.label,
-                  ),
-                )
-                .map((semester) => semester.id.trim())
-                .where((id) => id.isNotEmpty)
-                .firstOrNull;
-        if (currentSemesterId != null) {
-          schedule = await _store.readCachedSchedule(
-            accountKey,
-            currentSemesterId,
-          );
+    try {
+      final generation = ++_loadGeneration;
+      if (mounted) {
+        setState(() {
+          _loading = true;
+          _error = null;
+        });
+      }
+      try {
+        if (widget.acquisitionLoader == null) {
+          _academicBackend =
+              widget.backendOverride ??
+              await AcademicAffairsBackendResolver.resolveCurrent();
+        } else {
+          _academicBackend = widget.backendOverride;
         }
-        if (schedule == null) {
-          final cachedCurrent = await _store.readCachedCurrentSchedule(
-            accountKey,
-          );
-          if (cachedCurrent != null &&
-              _scheduleMatchesCalendar(cachedCurrent, currentCalendar)) {
-            schedule = cachedCurrent;
-          }
+        final accountKey = await _accountKeyLoader();
+        if (accountKey == null || accountKey.trim().isEmpty) {
+          throw const CampusAuthenticationRequired(HostAuthStatus.guest);
         }
-        if (schedule == null) {
-          try {
-            final imported = await _acquireSchedule(
+        final scheduleMode = await campusSettingsService.scheduleModeFor();
+        if (!mounted || generation != _loadGeneration) return;
+        _scheduleMode = scheduleMode;
+
+        final catalog = await _store.readCachedSemesterCatalog(accountKey);
+        var semesters = academicSemestersNewestFirst(
+          catalog?.semesters ?? const <AcademicSemesterOption>[],
+        );
+        AcademicPersonalSchedule? schedule;
+        AcademicScheduleCalendarSelection? initialCalendarSelection;
+        final currentCalendar = await _readCurrentCalendar();
+        if (currentCalendar != null) {
+          final currentSemesterId =
+              semesters
+                  .where(
+                    (semester) => academicSemesterLabelsMatch(
+                      currentCalendar.term.label,
+                      semester.label,
+                    ),
+                  )
+                  .map((semester) => semester.id.trim())
+                  .where((id) => id.isNotEmpty)
+                  .firstOrNull;
+          if (currentSemesterId != null) {
+            schedule = await _store.readCachedSchedule(
               accountKey,
               currentSemesterId,
-              AcademicScheduleScope.personal,
             );
-            schedule = imported.schedule;
-            semesters = imported.semesters;
-          } catch (_) {
+          }
+          if (schedule == null) {
+            final cachedCurrent = await _store.readCachedCurrentSchedule(
+              accountKey,
+            );
+            if (cachedCurrent != null &&
+                _scheduleMatchesCalendar(cachedCurrent, currentCalendar)) {
+              schedule = cachedCurrent;
+            }
+          }
+          if (schedule == null) {
+            try {
+              final imported = await _acquireSchedule(
+                accountKey,
+                currentSemesterId,
+                AcademicScheduleScope.personal,
+              );
+              schedule = imported.schedule;
+              semesters = imported.semesters;
+            } catch (diagnosticError, diagnosticStack) {
+              AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+              schedule = null;
+            }
+          }
+          if (schedule != null &&
+              _scheduleMatchesCalendar(schedule, currentCalendar)) {
+            initialCalendarSelection = AcademicScheduleCalendarSelection(
+              calendar: currentCalendar,
+              isCurrentTerm: true,
+            );
+          } else {
             schedule = null;
           }
         }
-        if (schedule != null &&
-            _scheduleMatchesCalendar(schedule, currentCalendar)) {
-          initialCalendarSelection = AcademicScheduleCalendarSelection(
-            calendar: currentCalendar,
-            isCurrentTerm: true,
+        if (schedule == null) {
+          for (final semester in semesters) {
+            final id = semester.id.trim();
+            if (id.isEmpty) continue;
+            schedule = await _store.readCachedSchedule(accountKey, id);
+            if (schedule != null) break;
+          }
+        }
+        schedule ??= await _store.readCachedCurrentSchedule(accountKey);
+        if (schedule == null) {
+          final imported = await _acquireSchedule(
+            accountKey,
+            null,
+            AcademicScheduleScope.personal,
           );
-        } else {
-          schedule = null;
+          schedule = imported.schedule;
+          semesters = imported.semesters;
         }
-      }
-      if (schedule == null) {
-        for (final semester in semesters) {
-          final id = semester.id.trim();
-          if (id.isEmpty) continue;
-          schedule = await _store.readCachedSchedule(accountKey, id);
-          if (schedule != null) break;
-        }
-      }
-      schedule ??= await _store.readCachedCurrentSchedule(accountKey);
-      if (schedule == null) {
-        final imported = await _acquireSchedule(
-          accountKey,
-          null,
-          AcademicScheduleScope.personal,
-        );
-        schedule = imported.schedule;
-        semesters = imported.semesters;
-      }
-      semesters = academicSemestersNewestFirst(semesters);
+        semesters = academicSemestersNewestFirst(semesters);
 
-      final displayPreferences = await Future.wait([
-        AcademicScheduleDisplayPreferences.readShowNonCurrent(),
-        AcademicScheduleDisplayPreferences.readHideWeekend(),
-      ]);
-      final showNonCurrent = displayPreferences[0];
-      final hideWeekend = displayPreferences[1];
-      if (!mounted || generation != _loadGeneration) return;
-      setState(() {
-        _accountKey = accountKey;
-        _scope = AcademicScheduleScope.personal;
-        _schedule = schedule;
-        _semesters = semesters;
-        _resetCalendarAndPager();
-        _showNonCurrent = showNonCurrent;
-        _hideWeekend = hideWeekend;
-        _loading = false;
-        _error = null;
-      });
-      scheduleAcademicCourseAlerts(accountKey);
-      feedback.succeed();
-      if (initialCalendarSelection == null && currentCalendar != null) {
-        if (_scheduleMatchesCalendar(schedule, currentCalendar)) {
-          initialCalendarSelection = AcademicScheduleCalendarSelection(
-            calendar: currentCalendar,
-            isCurrentTerm: true,
-          );
+        final displayPreferences = await Future.wait([
+          AcademicScheduleDisplayPreferences.readShowNonCurrent(),
+          AcademicScheduleDisplayPreferences.readHideWeekend(),
+        ]);
+        final showNonCurrent = displayPreferences[0];
+        final hideWeekend = displayPreferences[1];
+        if (!mounted || generation != _loadGeneration) return;
+        setState(() {
+          _accountKey = accountKey;
+          _scope = AcademicScheduleScope.personal;
+          _schedule = schedule;
+          _semesters = semesters;
+          _resetCalendarAndPager();
+          _showNonCurrent = showNonCurrent;
+          _hideWeekend = hideWeekend;
+          _loading = false;
+          _error = null;
+        });
+        scheduleAcademicCourseAlerts(accountKey);
+        feedback.succeed();
+        if (initialCalendarSelection == null && currentCalendar != null) {
+          if (_scheduleMatchesCalendar(schedule, currentCalendar)) {
+            initialCalendarSelection = AcademicScheduleCalendarSelection(
+              calendar: currentCalendar,
+              isCurrentTerm: true,
+            );
+          }
         }
-      }
-      unawaited(
-        _loadCalendar(
-          generation,
-          schedule,
-          selection: initialCalendarSelection,
-        ),
-      );
-    } catch (error) {
-      if (!mounted || generation != _loadGeneration) return;
-      if (!_isLoginRequired(error)) {
-        logUserFacingError(
-          UserErrorContext.academic,
-          error,
-          operationId: UserOperationId.academicSchedule,
-          feedbackAttempt: feedback,
+        unawaited(
+          _loadCalendar(
+            generation,
+            schedule,
+            selection: initialCalendarSelection,
+          ),
         );
-      } else if (error is AcademicAffairsAuthenticationException) {
-        feedback.fail(error);
+      } catch (error, diagnosticStack) {
+        AppLogger.error(error, stackTrace: diagnosticStack);
+        if (!mounted || generation != _loadGeneration) return;
+        if (!_isLoginRequired(error)) {
+          logUserFacingError(
+            UserErrorContext.academic,
+            error,
+            stackTrace: diagnosticStack,
+            operationId: UserOperationId.academicSchedule,
+            feedbackAttempt: feedback,
+          );
+        } else if (error is AcademicAffairsAuthenticationException) {
+          feedback.fail(error);
+        }
+        setState(() {
+          _loading = false;
+          _error = error;
+        });
       }
-      setState(() {
-        _loading = false;
-        _error = error;
-      });
+    } finally {
+      feedback.cancel();
     }
   }
 
@@ -548,16 +557,10 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
   }) async {
     try {
       selection ??= await _calendarLoader(schedule, force: force);
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || generation != _loadGeneration) return;
-      AppLogger.recordSafeFailure(
-        level: 'WARN',
-        code: 'academic.schedule.calendar.failed',
-        message: '课表校历加载失败',
-        error: error,
-        domain: 'academic',
-        fields: const {'stage': 'calendar'},
-      );
+      AppLogger.error(error, stackTrace: StackTrace.current);
       return;
     }
     if (!mounted || generation != _loadGeneration) return;
@@ -595,16 +598,10 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
     if (loader == null) return null;
     try {
       return await loader(force: false);
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted) return null;
-      AppLogger.recordSafeFailure(
-        level: 'WARN',
-        code: 'academic.schedule.calendar_cache.failed',
-        message: '课表当前校历读取失败',
-        error: error,
-        domain: 'academic',
-        fields: const {'stage': 'calendar_cache'},
-      );
+      AppLogger.error(error, stackTrace: StackTrace.current);
       return null;
     }
   }
@@ -787,48 +784,55 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
       _refreshing = true;
       _error = null;
     });
-    final feedback = ErrorFeedbackCoordinator.shared.begin(
+    final feedback = UsageAnalyticsService.beginOperation(
       UserOperationId.academicSchedule,
     );
+
     try {
-      final selectedSemester = _schedule?.semesterId.trim();
-      final result = await _acquireSchedule(
-        accountKey,
-        selectedSemester?.isNotEmpty == true ? selectedSemester : null,
-        scope,
-      );
-      final schedule = result.schedule;
-      final generation = ++_loadGeneration;
-      if (!mounted) return;
-      setState(() {
-        _accountKey = accountKey;
-        _schedule = schedule;
-        _semesters = academicSemestersNewestFirst(result.semesters);
-        _resetCalendarAndPager();
-        _refreshing = false;
-        _error = null;
-      });
-      unawaited(_loadCalendar(generation, schedule, force: true));
-      feedback.succeed();
-      if (scope == AcademicScheduleScope.personal) {
-        _refreshPersonalSurfaces();
-      }
-    } catch (error) {
-      if (!mounted) return;
-      if (!_isLoginRequired(error)) {
-        logUserFacingError(
-          UserErrorContext.academic,
-          error,
-          operationId: UserOperationId.academicSchedule,
-          feedbackAttempt: feedback,
+      try {
+        final selectedSemester = _schedule?.semesterId.trim();
+        final result = await _acquireSchedule(
+          accountKey,
+          selectedSemester?.isNotEmpty == true ? selectedSemester : null,
+          scope,
         );
-      } else if (error is AcademicAffairsAuthenticationException) {
-        feedback.fail(error);
+        final schedule = result.schedule;
+        final generation = ++_loadGeneration;
+        if (!mounted) return;
+        setState(() {
+          _accountKey = accountKey;
+          _schedule = schedule;
+          _semesters = academicSemestersNewestFirst(result.semesters);
+          _resetCalendarAndPager();
+          _refreshing = false;
+          _error = null;
+        });
+        unawaited(_loadCalendar(generation, schedule, force: true));
+        feedback.succeed();
+        if (scope == AcademicScheduleScope.personal) {
+          _refreshPersonalSurfaces();
+        }
+      } catch (error, diagnosticStack) {
+        AppLogger.error(error, stackTrace: diagnosticStack);
+        if (!mounted) return;
+        if (!_isLoginRequired(error)) {
+          logUserFacingError(
+            UserErrorContext.academic,
+            error,
+            stackTrace: diagnosticStack,
+            operationId: UserOperationId.academicSchedule,
+            feedbackAttempt: feedback,
+          );
+        } else if (error is AcademicAffairsAuthenticationException) {
+          feedback.fail(error);
+        }
+        setState(() {
+          _refreshing = false;
+          _error = error;
+        });
       }
-      setState(() {
-        _refreshing = false;
-        _error = error;
-      });
+    } finally {
+      feedback.cancel();
     }
   }
 
@@ -876,12 +880,14 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
       if (scope == AcademicScheduleScope.personal) {
         _refreshPersonalSurfaces();
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || generation != _loadGeneration) return;
       if (!_isLoginRequired(error)) {
         logUserFacingError(
           UserErrorContext.academic,
           error,
+          stackTrace: diagnosticStack,
           operationId: UserOperationId.academicSchedule,
         );
       }
@@ -973,12 +979,14 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
         _error = null;
       });
       unawaited(_loadCalendar(generation, resolvedSchedule));
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || generation != _loadGeneration || _scope != scope) return;
       if (!_isLoginRequired(error)) {
         logUserFacingError(
           UserErrorContext.academic,
           error,
+          stackTrace: diagnosticStack,
           operationId: UserOperationId.academicSchedule,
         );
       }
@@ -1007,9 +1015,10 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
   Widget _appearancePage(BuildContext context, Widget body) {
     final theme = Theme.of(context);
     final canvas = _appearance.canvas(theme.colorScheme);
-    final custom = theme.brightness == Brightness.dark
-        ? _appearance.darkBackground
-        : _appearance.lightBackground;
+    final custom =
+        theme.brightness == Brightness.dark
+            ? _appearance.darkBackground
+            : _appearance.lightBackground;
     final axis = _appearance.style.ink(
       ScheduleInk.axis,
       theme.brightness == Brightness.dark,
@@ -1019,20 +1028,21 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
       theme.brightness == Brightness.dark,
     );
     final hasImage = image != null;
-    final pageTheme = custom == null && axis == null
-        ? theme
-        : theme.copyWith(
-            colorScheme: theme.colorScheme.copyWith(
-              surface: canvas,
-              onSurface: foreground,
-              onSurfaceVariant: foreground,
-            ),
-            textTheme: theme.textTheme.apply(
-              bodyColor: foreground,
-              displayColor: foreground,
-            ),
-            iconTheme: theme.iconTheme.copyWith(color: foreground),
-          );
+    final pageTheme =
+        custom == null && axis == null
+            ? theme
+            : theme.copyWith(
+              colorScheme: theme.colorScheme.copyWith(
+                surface: canvas,
+                onSurface: foreground,
+                onSurfaceVariant: foreground,
+              ),
+              textTheme: theme.textTheme.apply(
+                bodyColor: foreground,
+                displayColor: foreground,
+              ),
+              iconTheme: theme.iconTheme.copyWith(color: foreground),
+            );
     return AcademicScheduleAppearanceScope(
       appearance: _appearance,
       child: Theme(
@@ -1046,9 +1056,10 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
               return AnnotatedRegion<SystemUiOverlayStyle>(
                 value: SystemUiOverlayStyle(
                   statusBarColor: Colors.transparent,
-                  statusBarIconBrightness: foreground.computeLuminance() > .5
-                      ? Brightness.light
-                      : Brightness.dark,
+                  statusBarIconBrightness:
+                      foreground.computeLuminance() > .5
+                          ? Brightness.light
+                          : Brightness.dark,
                   statusBarBrightness: Theme.of(context).brightness,
                 ),
                 child: Scaffold(
@@ -1067,9 +1078,10 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
                             child: _ScheduleLoadingOverlay(
                               label:
                                   _scope ==
-                                      AcademicScheduleScope.administrativeClass
-                                  ? '正在加载班级课表…'
-                                  : '正在加载课表…',
+                                          AcademicScheduleScope
+                                              .administrativeClass
+                                      ? '正在加载班级课表…'
+                                      : '正在加载课表…',
                             ),
                           ),
                         Positioned(
@@ -1367,81 +1379,82 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-              ListTile(
-                leading: const Icon(Icons.today_outlined),
-                title: const Text('返回当前周'),
-                enabled: _currentPageIndex != null,
-                onTap:
-                    _currentPageIndex == null
-                        ? null
-                        : () => Navigator.pop(
+                  ListTile(
+                    leading: const Icon(Icons.today_outlined),
+                    title: const Text('返回当前周'),
+                    enabled: _currentPageIndex != null,
+                    onTap:
+                        _currentPageIndex == null
+                            ? null
+                            : () => Navigator.pop(
+                              sheetContext,
+                              _ScheduleMenuAction.currentWeek,
+                            ),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.visibility_outlined),
+                    title: const Text('显示非本周课程'),
+                    trailing:
+                        _effectiveNonCurrent ? const Icon(Icons.check) : null,
+                    onTap:
+                        () => Navigator.pop(
                           sheetContext,
-                          _ScheduleMenuAction.currentWeek,
+                          _ScheduleMenuAction.showNonCurrent,
                         ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.visibility_outlined),
-                title: const Text('显示非本周课程'),
-                trailing: _effectiveNonCurrent ? const Icon(Icons.check) : null,
-                onTap:
-                    () => Navigator.pop(
-                      sheetContext,
-                      _ScheduleMenuAction.showNonCurrent,
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.weekend_outlined),
+                    title: const Text('不显示周末'),
+                    trailing:
+                        _visibleWeekdays.length == 5
+                            ? const Icon(Icons.check)
+                            : null,
+                    onTap:
+                        () => Navigator.pop(
+                          sheetContext,
+                          _ScheduleMenuAction.hideWeekend,
+                        ),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.ios_share_outlined),
+                    title: const Text('导出'),
+                    onTap:
+                        () => Navigator.pop(
+                          sheetContext,
+                          _ScheduleMenuAction.export,
+                        ),
+                  ),
+                  if (_scope == AcademicScheduleScope.personal) ...[
+                    ListTile(
+                      leading: const Icon(Icons.add_circle_outline),
+                      title: const Text('添加课程'),
+                      onTap:
+                          () => Navigator.pop(
+                            sheetContext,
+                            _ScheduleMenuAction.addCourse,
+                          ),
                     ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.weekend_outlined),
-                title: const Text('不显示周末'),
-                trailing:
-                    _visibleWeekdays.length == 5 ? const Icon(Icons.check) : null,
-                onTap:
-                    () => Navigator.pop(
-                      sheetContext,
-                      _ScheduleMenuAction.hideWeekend,
+                    ListTile(
+                      leading: const Icon(Icons.restore),
+                      title: const Text('恢复原始课表'),
+                      onTap:
+                          () => Navigator.pop(
+                            sheetContext,
+                            _ScheduleMenuAction.restoreOriginal,
+                          ),
                     ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.ios_share_outlined),
-                title: const Text('导出'),
-                onTap:
-                    () => Navigator.pop(
-                      sheetContext,
-                      _ScheduleMenuAction.export,
-                    ),
-              ),
-              if (_scope == AcademicScheduleScope.personal) ...[
-                ListTile(
-                  leading: const Icon(Icons.add_circle_outline),
-                  title: const Text('添加课程'),
-                  onTap:
-                      () => Navigator.pop(
-                        sheetContext,
-                        _ScheduleMenuAction.addCourse,
-                      ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.restore),
-                  title: const Text('恢复原始课表'),
-                  onTap:
-                      () => Navigator.pop(
-                        sheetContext,
-                        _ScheduleMenuAction.restoreOriginal,
-                      ),
-                ),
-              ],
-              ListTile(
-                leading: const Icon(Icons.refresh),
-                title: Text(
-                  isClassSchedule ? '重新获取班级课表' : '重新获取课程',
-                ),
-                onTap:
-                    () => Navigator.pop(
-                      sheetContext,
-                      _ScheduleMenuAction.refresh,
-                    ),
-              ),
+                  ],
+                  ListTile(
+                    leading: const Icon(Icons.refresh),
+                    title: Text(isClassSchedule ? '重新获取班级课表' : '重新获取课程'),
+                    onTap:
+                        () => Navigator.pop(
+                          sheetContext,
+                          _ScheduleMenuAction.refresh,
+                        ),
+                  ),
                   const SizedBox(height: 8),
                 ],
               ),
@@ -1484,7 +1497,8 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
       final next = _appearance.withStyle(style);
       try {
         await AcademicScheduleAppearanceStore.save(next);
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         if (mounted) {
           ScaffoldMessenger.of(
             context,
@@ -1565,7 +1579,11 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
         teachingSchedule: teachingScheduleFor(_scheduleMode),
         weekStartDates: weekStartDates,
       );
-    } on AcademicScheduleExportDateMappingException catch (error) {
+    } on AcademicScheduleExportDateMappingException catch (
+      error,
+      diagnosticStack
+    ) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       await _showExportMessage(error.message);
       return;
     }
@@ -1590,7 +1608,8 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
         await _showExportMessage(
           opened ? '日历文件已保存，正在打开日历应用' : '日历文件已保存，但未找到可导入日历的应用',
         );
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         if (mounted) await _showExportMessage('日历文件导出失败，请重试');
       }
     });
@@ -1630,7 +1649,8 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
         await _showExportMessage(
           opened ? '完整课表已保存，正在打开 WakeUp' : '完整课表已保存，但未找到可用 WakeUp',
         );
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         if (mounted) await _showExportMessage('WakeUp 课表导出失败，请重试');
       }
     });
@@ -1974,7 +1994,8 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
                                       _weekController
                                           .position
                                           .hasContentDimensions
-                                  ? _weekController.page ?? _visiblePage.toDouble()
+                                  ? _weekController.page ??
+                                      _visiblePage.toDouble()
                                   : _visiblePage.toDouble();
                           final direction =
                               Directionality.of(context) == TextDirection.rtl
@@ -2810,9 +2831,10 @@ class _ScheduleWeekPage extends StatelessWidget {
       for (final group in groupScheduleEntriesByOverlap(visible))
         if (visibleWeekdays.contains(group.weekday)) group,
     ];
-    final fadedEntries = showNonCurrent
-        ? split.faded.toSet()
-        : const <AcademicPersonalScheduleEntry>{};
+    final fadedEntries =
+        showNonCurrent
+            ? split.faded.toSet()
+            : const <AcademicPersonalScheduleEntry>{};
     final height = periodHeight * maxPeriod;
     final style = AcademicScheduleAppearanceScope.of(context).style;
     final colors = Theme.of(context).colorScheme;
@@ -2914,9 +2936,10 @@ class _ScheduleWeekPage extends StatelessWidget {
       faded: group.entries.every(fadedEntries.contains),
       onTap: () => _onBlockTap(group, fadedEntries),
     );
-    final child = firstCourseKey != null && groupIndex == 0
-        ? KeyedSubtree(key: firstCourseKey, child: courseBlock)
-        : courseBlock;
+    final child =
+        firstCourseKey != null && groupIndex == 0
+            ? KeyedSubtree(key: firstCourseKey, child: courseBlock)
+            : courseBlock;
     return Positioned(
       left:
           _leftWidth + visibleWeekdays.indexOf(group.weekday) * columnWidth + 2,
@@ -2938,12 +2961,13 @@ class _ScheduleWeekPage extends StatelessWidget {
     onCellTap(
       group.entries,
       isNonCurrent: isFaded,
-      companions: isFaded
-          ? const <AcademicPersonalScheduleEntry>[]
-          : [
-              for (final other in split.hidden)
-                if (group.overlaps(other)) other,
-            ],
+      companions:
+          isFaded
+              ? const <AcademicPersonalScheduleEntry>[]
+              : [
+                for (final other in split.hidden)
+                  if (group.overlaps(other)) other,
+              ],
       mergeSources: mergeSources,
     );
   }
@@ -2985,16 +3009,17 @@ class _ScheduleWeekHeader extends StatelessWidget {
           SizedBox(
             width: _leftWidth,
             child: Center(
-              child: weekStartDate != null
-                  ? Text(
-                      '${weekStartDate.month}月',
-                      style: TextStyle(
-                        fontSize: math.max(8, style.headerFontSize - 2),
-                        height: 1.2,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    )
-                  : null,
+              child:
+                  weekStartDate != null
+                      ? Text(
+                        '${weekStartDate.month}月',
+                        style: TextStyle(
+                          fontSize: math.max(8, style.headerFontSize - 2),
+                          height: 1.2,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      )
+                      : null,
             ),
           ),
           for (final day in visibleWeekdays)
@@ -3002,9 +3027,10 @@ class _ScheduleWeekHeader extends StatelessWidget {
               width: columnWidth,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: highlightToday && day == todayWeekday
-                      ? highlightColor
-                      : null,
+                  color:
+                      highlightToday && day == todayWeekday
+                          ? highlightColor
+                          : null,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: FittedBox(
@@ -3061,11 +3087,7 @@ class _ScheduleTopGlass extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                tint,
-                tint,
-                tint.withValues(alpha: 0),
-              ],
+              colors: [tint, tint, tint.withValues(alpha: 0)],
               stops: const [0, .55, 1],
             ),
           ),

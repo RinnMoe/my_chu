@@ -6,6 +6,8 @@ import '../../services/campus_session.dart';
 import '../../services/service_endpoints.dart';
 import 'wozaichangda_models.dart';
 
+import '../../services/logging/logger.dart';
+
 class WozaichangdaService {
   static const serviceId = CampusServices.campusApp;
   static final _client = CampusSession.client(serviceId);
@@ -43,7 +45,8 @@ class WozaichangdaService {
     final Object? decoded;
     try {
       decoded = jsonDecode(body);
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw WozaichangdaParseException('响应不是有效 JSON：$error');
     }
     if (decoded is! Map<String, dynamic>) {

@@ -10,7 +10,7 @@ import '../capabilities/time_reminder.dart';
 import 'auth_service.dart';
 import 'privacy_agreement_service.dart';
 import 'platform_compatibility_service.dart';
-import 'logger_service.dart';
+import 'logging/logger.dart';
 import 'demo_data_service.dart';
 
 export '../capabilities/time_reminder.dart';
@@ -61,7 +61,8 @@ class TimeReminderService {
     try {
       return await (debugInvoke?.call(method, args) ??
           _channel.invokeMethod<Object?>(method, args));
-    } on MissingPluginException {
+    } on MissingPluginException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -92,7 +93,11 @@ class TimeReminderService {
   }
 
   static Future<void> initialize() =>
-      _initialization ??= _initialize().catchError((Object error) {
+      _initialization ??= _initialize().catchError((
+        Object error,
+        StackTrace diagnosticStack,
+      ) {
+        AppLogger.error(error, stackTrace: diagnosticStack);
         _initialization = null;
         throw error;
       });
@@ -125,7 +130,9 @@ class TimeReminderService {
       if (value is Map) {
         raw = value;
       }
-    } catch (_) {}
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+    }
     return {
       for (final category in TimeReminderCategory.values)
         category: TimeReminderSetting(
@@ -200,7 +207,9 @@ class TimeReminderService {
           exact: raw['exact'] == true,
         );
       }
-    } catch (_) {}
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+    }
     return const TimeReminderStatus();
   }
 
@@ -303,8 +312,12 @@ class TimeReminderService {
                   : <String>[],
         });
       });
-    } catch (error) {
-      AppLogger.warn('时间提醒调度失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '时间提醒调度失败 (${error.runtimeType})',
+      );
     }
   }
 
@@ -314,8 +327,12 @@ class TimeReminderService {
   ) async {
     try {
       await _refreshers[category]?.call(account);
-    } catch (error) {
-      AppLogger.warn('时间提醒刷新失败 (${error.runtimeType})');
+    } catch (error, diagnosticStack) {
+      AppLogger.error(
+        error,
+        stackTrace: diagnosticStack,
+        context: '时间提醒刷新失败 (${error.runtimeType})',
+      );
     }
   }
 

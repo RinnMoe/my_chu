@@ -1,3 +1,4 @@
+import '../services/failure_details.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
@@ -5,7 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../services/session_materialization.dart';
-import '../services/failure_details.dart';
+
+import '../services/logging/logger.dart';
 
 /// The platform-independent cookie shape used at the WebView boundary.
 /// Credential values may cross this boundary, but never leave the host-side
@@ -221,7 +223,8 @@ class WebViewCookieCoordinator {
       if (pending != null) {
         try {
           await pending;
-        } catch (_) {
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           // A failed first reset must not prevent a fresh final barrier.
         }
       }
@@ -259,7 +262,8 @@ class WebViewCookieCoordinator {
                 _nativeChannelName,
               ).invokeMethod<String>('getCookies', {'url': url.toString()});
       if (value != null) return value;
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       nativeError = error;
     }
 
@@ -273,7 +277,8 @@ class WebViewCookieCoordinator {
           .where((cookie) => cookie.name.isNotEmpty)
           .map((cookie) => '${cookie.name}=${cookie.value ?? ''}')
           .join('; ');
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw WebViewCookieReadException(url, cause: nativeError ?? error);
     }
   }

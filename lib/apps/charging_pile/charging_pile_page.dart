@@ -14,6 +14,8 @@ import 'charging_pile_widgets.dart';
 import 'charging_pile_area_picker.dart';
 import 'charging_pile_credits.dart';
 
+import '../../services/logging/logger.dart';
+
 enum _PileSort {
   number('按编号'),
   available('空闲优先'),
@@ -52,6 +54,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
   final _favorites = <String>{};
   VoidCallback? _release;
   ChargingPileCancellation? _batch;
+
   /// `null` is the "全部分区" selection, which is the default on open. A map
   /// jump may narrow it to the device's area once the page receives a target.
   ChargingPileArea? _area;
@@ -92,7 +95,8 @@ class _ChargingPilePageState extends State<ChargingPilePage>
   Future<void> _ensureCatalog() async {
     try {
       await _repository.ensureCatalog();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 目录失败时页面保留空列表 + 重试入口，不阻断其他功能。
     }
     if (!mounted) return;
@@ -111,7 +115,8 @@ class _ChargingPilePageState extends State<ChargingPilePage>
           preferences.getStringList(_favoritesKey) ?? const <String>[];
       if (!mounted || revision != _favoriteRevision) return;
       setState(() => _favorites.addAll(saved));
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       _preferenceError();
     }
   }
@@ -130,7 +135,8 @@ class _ChargingPilePageState extends State<ChargingPilePage>
             throw StateError('preference write failed');
           }
         })
-        .catchError((Object _) {
+        .catchError((Object diagnosticError, StackTrace diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           _preferenceError();
         });
   }
@@ -253,7 +259,8 @@ class _ChargingPilePageState extends State<ChargingPilePage>
             campus.campusId: campus.displayName,
         };
       });
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 名字读不出来不影响功能：下拉里显示 id。
     }
   }
@@ -261,8 +268,19 @@ class _ChargingPilePageState extends State<ChargingPilePage>
   String get _activeCampusId =>
       _campusId ?? _repository.loadAreas().firstOrNull?.campusId ?? '';
 
-  String _campusLabel(String campusId) =>
-      _campusNames[campusId] ?? campusId;
+  String _campusLabel(String campusId) => _campusNames[campusId] ?? campusId;
+
+  /// 设备详情副标题：校区 · 分区 · 设备号。
+  ///
+  /// 校区取自目录派生的归属，不能写死渭水 —— 站点目录里已经有北院与雁塔的桩。
+  String _deviceSubtitle(ChargingPileDevice device) {
+    final campus = _campusLabel(device.campusId);
+    return <String>[
+      if (campus.isNotEmpty) campus,
+      device.area.label,
+      device.id,
+    ].join(' · ');
+  }
 
   /// 当前校区的分区；没选校区（目录为空）时回退到全部分区。
   List<ChargingPileArea> get _campusAreas {
@@ -282,7 +300,9 @@ class _ChargingPilePageState extends State<ChargingPilePage>
       campusLabel: _campusLabel,
     );
     if (!mounted || selection == null) return;
-    if (selection.campusId == _activeCampusId && selection.area == _area) return;
+    if (selection.campusId == _activeCampusId && selection.area == _area) {
+      return;
+    }
     setState(() {
       _campusId = selection.campusId;
       _area = selection.area;
@@ -292,8 +312,9 @@ class _ChargingPilePageState extends State<ChargingPilePage>
   void _changed() {
     if (!mounted) return;
     final areas = _campusAreas;
-    if (_area != null && areas.isNotEmpty && !areas.contains(_area))
+    if (_area != null && areas.isNotEmpty && !areas.contains(_area)) {
       _area = areas.first;
+    }
     setState(() {});
   }
 
@@ -346,9 +367,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
       // previous numbers on screen, never as a page-wide banner.
       if (mounted && _repository.consumeDegradation()) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('这一分钟查得太多，先用最近一次的结果，过十几秒再点'),
-          ),
+          const SnackBar(content: Text('这一分钟查得太多，先用最近一次的结果，过十几秒再点')),
         );
       }
     }
@@ -405,7 +424,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '渭水 · ${device.area.label} · ${device.id}',
+                        _deviceSubtitle(device),
                         style: theme.textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 20),
@@ -514,10 +533,11 @@ class _ChargingPilePageState extends State<ChargingPilePage>
           IconButton(
             tooltip: '一周回顾',
             icon: const Icon(Icons.insights_outlined),
-            onPressed: () => showChargingPileStats(
-              context,
-              areas: _repository.loadAreas(),
-            ),
+            onPressed:
+                () => showChargingPileStats(
+                  context,
+                  areas: _repository.loadAreas(),
+                ),
           ),
           IconButton(
             tooltip: '致谢&贡献名单',
@@ -571,7 +591,8 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                                             Flexible(
                                               child: Text(
                                                 _area?.label ?? '全部分区',
-                                                style: theme.textTheme
+                                                style: theme
+                                                    .textTheme
                                                     .titleMedium
                                                     ?.copyWith(
                                                       fontWeight:

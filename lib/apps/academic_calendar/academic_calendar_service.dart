@@ -11,6 +11,8 @@ import '../../services/mobile_campus_request_signer.dart';
 import '../../services/service_endpoints.dart';
 import 'academic_calendar_models.dart';
 
+import '../../services/logging/logger.dart';
+
 typedef AcademicCalendarRequestLoader =
     Future<Map<String, dynamic>> Function(Uri uri, Map<String, Object?> param);
 typedef AcademicCalendarAccountKeyLoader = Future<String?> Function();
@@ -346,7 +348,11 @@ class AcademicCalendarService {
     };
     try {
       return await _postOnce(uri, param);
-    } on AcademicCalendarAuthenticationException {
+    } on AcademicCalendarAuthenticationException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       final refreshed = await _credentialRefresher();
       if (!refreshed) rethrow;
       return _postOnce(uri, param);
@@ -403,7 +409,8 @@ class AcademicCalendarParser {
     Object? decoded;
     try {
       decoded = jsonDecode(raw);
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       decoded = null;
     }
     if (decoded is! Map) {
@@ -439,7 +446,8 @@ class AcademicCalendarParser {
       }
       try {
         terms.add(_parseTerm(Map<String, dynamic>.from(item)));
-      } on FormatException {
+      } on FormatException catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         throw const AcademicCalendarException('校历学期字段无效');
       }
     }
@@ -585,7 +593,8 @@ class AcademicCalendarParser {
         isUtc: true,
       ).add(east8Offset);
       return DateTime(east8.year, east8.month, east8.day);
-    } on ArgumentError {
+    } on ArgumentError catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }

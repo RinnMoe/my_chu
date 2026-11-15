@@ -1,3 +1,4 @@
+import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
@@ -7,7 +8,7 @@ import '../../capabilities/authenticated_web_view_capability.dart';
 import '../../capabilities/host_login.dart';
 import '../../capabilities/network_self_service_auth_capability.dart';
 import '../../services/network_self_service_auth_service.dart';
-import '../../services/logger_service.dart';
+import '../../services/logging/logger.dart';
 import '../../services/user_error_message.dart';
 import '../../services/service_endpoints.dart';
 import 'network_self_service_dashboard.dart';
@@ -91,7 +92,11 @@ class _NetworkSelfServicePageState extends State<NetworkSelfServicePage>
           );
           _error = null;
         });
-      } on NetworkSelfServiceAuthenticationRequiredException {
+      } on NetworkSelfServiceAuthenticationRequiredException catch (
+        diagnosticError,
+        diagnosticStack
+      ) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         authenticated = await _ensureAuthentication();
         if (!authenticated || !mounted) return;
         final overview = await _service.loadOverview();
@@ -101,20 +106,24 @@ class _NetworkSelfServicePageState extends State<NetworkSelfServicePage>
           _error = null;
         });
       }
-    } on NetworkSelfServiceParseException catch (error) {
+    } on NetworkSelfServiceParseException catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) {
         logUserFacingError(
           UserErrorContext.network,
           error,
+          stackTrace: diagnosticStack,
           operationId: UserOperationId.networkSelfService,
         );
         setState(() => _error = error.message);
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       if (mounted) {
         logUserFacingError(
           UserErrorContext.network,
           error,
+          stackTrace: diagnosticStack,
           operationId: UserOperationId.networkSelfService,
         );
         setState(() => _error = '网络自服暂时无法加载，请稍后重试。');
@@ -404,7 +413,8 @@ class _NetworkSelfServiceCaptchaDialogState
         _current = refreshed;
         _refreshing = false;
       });
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted || _closed || request != _refreshRequest) return;
       setState(() => _refreshing = false);
     }

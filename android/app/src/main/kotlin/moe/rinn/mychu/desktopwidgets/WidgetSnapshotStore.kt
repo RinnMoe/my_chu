@@ -1,5 +1,7 @@
 package moe.rinn.mychu.desktopwidgets
 
+import moe.rinn.mychu.NativeErrorLog
+
 import android.content.Context
 import android.util.AtomicFile
 import java.io.File
@@ -23,6 +25,7 @@ internal class WidgetSnapshotStore(context: Context) {
             stream.write(source.toByteArray(StandardCharsets.UTF_8))
             atomicFile.finishWrite(stream)
         } catch (error: Exception) {
+            NativeErrorLog.record(error, "WidgetSnapshotStore")
             if (stream != null) atomicFile.failWrite(stream)
             throw error
         }
@@ -37,7 +40,8 @@ internal class WidgetSnapshotStore(context: Context) {
             atomicFile.openRead().bufferedReader(StandardCharsets.UTF_8).use {
                 TodayScheduleSnapshotParser.parseForNow(it.readText(), now)
             }
-        } catch (_: Exception) {
+        } catch (diagnosticError: Exception) {
+            NativeErrorLog.record(diagnosticError, "WidgetSnapshotStore")
             TodayScheduleWidgetData(today, TodayScheduleStatus.UNAVAILABLE)
         }
     }
@@ -50,7 +54,8 @@ internal class WidgetSnapshotStore(context: Context) {
             atomicFile.openRead().bufferedReader(StandardCharsets.UTF_8).use {
                 WeekScheduleSnapshotParser.parse(it.readText(), now)
             }
-        } catch (_: Exception) {
+        } catch (diagnosticError: Exception) {
+            NativeErrorLog.record(diagnosticError, "WidgetSnapshotStore")
             WeekScheduleSnapshotParser.unavailable(now)
         }
     }

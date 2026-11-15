@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'public_http_client.dart';
 import 'service_endpoints.dart';
 
+import 'logging/logger.dart';
+
 /// 校园网状态：通过图书馆公开接口查询出口 IP 与是否校内白名单。
 ///
 /// 接口：`GET https://lib.chd.edu.cn/entry/user/getUserIpAndCheck`，
@@ -49,7 +51,8 @@ class IpStatusService {
       _cached = status;
       _cachedAt = DateTime.now();
       return status;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -66,7 +69,8 @@ class IpStatusService {
         return null;
       }
       return CampusNetworkStatus(ip: ip.trim(), inWhiteList: inWhiteList);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }

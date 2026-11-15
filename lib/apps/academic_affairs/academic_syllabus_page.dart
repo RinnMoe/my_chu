@@ -1,3 +1,4 @@
+import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_boundary.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
@@ -7,7 +8,6 @@ import 'package:flutter/material.dart';
 import '../../capabilities/campus_map/campus_map_capability.dart';
 import '../../capabilities/text_utils.dart';
 import '../../services/academic_affairs_backend.dart';
-import '../../services/error_feedback_service.dart';
 import '../../services/user_error_message.dart';
 import 'academic_affairs_models.dart';
 import 'academic_affairs_service.dart';

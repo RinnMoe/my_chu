@@ -1,3 +1,4 @@
+import MychuHarmonyDiagnosticsPlugin from './MychuHarmonyDiagnosticsPlugin';
 import {
   AbilityAware,
   AbilityPluginBinding,
@@ -66,7 +67,8 @@ export default class MychuHarmonyFileSharePlugin
           previewMode: systemShare.SharePreviewMode.DEFAULT,
         });
         result.success(true);
-      } catch (_) {
+      } catch (diagnosticError) {
+        MychuHarmonyDiagnosticsPlugin.record(diagnosticError as Error, "MychuHarmonyFileSharePlugin");
         result.success(false);
       }
       return;
@@ -112,7 +114,8 @@ export default class MychuHarmonyFileSharePlugin
           const detectedType = uniformTypeDescriptor
             .getUniformDataTypeByFilenameExtension(extension);
           if (detectedType.length > 0) dataType = detectedType;
-        } catch (_) {
+        } catch (diagnosticError) {
+          MychuHarmonyDiagnosticsPlugin.record(diagnosticError as Error, "MychuHarmonyFileSharePlugin");
           // Keep the generic file type for an extension without a known UTD.
         }
       }
@@ -128,7 +131,8 @@ export default class MychuHarmonyFileSharePlugin
         previewMode: systemShare.SharePreviewMode.DEFAULT,
       });
       result.success(true);
-    } catch (_) {
+    } catch (diagnosticError) {
+      MychuHarmonyDiagnosticsPlugin.record(diagnosticError as Error, "MychuHarmonyFileSharePlugin");
       result.success(false);
     }
   }

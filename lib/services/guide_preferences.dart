@@ -1,5 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'logging/logger.dart';
+
 /// Stores the one-time campus prompt and versioned contextual guide hints.
 class GuidePreferences {
   static const currentMainTourVersion = 1;
@@ -15,7 +17,8 @@ class GuidePreferences {
     try {
       final preferences = await SharedPreferences.getInstance();
       return (preferences.getInt(mainTourKey) ?? 0) < currentMainTourVersion;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
     }
   }
@@ -26,7 +29,9 @@ class GuidePreferences {
     try {
       final preferences = await SharedPreferences.getInstance();
       await preferences.setInt(mainTourKey, currentMainTourVersion);
-    } catch (_) {}
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+    }
   }
 
   Future<void> markMainTourSeen() => markCampusPromptSeen();
@@ -35,7 +40,9 @@ class GuidePreferences {
     try {
       final preferences = await SharedPreferences.getInstance();
       await preferences.remove(mainTourKey);
-    } catch (_) {}
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+    }
   }
 
   Future<bool> shouldShowOnboardingFlow() async {
@@ -43,7 +50,8 @@ class GuidePreferences {
       final preferences = await SharedPreferences.getInstance();
       return (preferences.getInt(onboardingFlowKey) ?? 0) <
           currentOnboardingFlowVersion;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
     }
   }
@@ -52,14 +60,17 @@ class GuidePreferences {
     try {
       final preferences = await SharedPreferences.getInstance();
       await preferences.setInt(onboardingFlowKey, currentOnboardingFlowVersion);
-    } catch (_) {}
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+    }
   }
 
   Future<bool> shouldShowHint(String id, int version) async {
     try {
       final preferences = await SharedPreferences.getInstance();
       return (preferences.getInt(_hintKey(id)) ?? 0) < version;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
     }
   }
@@ -68,7 +79,9 @@ class GuidePreferences {
     try {
       final preferences = await SharedPreferences.getInstance();
       await preferences.setInt(_hintKey(id), version);
-    } catch (_) {}
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+    }
   }
 
   static String _hintKey(String id) => 'guide.hint.$id.version';

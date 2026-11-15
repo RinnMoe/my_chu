@@ -6,6 +6,8 @@ import 'package:flutter_blue_plus_ohos/flutter_blue_plus_ohos.dart' as ohos;
 
 import 'smart_socket_protocol_transport.dart';
 
+import '../../services/logging/logger.dart';
+
 /// FlutterBluePlus OHOS transport for the existing QR-address-bound BLE test.
 ///
 /// The transport deliberately matches the scan result address to the QR MAC.
@@ -56,6 +58,7 @@ class HarmonyBleProtocolTransport implements BleProtocolTransport {
         }
       },
       onError: (Object error, StackTrace stackTrace) {
+        AppLogger.error(error, stackTrace: stackTrace);
         if (!found.isCompleted) found.completeError(error, stackTrace);
       },
     );
@@ -75,9 +78,11 @@ class HarmonyBleProtocolTransport implements BleProtocolTransport {
                   '12 秒内未找到二维码设备 ${_formatMac(target)}',
                 ),
       );
-    } on BleTransportException {
+    } on BleTransportException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       rethrow;
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw BleTransportException('扫描目标设备失败（${error.runtimeType}）');
     } finally {
       await subscription.cancel();
@@ -108,7 +113,8 @@ class HarmonyBleProtocolTransport implements BleProtocolTransport {
         autoConnect: false,
       );
       _connected = true;
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw BleTransportException('连接设备失败（${error.runtimeType}）');
     }
   }
@@ -153,9 +159,11 @@ class HarmonyBleProtocolTransport implements BleProtocolTransport {
         onError: _notificationController.addError,
       );
       await notify.setNotifyValue(true);
-    } on BleTransportException {
+    } on BleTransportException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       rethrow;
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw BleTransportException('发现 GATT 服务失败（${error.runtimeType}）');
     }
   }
@@ -175,7 +183,8 @@ class HarmonyBleProtocolTransport implements BleProtocolTransport {
           withoutResponse: true,
         );
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw BleTransportException('写入 FF02 失败（${error.runtimeType}）');
     }
   }
@@ -185,7 +194,8 @@ class HarmonyBleProtocolTransport implements BleProtocolTransport {
     _intentionalDisconnect = true;
     try {
       await ohos.FlutterBluePlus.stopScan();
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Scanning may not have started or the adapter may already be off.
     }
     await _notificationSubscription?.cancel();
@@ -194,7 +204,8 @@ class HarmonyBleProtocolTransport implements BleProtocolTransport {
     if (device != null) {
       try {
         await device.disconnect();
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // Local teardown remains best-effort when the adapter is already off.
       }
     }
@@ -221,7 +232,8 @@ class HarmonyBleProtocolTransport implements BleProtocolTransport {
   Future<ohos.BluetoothAdapterState> _readLiveAdapterState() async {
     try {
       return await ohos.FlutterBluePlus.adapterState.first;
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw BleTransportException('读取蓝牙状态失败（${error.runtimeType}）');
     }
   }

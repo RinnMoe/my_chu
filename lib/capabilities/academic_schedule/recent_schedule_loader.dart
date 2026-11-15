@@ -7,6 +7,8 @@ import 'academic_schedule_store.dart';
 import 'recent_schedule.dart';
 import 'recent_schedule_repository.dart';
 
+import '../../services/logging/logger.dart';
+
 /// All dated consumers share this precedence. Academic dependencies are lazy:
 /// a covered ROOMIS day works even when the semester/calendar is unavailable.
 Future<List<RecentScheduleDay>> loadRecentScheduleDays(
@@ -49,7 +51,8 @@ Future<List<RecentScheduleDay>> loadRecentScheduleDays(
                   accountKey,
                   academic.semesterLabel,
                 );
-          } catch (_) {
+          } catch (diagnosticError, diagnosticStack) {
+            AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
             // A missing local calendar must not discard a valid dated window.
           }
           if (!hasUncoveredDate) {
@@ -75,7 +78,8 @@ Future<List<RecentScheduleDay>> loadRecentScheduleDays(
           ),
         );
       }
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       onAcademicFailure?.call(error);
       // An unavailable academic fallback must not hide covered ROOMIS days.
     }

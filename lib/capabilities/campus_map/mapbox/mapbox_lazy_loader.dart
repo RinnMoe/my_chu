@@ -3,6 +3,8 @@ import "dart:async";
 import "package:flutter/foundation.dart";
 import "package:flutter/services.dart";
 
+import '../../../services/logging/logger.dart';
+
 /// 首次打开地图时才注册 Mapbox 原生插件。
 ///
 /// Mapbox SDK 在插件 attach 时初始化，冷启动阶段并不需要它；延后注册可以让
@@ -23,9 +25,11 @@ class MapboxLazyLoader {
   static Future<void> _ensure() async {
     try {
       await _channel.invokeMethod<bool>("ensure");
-    } on MissingPluginException {
+    } on MissingPluginException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 单元测试或未注册该通道的宿主：保持与未懒加载时一致的空实现。
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       // 失败后清掉单飞，允许用户下次打开地图时重试。
       _pending = null;
       rethrow;

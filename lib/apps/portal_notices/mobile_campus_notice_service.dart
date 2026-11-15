@@ -14,6 +14,8 @@ import '../../services/service_endpoints.dart';
 import 'mobile_campus_notice_models.dart';
 import 'portal_notices_models.dart';
 
+import '../../services/logging/logger.dart';
+
 class MobileCampusAuthenticationException
     implements Exception, ClassifiedFailure {
   @override
@@ -161,7 +163,11 @@ class MobileCampusNoticeService {
   ) async {
     try {
       return await _postOnce(path, param);
-    } on MobileCampusAuthenticationException {
+    } on MobileCampusAuthenticationException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       final refreshed =
           await CampusSession.client(CampusServices.mobileCampus).refresh();
       if (!refreshed) rethrow;
@@ -224,7 +230,8 @@ class MobileCampusNoticeParser {
     Object? decoded;
     try {
       decoded = jsonDecode(raw);
-    } on FormatException {
+    } on FormatException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       decoded = null;
     }
     if (decoded == null) {

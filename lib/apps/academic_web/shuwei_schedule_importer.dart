@@ -1,3 +1,6 @@
+import 'dart:collection';
+import '../../capabilities/web_view_error_reporting.dart';
+import '../../services/failure_details.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kDebugMode, visibleForTesting;
@@ -8,7 +11,7 @@ import '../../capabilities/authenticated_web_view_capability.dart';
 import '../../capabilities/shuwei_request_proxy.dart';
 import '../../services/academic_affairs_backend.dart';
 import '../../services/campus_session.dart';
-import '../../services/logger_service.dart';
+import '../../services/logging/logger.dart';
 import '../../services/failure_classifier.dart' show classifyFailure;
 import '../../services/service_endpoints.dart';
 import '../academic_affairs/academic_affairs_models.dart';
@@ -145,7 +148,8 @@ class _ShuweiScheduleImportLifecycle {
     final completer = _resumeCompleter ??= Completer<void>();
     try {
       await completer.future.timeout(resumeWaitTimeout);
-    } on TimeoutException {
+    } on TimeoutException catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const _ShuweiScheduleImportResumeTimeoutException();
     }
   }
@@ -248,12 +252,12 @@ class ShuweiScheduleImporter {
           _lifecycle.endAttempt(context);
           await context.disposeResources();
         }
-      } on _ShuweiScheduleImportAbortException catch (error) {
+      } on _ShuweiScheduleImportAbortException catch (error, diagnosticStack) {
+        AppLogger.error(error, stackTrace: diagnosticStack);
         if (automaticRestartCount >= 1) {
           _debugLifecycleStage(
             'academic.schedule.restart_exhausted',
             '课表导入自动恢复次数已用尽',
-            attempt: automaticRestartCount + 1,
           );
           throw _abortException(error.reason);
         }
@@ -263,18 +267,20 @@ class ShuweiScheduleImporter {
             _debugLifecycleStage(
               'academic.schedule.background_cancelled',
               '课表导入因后台状态取消',
-              attempt: automaticRestartCount,
             );
           case ShuweiScheduleImportAbortReason.cookieCommit:
             _debugLifecycleStage(
               'academic.schedule.cookie_commit_restart',
               '课表导入因 Cookie 提交失败重建',
-              attempt: automaticRestartCount,
             );
         }
         try {
           await _lifecycle.waitForForeground();
-        } on _ShuweiScheduleImportResumeTimeoutException {
+        } on _ShuweiScheduleImportResumeTimeoutException catch (
+          diagnosticError,
+          diagnosticStack
+        ) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           throw const AcademicAffairsException(
             '课表加载等待前台恢复超时，请稍后重试。',
             reason: FailureReason.timeout,
@@ -283,14 +289,17 @@ class ShuweiScheduleImporter {
         _debugLifecycleStage(
           'academic.schedule.resume_restart',
           '课表导入重新创建 WebView',
-          attempt: automaticRestartCount + 1,
         );
         await Future<void>.delayed(
           error.reason == ShuweiScheduleImportAbortReason.background
               ? _resumeSettleDelay
               : _cookieRecoveryDelay,
         );
-      } on _ShuweiScheduleImportResumeTimeoutException {
+      } on _ShuweiScheduleImportResumeTimeoutException catch (
+        diagnosticError,
+        diagnosticStack
+      ) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         throw const AcademicAffairsException(
           '课表加载等待前台恢复超时，请稍后重试。',
           reason: FailureReason.timeout,
@@ -304,7 +313,14 @@ class ShuweiScheduleImporter {
     ShuweiScheduleImportAttemptContext context,
   ) {
     if (context.isAborted) {
-      unawaited(attempt.then<void>((_) {}, onError: (_, __) {}));
+      unawaited(
+        attempt.then<void>(
+          (_) {},
+          onError: (Object diagnosticError, StackTrace diagnosticStack) {
+            AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+          },
+        ),
+      );
       return Future<T>.error(
         _ShuweiScheduleImportAbortException(context.abortReason!),
       );
@@ -341,22 +357,21 @@ class ShuweiScheduleImporter {
     }
   }
 
-  void _debugLifecycleStage(String code, String message, {int? attempt}) {
+  void _debugLifecycleStage(String code, String message) {
     if (!kDebugMode) return;
-    AppLogger.event(
-      level: 'INFO',
-      code: code,
-      message: message,
-      domain: 'academic',
-      attempt: attempt,
-    );
+    AppLogger.info(<Object?>[code, message].join(' | '));
   }
 
   /// 教务系统会为查询页维护会话上下文；并发开多个 WebView 会让其中一个
   /// 抢不到上下文。导入请求串行执行，保证切换稳定。
   static Future<T> _serialized<T>(Future<T> Function() task) {
     final run = _importTail.then((_) => task());
-    _importTail = run.then<void>((_) {}, onError: (_) {});
+    _importTail = run.then<void>(
+      (_) {},
+      onError: (Object diagnosticError, StackTrace diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+      },
+    );
     return run;
   }
 
@@ -375,7 +390,8 @@ class ShuweiScheduleImporter {
 
     try {
       await CampusSession.open();
-    } catch (error) {
+    } catch (error, diagnosticStack) {
+      AppLogger.error(error, stackTrace: diagnosticStack);
       throw AcademicAffairsException(
         '请先登录后查看我的课表',
         reason: classifyFailure(error),
@@ -414,9 +430,13 @@ class ShuweiScheduleImporter {
       proxy.bindSession(binding);
 
       headlessWebView = HeadlessInAppWebView(
+        initialUserScripts: UnmodifiableListView([
+          WebViewErrorReporting.script,
+        ]),
         initialUrlRequest: URLRequest(url: WebUri(_homeUri.toString())),
         initialSettings: _settings(),
         onWebViewCreated: (controller) {
+          WebViewErrorReporting.attach(controller);
           if (!controllerCompleter.isCompleted) {
             controllerCompleter.complete(controller);
           }
@@ -424,10 +444,15 @@ class ShuweiScheduleImporter {
         shouldInterceptRequest:
             (controller, request) => proxy.intercept(request),
         onReceivedError: (controller, request, error) {
+          AppLogger.error(error, context: '教务后台 WebView 加载失败\n${request.url}');
           if (request.isForMainFrame == true) mainFrameError = error;
           if (_isCourseTableRequest(request.url)) courseTableError = error;
         },
         onReceivedHttpError: (controller, request, response) {
+          AppLogger.error(
+            response,
+            context: '教务后台 WebView HTTP 错误\n${request.url}',
+          );
           final failed = (response.statusCode ?? 200) >= 400;
           if (request.isForMainFrame == true && failed) {
             mainFrameError = response;
@@ -435,6 +460,10 @@ class ShuweiScheduleImporter {
           if (failed && _isCourseTableRequest(request.url)) {
             courseTableError = response;
           }
+        },
+        onRenderProcessGone: (controller, detail) {
+          AppLogger.error(detail, context: '教务后台 WebView 渲染进程退出');
+          mainFrameError = detail;
         },
       );
 
@@ -488,7 +517,8 @@ class ShuweiScheduleImporter {
             source: ShuweiScheduleExtractor.openCourseTableScript,
           );
           navigationRequested = result == true || '$result' == 'true';
-        } catch (_) {
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           // The home page may still be replacing its document.
         }
       }
@@ -503,7 +533,8 @@ class ShuweiScheduleImporter {
         if (semesterContext != null && semesterContext.semesters.isNotEmpty) {
           semesters = semesterContext.semesters;
         }
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // The timetable query view is still being inserted.
       }
 
@@ -519,7 +550,8 @@ class ShuweiScheduleImporter {
           await controller.evaluateJavascript(
             source: ShuweiScheduleExtractor.installSubmitGuardScript,
           );
-        } catch (_) {
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           // The query page may still be replacing its document.
         }
       }
@@ -550,7 +582,8 @@ class ShuweiScheduleImporter {
           if (tableQuerySubmitted) {
             tableQueryAt = DateTime.now();
           }
-        } catch (_) {
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           // The query page may still be initializing.
         }
         await Future<void>.delayed(_pollInterval);
@@ -573,7 +606,8 @@ class ShuweiScheduleImporter {
           await Future<void>.delayed(_pollInterval);
           continue;
         }
-      } catch (_) {
+      } catch (diagnosticError, diagnosticStack) {
+        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         await Future<void>.delayed(_pollInterval);
         continue;
       }
@@ -612,7 +646,8 @@ class ShuweiScheduleImporter {
           schedule: schedule,
           semesters: semesters,
         );
-      } catch (error) {
+      } catch (error, diagnosticStack) {
+        AppLogger.error(error, stackTrace: diagnosticStack);
         lastParseError = error;
         await Future<void>.delayed(_pollInterval);
       }
@@ -650,7 +685,8 @@ class ShuweiScheduleImporter {
         source: ShuweiScheduleExtractor.pageReadyScript,
       );
       return result == true || '$result' == 'true';
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return false;
     }
   }

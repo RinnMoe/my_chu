@@ -6,6 +6,8 @@ import '../capabilities/in_app_download/in_app_download.dart';
 import '../services/app_remote_services_service.dart';
 import 'app_update_progress.dart';
 
+import '../services/logging/logger.dart';
+
 /// 更新弹窗用户选择。
 enum AppUpdateChoice { updateNow, later }
 
@@ -57,10 +59,15 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
         return;
       }
       await _showFailure('无法唤起系统安装程序，请稍后重试');
-    } on AppRemoteServicesDisabledException {
+    } on AppRemoteServicesDisabledException catch (
+      diagnosticError,
+      diagnosticStack
+    ) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       await _showFailure(AppRemoteServicesDisabledException.userMessage);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (!mounted) return;
       await _showFailure('下载安装包失败，请稍后重试');
     } finally {

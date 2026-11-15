@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'privacy_policy_document.dart';
 import 'supabase/supabase_project_config.dart';
 
+import 'logging/logger.dart';
+
 /// Public static resources only: no campus client, cookies, credentials or SDKs.
 class PrivacyPolicyRepository {
   PrivacyPolicyRepository({
@@ -58,11 +60,13 @@ class PrivacyPolicyRepository {
             expectedHash: value['sha256'] as String,
           );
           if (entry.key == '${document.version}') result.add(document);
-        } catch (_) {
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           /* Ignore only the corrupt entry. */
         }
       }
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       /* A corrupt cache is never consent. */
     }
     result.sort((a, b) => b.version.compareTo(a.version));
@@ -165,7 +169,8 @@ class PrivacyPolicyRepository {
             }),
           );
           if (!saved) throw StateError('Policy cache write failed');
-        } catch (_) {
+        } catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
           await prefs.reload();
           rethrow;
         }

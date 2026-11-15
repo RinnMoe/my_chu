@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'privacy_policy_document.dart';
 import 'privacy_policy_repository.dart';
 
+import 'logging/logger.dart';
+
 /// Stores whether the user accepted the current user agreement.
 class PrivacyAgreementService {
   PrivacyAgreementService._();
@@ -62,7 +64,8 @@ class PrivacyAgreementService {
         return 0;
       }
       return version;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return 0;
     }
   }
@@ -73,7 +76,8 @@ class PrivacyAgreementService {
       return (jsonDecode(preferences.getString(recordKey) ?? '{}')
               as Map<String, dynamic>)['sha256']
           as String?;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -94,7 +98,8 @@ class PrivacyAgreementService {
       if (document.version <= accepted) return null;
       _requiredVersion = document.version;
       return document;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 本地状态损坏也不能阻断启动；受保护动作仍由 isAccepted 拦截。
       return null;
     }
@@ -121,7 +126,8 @@ class PrivacyAgreementService {
       if (document.version <= accepted) return null;
       _requiredVersion = document.version;
       return document;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 启动不因协议源不可用而失败；下一次冷启动或前台再试。
       return null;
     }
@@ -142,13 +148,15 @@ class PrivacyAgreementService {
       }
       final body = await rootBundle.loadString('privacy/$path');
       return PrivacyPolicyDocument.decode(body, expectedHash: hash);
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // 随包资源缺失或损坏时回退到已下载缓存。
     }
     try {
       final cached = await PrivacyPolicyRepository.instance.cached();
       return cached.isEmpty ? null : cached.first;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       return null;
     }
   }
@@ -176,7 +184,8 @@ class PrivacyAgreementService {
         }),
       );
       if (!saved) throw StateError('无法保存隐私协议状态');
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       await preferences.reload();
       rethrow;
     }

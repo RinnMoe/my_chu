@@ -10,6 +10,8 @@ import 'academic_schedule_cell_colors.dart';
 import 'academic_schedule_style.dart';
 import 'academic_schedule_appearance_preview.dart';
 
+import '../../services/logging/logger.dart';
+
 /// A local, live appearance editor. Changes never touch course data.
 class AcademicScheduleAppearancePage extends StatefulWidget {
   const AcademicScheduleAppearancePage({
@@ -49,7 +51,8 @@ class _AcademicScheduleAppearancePageState
       await widget.onSave(next);
       if (mounted) setState(() => _appearance = next);
       return true;
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -117,7 +120,8 @@ class _AcademicScheduleAppearancePageState
       if (!await _save(_appearance.withBackgroundImage(image, dark))) {
         await AcademicScheduleAppearanceStore.discardUnusedBackground(image);
       }
-    } catch (_) {
+    } catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       if (mounted) {
         ScaffoldMessenger.of(
           context,
