@@ -1,3 +1,5 @@
+import '../../widgets/app_selection.dart';
+import '../../widgets/app_search_field.dart';
 import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_boundary.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
@@ -356,48 +358,23 @@ class _SemesterSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelStyle = Theme.of(context).textTheme.titleSmall;
-    final mutedStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-    );
-    final iconColor = Theme.of(context).colorScheme.primary;
     if (semesters.isEmpty) {
       if (!optionsFailed) return const SizedBox.shrink();
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-        child: Row(
-          children: [
-            Icon(Icons.calendar_month_outlined, size: 20, color: iconColor),
-            const SizedBox(width: 8),
-            Text('学期', style: labelStyle),
-            const Spacer(),
-            Text('教务系统当前学期', style: mutedStyle),
-          ],
-        ),
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: Text('学期目录暂不可用，当前显示教务系统当前学期'),
       );
     }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Row(
-        children: [
-          Icon(Icons.calendar_month_outlined, size: 20, color: iconColor),
-          const SizedBox(width: 8),
-          Text('学期', style: labelStyle),
-          const Spacer(),
-          DropdownButton<String>(
-            value: selectedSemester,
-            hint: const Text('请选择学期'),
-            isDense: true,
-            items: [
-              for (final semester in semesters)
-                DropdownMenuItem<String>(
-                  value: semester.id,
-                  child: Text(semester.label, overflow: TextOverflow.ellipsis),
-                ),
-            ],
-            onChanged: onChanged,
-          ),
+      child: AppSelectField<String?>(
+        label: '学期',
+        value: selectedSemester,
+        options: [
+          for (final semester in semesters)
+            AppSelectionOption(value: semester.id, label: semester.label),
         ],
+        onChanged: onChanged,
       ),
     );
   }
@@ -434,29 +411,10 @@ class _ExamFilters extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(
+          AppSearchField(
             controller: queryController,
+            hintText: '搜索课程名称或课程序号',
             onChanged: onQueryChanged,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              hintText: '搜索课程名称或课程序号',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon:
-                  query.isEmpty
-                      ? null
-                      : IconButton(
-                        tooltip: '清除',
-                        onPressed: () {
-                          queryController.clear();
-                          onQueryChanged('');
-                        },
-                        icon: const Icon(Icons.close),
-                      ),
-              isDense: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
           ),
           if (batches.isNotEmpty) ...[
             const SizedBox(height: 6),

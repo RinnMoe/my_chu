@@ -267,12 +267,9 @@ Widget _buildChargingPileDetail(
   final openOwnerApp = selection.definition.interaction.openOwnerApp;
   return Material(
     elevation: 8,
-    color: theme.colorScheme.surfaceContainerLowest,
+    color: theme.colorScheme.surfaceContainer,
     clipBehavior: Clip.antiAlias,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
-      side: BorderSide(color: theme.colorScheme.outlineVariant),
-    ),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     child: Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Column(

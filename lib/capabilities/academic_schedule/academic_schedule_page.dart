@@ -1,3 +1,5 @@
+import '../../widgets/app_selection.dart';
+import '../../widgets/app_bottom_sheet.dart';
 import '../../services/usage_analytics_service.dart';
 import '../../services/reliability_event.dart';
 import '../../services/host_auth_state.dart';
@@ -37,7 +39,6 @@ import '../../widgets/glass_surface.dart';
 import '../../theme/app_glass.dart';
 import '../../widgets/adaptive_action_sheet.dart';
 import '../../widgets/adaptive_confirmation_dialog.dart';
-import '../../widgets/adaptive_feedback.dart';
 import '../../widgets/coach_mark_presenter.dart';
 import '../../widgets/root_destination_active_scope.dart';
 import '../../apps/academic_calendar/academic_calendar_models.dart';
@@ -1364,14 +1365,8 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
 
   Future<void> _showOptionsSheet() async {
     final isClassSchedule = _scope == AcademicScheduleScope.administrativeClass;
-    final action = await showModalBottomSheet<_ScheduleMenuAction>(
+    final action = await showAppBottomSheet<_ScheduleMenuAction>(
       context: context,
-      showDragHandle: true,
-      useSafeArea: true,
-      isScrollControlled: true,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * .8,
-      ),
       builder:
           (sheetContext) => SafeArea(
             top: false,
@@ -1682,12 +1677,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
               : () => _deleteEditedEntry(accountKey, schedule, entry),
     );
 
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => editor,
-    );
+    await showAppBottomSheet<void>(context: context, builder: (_) => editor);
   }
 
   Future<void> _restoreOriginalSchedule() async {
@@ -1716,7 +1706,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
       setState(() => _schedule = restored);
       _refreshPersonalSurfaces();
     }
-    await showAdaptiveMessageDialog(context, message: '已恢复原始课表');
+    await _showExportMessage('已恢复原始课表');
   }
 
   Future<bool> _saveEditedEntry(
@@ -1784,38 +1774,26 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
     if (semesters.isEmpty) return;
     final selectedId = _schedule?.semesterId.trim() ?? '';
 
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder:
-          (sheetContext) => SafeArea(
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                for (final semester in semesters)
-                  ListTile(
-                    title: Text(
-                      semester.label.isNotEmpty ? semester.label : semester.id,
-                    ),
-                    trailing:
-                        semester.id == selectedId
-                            ? const Icon(Icons.check)
-                            : null,
-                    onTap: () => Navigator.of(sheetContext).pop(semester.id),
-                  ),
-              ],
-            ),
+    final selected = await showAppSelectionSheet<String>(
+      context,
+      title: '学期',
+      value: selectedId,
+      options: [
+        for (final semester in semesters)
+          AppSelectionOption(
+            value: semester.id,
+            label: semester.label.isNotEmpty ? semester.label : semester.id,
           ),
+      ],
     );
     if (selected != null && mounted) {
-      await _changeSemester(selected);
+      await _changeSemester(selected.value);
     }
   }
 
   Future<void> _showWeekPicker() async {
-    final selected = await showModalBottomSheet<int>(
+    final selected = await showAppBottomSheet<int>(
       context: context,
-      showDragHandle: true,
       builder:
           (_) => SafeArea(
             child: _WeekPickerSheet(
@@ -2140,29 +2118,22 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
                   style: Theme.of(sheetContext).textTheme.titleSmall,
                 ),
                 const SizedBox(height: 8),
-                RadioGroup<AcademicPersonalScheduleEntry>(
-                  groupValue: selectedCourse,
-                  onChanged: (value) {
-                    if (value == null) return;
-                    _rememberPersonalConflictSelection(courses, value);
-                    setSheetState(() => selectedCourse = value);
-                  },
-                  child: Column(
-                    children: [
-                      for (final course in courses)
-                        RadioListTile<AcademicPersonalScheduleEntry>(
-                          key: ValueKey(
-                            'academic-schedule-conflict-option-${_scheduleEntrySelectionKey(course)}',
-                          ),
-                          value: course,
-                          selected: identical(course, selectedCourse),
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(course.displayName),
-                          subtitle: Text(_entryTimeLabel(course)),
+                Column(
+                  children: [
+                    for (final course in courses)
+                      AppSelectionTile(
+                        key: ValueKey(
+                          'academic-schedule-conflict-option-${_scheduleEntrySelectionKey(course)}',
                         ),
-                    ],
-                  ),
+                        title: Text(course.displayName),
+                        subtitle: Text(_entryTimeLabel(course)),
+                        selected: identical(course, selectedCourse),
+                        onTap: () {
+                          _rememberPersonalConflictSelection(courses, course);
+                          setSheetState(() => selectedCourse = course);
+                        },
+                      ),
+                  ],
                 ),
                 if (uniqueCompanions.isNotEmpty) ...[
                   const Divider(height: 24),
@@ -2201,11 +2172,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
     );
 
     {
-      await showModalBottomSheet<void>(
-        context: context,
-        showDragHandle: true,
-        builder: buildContent,
-      );
+      await showAppBottomSheet<void>(context: context, builder: buildContent);
     }
   }
 
@@ -2280,7 +2247,9 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
               ),
             Text(
               '共 ${courses.length} 门课程',
-              style: Theme.of(sheetContext).textTheme.titleLarge,
+              style: Theme.of(
+                sheetContext,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             for (var index = 0; index < courses.length; index++) ...[
@@ -2326,11 +2295,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
       ),
     );
     {
-      await showModalBottomSheet<void>(
-        context: context,
-        showDragHandle: true,
-        builder: buildContent,
-      );
+      await showAppBottomSheet<void>(context: context, builder: buildContent);
     }
   }
 
@@ -2495,7 +2460,9 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
               ),
             Text(
               entry.displayName,
-              style: Theme.of(sheetContext).textTheme.titleLarge,
+              style: Theme.of(
+                sheetContext,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
             _DetailLine(
@@ -2603,11 +2570,7 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
       ),
     );
     {
-      await showModalBottomSheet<void>(
-        context: context,
-        showDragHandle: true,
-        builder: buildContent,
-      );
+      await showAppBottomSheet<void>(context: context, builder: buildContent);
     }
   }
 

@@ -606,7 +606,7 @@ class _AcademicScheduleHomeModuleState
     final weekStyle = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
-    final card = Card.outlined(
+    final card = Card(
       key: const ValueKey('academic-schedule-home-card'),
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,

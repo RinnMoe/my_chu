@@ -1,3 +1,4 @@
+import '../../../widgets/app_bottom_sheet.dart';
 import "package:flutter/material.dart";
 
 import "../layers/layers.dart";
@@ -29,13 +30,15 @@ class MapLayerSheet extends StatelessWidget {
         final theme = Theme.of(context);
         return SafeArea(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 520),
+            constraints: BoxConstraints(
+              maxHeight: appBottomSheetContentHeight(context),
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 4),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: Row(
                     children: [
                       Expanded(
@@ -46,17 +49,12 @@ class MapLayerSheet extends StatelessWidget {
                           ),
                         ),
                       ),
-                      IconButton(
-                        tooltip: "关闭",
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        icon: const Icon(Icons.close),
-                      ),
                     ],
                   ),
                 ),
                 if (entries.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                     child: Text(
                       "当前校区暂无可用图层",
                       style: theme.textTheme.bodyMedium?.copyWith(
@@ -188,12 +186,9 @@ class MapLayerFeatureCard extends StatelessWidget {
     final feature = selection.feature;
     return Material(
       elevation: 8,
-      color: theme.colorScheme.surfaceContainerLowest,
+      color: theme.colorScheme.surfaceContainer,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
         child: Row(

@@ -1,3 +1,4 @@
+import '../widgets/app_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 
 import '../apps/app.dart';
@@ -11,14 +12,13 @@ Future<void> showAppDetailSheet(
   AppDefinition plugin,
 ) async {
   final metadata = plugin.metadata;
-  await showModalBottomSheet<void>(
+  await showAppBottomSheet<void>(
     context: context,
-    showDragHandle: true,
     builder:
         (context) => SafeArea(
           child: ListView(
             shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             children: [
               Row(
                 children: [
@@ -41,8 +41,8 @@ Future<void> showAppDetailSheet(
                         Expanded(
                           child: Text(
                             metadata.name,
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                         ),
                         if (metadata.requiresDev) ...[

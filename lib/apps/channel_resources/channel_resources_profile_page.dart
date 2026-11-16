@@ -1,3 +1,6 @@
+import '../../widgets/adaptive_confirmation_dialog.dart';
+import '../../widgets/adaptive_feedback.dart';
+import '../../widgets/app_bottom_sheet.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -230,25 +233,24 @@ class _ChannelResourcesSubmitResourcePageState
       return;
     }
     final selected = Set<String>.of(_selectedTags);
-    final result = await showModalBottomSheet<Set<String>>(
+    final result = await showAppBottomSheet<Set<String>>(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
       builder:
           (sheetContext) => StatefulBuilder(
             builder:
                 (context, setSheetState) => SafeArea(
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxHeight: MediaQuery.sizeOf(context).height * 0.8,
+                      maxHeight: appBottomSheetContentHeight(context),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
                       child: Column(
                         children: [
                           Text(
                             '选择资料标签',
-                            style: Theme.of(context).textTheme.titleLarge,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 8),
                           Flexible(
@@ -539,7 +541,7 @@ class _ChannelResourcesContactAdminPageState
     if (_loading) {
       return Scaffold(
         appBar: AppBar(title: Text(channelResourcesSubPageTitle('联系管理员'))),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const AdaptiveLoadingState(),
       );
     }
     if (_error != null && _admins.isEmpty) {
@@ -699,23 +701,12 @@ class _ChannelResourcesMessagesPageState
 
   Future<void> _deleteAll() async {
     if (_busy || _messages.isEmpty) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: const Text('清空消息？'),
-            content: const Text('这会删除当前账号的全部消息。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('取消'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('清空'),
-              ),
-            ],
-          ),
+    final confirmed = await showAdaptiveConfirmationDialog(
+      context,
+      title: '清空消息？',
+      message: '这会删除当前账号的全部消息。',
+      confirmLabel: '清空',
+      destructive: true,
     );
     if (confirmed != true) return;
     setState(() => _busy = true);
@@ -738,7 +729,7 @@ class _ChannelResourcesMessagesPageState
     if (_loading) {
       return Scaffold(
         appBar: AppBar(title: Text(channelResourcesSubPageTitle('系统消息'))),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const AdaptiveLoadingState(),
       );
     }
     if (_error != null && _messages.isEmpty) {
@@ -843,7 +834,7 @@ class _ChannelResourcesReviewPageState
     if (_stats == null && _error == null) {
       return Scaffold(
         appBar: AppBar(title: Text(channelResourcesSubPageTitle('审核记录'))),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const AdaptiveLoadingState(),
       );
     }
     if (_stats == null) {

@@ -1,3 +1,4 @@
+import '../../widgets/app_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 
 import '../../capabilities/dorm_electricity.dart';
@@ -38,23 +39,26 @@ class ElectricityBalanceCard extends StatelessWidget {
       '抄表时间': balance.readingTime,
       '查询时间': '${balance.fetchedAt.toLocal().year}-${_time(balance.fetchedAt)}',
     };
-    showModalBottomSheet<void>(
+    showAppBottomSheet<void>(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
       builder:
           (context) => SafeArea(
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                maxHeight: MediaQuery.sizeOf(context).height * .85,
+                maxHeight: appBottomSheetContentHeight(context),
                 maxWidth: 640,
               ),
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(title, style: Theme.of(context).textTheme.titleLarge),
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     for (final entry in values.entries)
                       Padding(

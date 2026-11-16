@@ -1,3 +1,4 @@
+import '../../widgets/adaptive_feedback.dart';
 import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
@@ -103,7 +104,7 @@ class _PortalNoticeDetailPageState extends State<PortalNoticeDetailPage>
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AdaptiveLoadingState();
     }
     final error = _error;
     if (error != null) {

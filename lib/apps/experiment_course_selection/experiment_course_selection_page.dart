@@ -1,3 +1,4 @@
+import '../../widgets/adaptive_feedback.dart';
 import 'dart:collection';
 
 import 'package:flutter/material.dart';
@@ -66,7 +67,7 @@ class _ExperimentCourseSelectionPageState
                     message: '选课助手加载失败，请重试。',
                     onRetry: () => setState(() => _scripts = _loadScripts()),
                   )
-                  : const Center(child: CircularProgressIndicator()),
+                  : const AdaptiveLoadingState(),
         );
       },
     );

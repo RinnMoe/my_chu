@@ -45,7 +45,6 @@ class _MobileCampusNoticeRichTextState
           widget.style ?? theme.textTheme.bodyMedium ?? const TextStyle(),
       linkColor: theme.colorScheme.primary,
       attachmentBackgroundColor: theme.colorScheme.surfaceContainerHigh,
-      attachmentBorderColor: theme.colorScheme.outlineVariant,
       attachmentForegroundColor: theme.colorScheme.primary,
       attachmentIconColor: theme.colorScheme.primary,
       imageWidth: width,
@@ -96,7 +95,6 @@ class NoticeRichTextBuilder {
   final TextStyle baseStyle;
   final Color linkColor;
   final Color? attachmentBackgroundColor;
-  final Color? attachmentBorderColor;
   final Color? attachmentForegroundColor;
   final Color? attachmentIconColor;
   final double imageWidth;
@@ -108,7 +106,6 @@ class NoticeRichTextBuilder {
     required this.baseStyle,
     required this.linkColor,
     this.attachmentBackgroundColor,
-    this.attachmentBorderColor,
     this.attachmentForegroundColor,
     this.attachmentIconColor,
     required this.imageWidth,
@@ -252,7 +249,6 @@ class NoticeRichTextBuilder {
             : children;
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: _attachmentBorder),
     );
 
     return WidgetSpan(
@@ -418,9 +414,6 @@ class NoticeRichTextBuilder {
 
   Color get _attachmentBackground =>
       attachmentBackgroundColor ?? linkColor.withValues(alpha: 0.10);
-
-  Color get _attachmentBorder =>
-      attachmentBorderColor ?? linkColor.withValues(alpha: 0.30);
 
   Color get _attachmentForeground => attachmentForegroundColor ?? linkColor;
 

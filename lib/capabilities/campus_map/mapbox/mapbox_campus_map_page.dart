@@ -1,3 +1,6 @@
+import '../../../widgets/adaptive_feedback.dart';
+import '../../../widgets/app_selection.dart';
+import '../../../widgets/app_bottom_sheet.dart';
 import "dart:async";
 
 import "package:flutter/foundation.dart";
@@ -165,7 +168,7 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
     if (!_mapboxReady) {
       return ColoredBox(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: const Center(child: CircularProgressIndicator()),
+        child: const AdaptiveLoadingState(),
       );
     }
     return MapboxCampusMapView(engine: _engine);
@@ -290,9 +293,8 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
       _showMessage("当前校区暂无可用图层");
       return;
     }
-    await showModalBottomSheet<void>(
+    await showAppBottomSheet<void>(
       context: context,
-      showDragHandle: true,
       builder:
           (sheetContext) => MapLayerSheet(
             manager: _layerManager,
@@ -396,7 +398,7 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
   }
 
   Future<void> _showCandidates(List<PlaceCandidate> candidates) async {
-    final selected = await showModalBottomSheet<PlaceCandidate>(
+    final selected = await showAppBottomSheet<PlaceCandidate>(
       context: context,
       builder: (context) => MapPlaceCandidateSheet(candidates: candidates),
     );
@@ -408,35 +410,17 @@ class _MapboxCampusMapPageState extends State<MapboxCampusMapPage> {
     if (campuses.isEmpty) return;
     final current = _controller.state.campusId;
 
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      builder:
-          (context) => SafeArea(
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text(
-                    "选择校区",
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-                for (final campus in campuses)
-                  ListTile(
-                    title: Text(campus.displayName),
-                    trailing:
-                        campus.campusId == current
-                            ? const Icon(Icons.check)
-                            : null,
-                    onTap: () => Navigator.of(context).pop(campus.campusId),
-                  ),
-              ],
-            ),
-          ),
+    final selected = await showAppSelectionSheet<String>(
+      context,
+      title: '校区',
+      value: current ?? campuses.first.campusId,
+      options: [
+        for (final campus in campuses)
+          AppSelectionOption(value: campus.campusId, label: campus.displayName),
+      ],
     );
-    if (selected != null && selected != current) {
-      await _controller.switchCampus(selected);
+    if (selected != null && selected.value != current) {
+      await _controller.switchCampus(selected.value);
     }
   }
 
@@ -896,10 +880,7 @@ class IndoorFloorSelector extends StatelessWidget {
       elevation: 4,
       color: surface,
       key: const ValueKey("indoor-floor-selector"),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         width: 76,
@@ -1016,12 +997,9 @@ class MapPlaceInfoCard extends StatelessWidget {
     final navTarget = presentation.navigationTarget;
     return Material(
       elevation: 8,
-      color: theme.colorScheme.surfaceContainerLowest,
+      color: theme.colorScheme.surfaceContainer,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
         child: Row(
@@ -1091,10 +1069,7 @@ class MapPlaceCandidateSheet extends StatelessWidget {
     child: ListView(
       shrinkWrap: true,
       children: [
-        const Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('匹配到多个地点', style: TextStyle(fontWeight: FontWeight.w600)),
-        ),
+        const AppSheetHeader(title: '选择地点'),
         for (final candidate in candidates)
           ListTile(
             title: Text(candidate.label),

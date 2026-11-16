@@ -1,3 +1,4 @@
+import 'adaptive_feedback.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
@@ -78,7 +79,7 @@ class _CampusAuthBoundaryState extends State<CampusAuthBoundary> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_ready) return const Center(child: CircularProgressIndicator());
+    if (!_ready) return const AdaptiveLoadingState();
     if (_owner == null && widget.inline && !widget.retainGuestShell) {
       return widget.guestBuilder?.call(context) ??
           CampusAuthPrompt(title: widget.title);

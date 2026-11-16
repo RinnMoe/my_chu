@@ -1,3 +1,5 @@
+import '../widgets/app_selection.dart';
+import '../widgets/app_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 
 import '../apps/app.dart';
@@ -7,11 +9,8 @@ import '../services/home_layout_service.dart';
 
 /// 打开常用应用编辑器。焦点页与底栏设置共用同一实现。
 Future<void> showQuickAppsEditorSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: true,
     builder: (_) => const QuickAppsEditorSheet(),
   );
 }
@@ -108,7 +107,7 @@ class _QuickAppsEditorSheetState extends State<QuickAppsEditorSheet> {
       expand: false,
       initialChildSize: 0.70,
       minChildSize: 0.50,
-      maxChildSize: 0.92,
+      maxChildSize: 1.0,
       builder: (context, scrollController) {
         return CustomScrollView(
           controller: scrollController,
@@ -122,7 +121,7 @@ class _QuickAppsEditorSheetState extends State<QuickAppsEditorSheet> {
                       child: Text(
                         '编辑常用功能',
                         style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -136,7 +135,7 @@ class _QuickAppsEditorSheetState extends State<QuickAppsEditorSheet> {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 6),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
                 child: Row(
                   children: [
                     Text(
@@ -167,7 +166,7 @@ class _QuickAppsEditorSheetState extends State<QuickAppsEditorSheet> {
             else if (selected.isEmpty)
               const SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
+                  padding: EdgeInsets.fromLTRB(16, 4, 16, 12),
                   child: Text('暂无常用功能'),
                 ),
               )
@@ -201,7 +200,7 @@ class _QuickAppsEditorSheetState extends State<QuickAppsEditorSheet> {
               ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
                 child: Divider(
                   height: 1,
                   color: theme.colorScheme.outlineVariant,
@@ -210,7 +209,7 @@ class _QuickAppsEditorSheetState extends State<QuickAppsEditorSheet> {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
                 child: Text(
                   '可添加功能',
                   style: theme.textTheme.titleSmall?.copyWith(
@@ -223,7 +222,7 @@ class _QuickAppsEditorSheetState extends State<QuickAppsEditorSheet> {
             if (_atLimit)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 2, 20, 8),
+                  padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
                   child: Text(
                     '已达到焦点页显示上限',
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -290,7 +289,7 @@ class _CurrentAppRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -384,26 +383,15 @@ Future<void> showQuickAppsSortModeSheet(BuildContext context) async {
   final config = await AppService.getQuickAppsConfig();
   if (!context.mounted) return;
 
-  await showModalBottomSheet<void>(
+  await showAppBottomSheet<void>(
     context: context,
-    showDragHandle: true,
+    scrollBody: true,
     builder: (sheetContext) {
       return SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '排序方式',
-                  style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
+            const AppSheetHeader(title: '排序方式'),
             _SortModeTile(
               title: '手动排序',
               selected: config.sortMode == QuickAppsSortMode.manual,
@@ -445,15 +433,10 @@ class _SortModeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return ListTile(
-      onTap: onTap,
-      leading: Icon(
-        selected ? Icons.radio_button_checked : Icons.radio_button_off,
-        color: selected ? colors.primary : colors.onSurfaceVariant,
-      ),
+    return AppSelectionTile(
       title: Text(title),
+      selected: selected,
+      onTap: onTap,
     );
   }
 }

@@ -1,3 +1,4 @@
+import '../../widgets/app_bottom_sheet.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -221,10 +222,8 @@ Future<void> showChargingPileStats(
   ChargingPileStatsClient? client,
 }) {
   final statsClient = client ?? ChargingPileStatsClient();
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder:
         (context) => _ChargingPileStatsSheet(
           areas: areas
@@ -290,7 +289,12 @@ class _ChargingPileStatsSheetState extends State<_ChargingPileStatsSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('一周回顾', style: theme.textTheme.titleLarge),
+            Text(
+              '一周回顾',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 12),
             if (_loading)
               const Padding(

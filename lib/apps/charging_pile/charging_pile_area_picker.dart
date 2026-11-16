@@ -1,3 +1,5 @@
+import '../../widgets/app_selection.dart';
+import '../../widgets/app_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 
 import 'charging_pile_models.dart';
@@ -23,10 +25,8 @@ Future<ChargingPileAreaSelection?> showChargingPileAreaPicker(
   required String activeCampusId,
   required ChargingPileArea? activeArea,
   required String Function(String campusId) campusLabel,
-}) => showModalBottomSheet<ChargingPileAreaSelection>(
+}) => showAppBottomSheet<ChargingPileAreaSelection>(
   context: context,
-  isScrollControlled: true,
-  showDragHandle: true,
   builder:
       (context) => _AreaPickerSheet(
         areas: areas,
@@ -79,15 +79,14 @@ class _AreaPickerSheetState extends State<_AreaPickerSheet> {
       widget.areas.where((area) => area.campusId == _campusId).toList();
 
   void _pick(ChargingPileArea? area) {
-    Navigator.of(context).pop(
-      ChargingPileAreaSelection(campusId: _campusId, area: area),
-    );
+    Navigator.of(
+      context,
+    ).pop(ChargingPileAreaSelection(campusId: _campusId, area: area));
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final maxHeight = MediaQuery.sizeOf(context).height * 0.7;
+    final maxHeight = appBottomSheetContentHeight(context);
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxHeight),
@@ -95,10 +94,7 @@ class _AreaPickerSheetState extends State<_AreaPickerSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text('选择校区与分区', style: theme.textTheme.titleMedium),
-            ),
+            const AppSheetHeader(title: '选择校区与分区'),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -163,24 +159,9 @@ class _PickerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ListTile(
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-      title: Text(
-        label,
-        style:
-            selected
-                ? theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                )
-                : theme.textTheme.bodyLarge,
-      ),
-      trailing:
-          selected
-              ? Icon(Icons.check, size: 20, color: theme.colorScheme.primary)
-              : null,
+    return AppSelectionTile(
+      title: Text(label),
+      selected: selected,
       onTap: onTap,
     );
   }

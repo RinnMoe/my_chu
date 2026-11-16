@@ -235,8 +235,7 @@ class ChargingPileDeviceCard extends StatelessWidget {
     final confirmedFree = availability == ChargingPileAvailability.free;
     return Card.filled(
       margin: EdgeInsets.zero,
-      color:
-          confirmedFree ? colors.primaryContainer : colors.surfaceContainerLow,
+      color: confirmedFree ? colors.primaryContainer : colors.surfaceContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(

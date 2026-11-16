@@ -5,6 +5,8 @@
 /// 尝试顺序：所选应用 → 其他已安装地图 → 系统地图；全部失败时由入口提示复制坐标。
 library;
 
+import '../../widgets/app_bottom_sheet.dart';
+
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:url_launcher/url_launcher.dart";
@@ -180,8 +182,9 @@ class ExternalNavigationCapability {
     final apps = await availableApps();
     if (!context.mounted) return false;
 
-    final selected = await showModalBottomSheet<ExternalMapApp>(
+    final selected = await showAppBottomSheet<ExternalMapApp>(
       context: context,
+      scrollBody: true,
       builder:
           (context) => SafeArea(
             child: Column(
@@ -192,7 +195,7 @@ class ExternalNavigationCapability {
                   child: Text(
                     "导航至：${target.name}",
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -204,7 +207,7 @@ class ExternalNavigationCapability {
                       title: Text(info.label),
                       onTap: () => Navigator.of(context).pop(info.app),
                     ),
-                const Divider(height: 1),
+                const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
                   leading: const Icon(Icons.copy),
                   title: const Text("复制坐标"),

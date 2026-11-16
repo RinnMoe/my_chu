@@ -1,3 +1,6 @@
+import '../../widgets/app_pagination_footer.dart';
+import '../../widgets/adaptive_feedback.dart';
+import '../../widgets/app_search_field.dart';
 import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'package:flutter/material.dart';
@@ -40,6 +43,7 @@ class _CoursewareTabState extends State<_CoursewareTab>
   String? _error;
   bool _loading = true;
   bool _loadingMore = false;
+  String? _loadMoreError;
   bool _autoLoading = false;
   int _page = 1;
   int _pages = 1;
@@ -67,7 +71,7 @@ class _CoursewareTabState extends State<_CoursewareTab>
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients) return;
+    if (!_scrollController.hasClients || _loadMoreError != null) return;
     final position = _scrollController.position;
     if (position.pixels >= position.maxScrollExtent - 240) {
       _loadMore();
@@ -81,6 +85,7 @@ class _CoursewareTabState extends State<_CoursewareTab>
       _page = 1;
       _pages = 1;
       _autoLoading = false;
+      _loadMoreError = null;
     });
     try {
       final result = await TronclassService().fetchCoursesPage(page: 1);
@@ -124,9 +129,12 @@ class _CoursewareTabState extends State<_CoursewareTab>
         current = next;
       } catch (error, diagnosticStack) {
         AppLogger.error(error, stackTrace: diagnosticStack);
-        // 自动加载失败时保留已加载内容，之后由手动下滑重试。
+        // 自动加载失败时保留已加载内容，由列表末尾按钮显式重试。
         if (!mounted) return;
-        AppLogger.error(error, stackTrace: StackTrace.current);
+        setState(
+          () =>
+              _loadMoreError = userFacingError(UserErrorContext.network, error),
+        );
         break;
       }
     }
@@ -138,7 +146,10 @@ class _CoursewareTabState extends State<_CoursewareTab>
     if (_loadingMore || _autoLoading || _loading || courses == null) return;
     if (_page >= _pages) return;
     final nextPage = _page + 1;
-    setState(() => _loadingMore = true);
+    setState(() {
+      _loadingMore = true;
+      _loadMoreError = null;
+    });
     try {
       final result = await TronclassService().fetchCoursesPage(page: nextPage);
       if (!mounted) return;
@@ -149,9 +160,10 @@ class _CoursewareTabState extends State<_CoursewareTab>
       });
     } catch (error, diagnosticStack) {
       AppLogger.error(error, stackTrace: diagnosticStack);
-      // 加载更多失败不打断已有列表，滚动到底部会再次触发。
       if (!mounted) return;
-      AppLogger.error(error, stackTrace: StackTrace.current);
+      setState(
+        () => _loadMoreError = userFacingError(UserErrorContext.network, error),
+      );
     } finally {
       if (mounted) setState(() => _loadingMore = false);
     }
@@ -179,7 +191,7 @@ class _CoursewareTabState extends State<_CoursewareTab>
 
     final courses = _courses;
     if (_loading && courses == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const AdaptiveLoadingState();
     }
     if (_error != null && courses == null) {
       return _ErrorState(message: _error!, onRetry: _load);
@@ -199,13 +211,9 @@ class _CoursewareTabState extends State<_CoursewareTab>
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-          child: TextField(
+          child: AppSearchField(
             controller: _searchController,
-            decoration: const InputDecoration(
-              hintText: '搜索课程或教师',
-              prefixIcon: Icon(Icons.search),
-              isDense: true,
-            ),
+            hintText: '搜索课程或教师',
             onChanged: (value) => setState(() => _query = value.trim()),
           ),
         ),
@@ -214,10 +222,16 @@ class _CoursewareTabState extends State<_CoursewareTab>
               results.isEmpty
                   ? ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
-                      Padding(
-                        padding: EdgeInsets.all(48),
-                        child: Center(child: Text('没有匹配的课程')),
+                    children: [
+                      const AdaptiveStatusState(
+                        icon: Icons.search_off_outlined,
+                        message: '没有匹配的课程',
+                      ),
+                      AppPaginationFooter(
+                        loading: _autoLoading || _loadingMore,
+                        hasMore: _page < _pages,
+                        error: _loadMoreError,
+                        onLoadMore: _loadMore,
                       ),
                     ],
                   )
@@ -231,45 +245,11 @@ class _CoursewareTabState extends State<_CoursewareTab>
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
                         if (index == results.length) {
-                          final loading = _autoLoading || _loadingMore;
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Center(
-                              child:
-                                  loading
-                                      ? Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const SizedBox.square(
-                                            dimension: 16,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            '正在加载课程…',
-                                            style:
-                                                Theme.of(
-                                                  context,
-                                                ).textTheme.labelSmall,
-                                          ),
-                                        ],
-                                      )
-                                      : _page < _pages
-                                      ? const SizedBox.shrink()
-                                      : Text(
-                                        '已显示全部 ${results.length} 门课程',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.labelSmall?.copyWith(
-                                          color:
-                                              Theme.of(
-                                                context,
-                                              ).colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
-                            ),
+                          return AppPaginationFooter(
+                            loading: _autoLoading || _loadingMore,
+                            hasMore: _page < _pages,
+                            error: _loadMoreError,
+                            onLoadMore: _loadMore,
                           );
                         }
                         final course = results[index];
@@ -578,13 +558,9 @@ class _CoursewareFilesPageState extends State<_CoursewareFilesPage>
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
           child: Column(
             children: [
-              TextField(
+              AppSearchField(
                 controller: _searchController,
-                decoration: const InputDecoration(
-                  hintText: '搜索文件名',
-                  prefixIcon: Icon(Icons.search),
-                  isDense: true,
-                ),
+                hintText: '搜索文件名',
                 onChanged: (value) {
                   setState(() {
                     _query = value.trim();
@@ -774,31 +750,7 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.cloud_off_outlined, size: 48, color: colors.error),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('重试'),
-            ),
-          ],
-        ),
-      ),
-    );
+    return AdaptiveErrorState(title: message, onRetry: onRetry);
   }
 }
 
@@ -811,33 +763,20 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        Padding(
-          padding: const EdgeInsets.all(48),
-          child: Column(
-            children: [
-              Icon(icon, size: 56, color: colors.onSurfaceVariant),
-              const SizedBox(height: 12),
-              Text(
-                message,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.onSurfaceVariant,
-                ),
-              ),
-              if (onRetry != null) ...[
-                const SizedBox(height: 16),
-                TextButton.icon(
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('重试'),
-                ),
-              ],
-            ],
-          ),
+        AdaptiveStatusState(
+          icon: icon,
+          message: message,
+          action:
+              onRetry == null
+                  ? null
+                  : TextButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('刷新'),
+                  ),
         ),
       ],
     );

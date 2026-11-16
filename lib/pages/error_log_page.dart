@@ -1,3 +1,5 @@
+import '../widgets/adaptive_confirmation_dialog.dart';
+import '../widgets/adaptive_feedback.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -120,22 +122,12 @@ class _ErrorLogPageState extends State<ErrorLogPage> {
   }
 
   Future<void> _clear() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('清空错误日志？'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('清空'),
-              ),
-            ],
-          ),
+    final confirmed = await showAdaptiveConfirmationDialog(
+      context,
+      title: '清空错误日志？',
+      message: '',
+      confirmLabel: '清空',
+      destructive: true,
     );
     if (confirmed == true) AppLogger.clear();
   }
@@ -164,7 +156,7 @@ class _ErrorLogPageState extends State<ErrorLogPage> {
           ),
           body:
               _loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const AdaptiveLoadingState()
                   : ListView(
                     padding: const EdgeInsets.all(16),
                     children: [

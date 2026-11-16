@@ -1,3 +1,5 @@
+import '../../widgets/app_search_field.dart';
+import '../../widgets/app_bottom_sheet.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -386,10 +388,8 @@ class _ChargingPilePageState extends State<ChargingPilePage>
   }
 
   Future<void> _showDevice(ChargingPileDevice device) {
-    return showModalBottomSheet<void>(
+    return showAppBottomSheet<void>(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
       builder:
           (context) => AnimatedBuilder(
             animation: Listenable.merge([_repository, _viewRevision]),
@@ -399,7 +399,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
               final theme = Theme.of(context);
               return SafeArea(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -655,20 +655,10 @@ class _ChargingPilePageState extends State<ChargingPilePage>
                             ),
                             if (_searching) ...[
                               const SizedBox(height: 8),
-                              TextField(
+                              AppSearchField(
                                 controller: _search,
                                 autofocus: true,
-                                decoration: InputDecoration(
-                                  hintText: '桩号或设备编号',
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                  suffixIcon: IconButton(
-                                    tooltip: '清空搜索',
-                                    icon: const Icon(Icons.close),
-                                    onPressed:
-                                        () => setState(() => _search.clear()),
-                                  ),
-                                ),
+                                hintText: '桩号或设备编号',
                                 onChanged: (_) => setState(() {}),
                               ),
                             ],
@@ -847,7 +837,7 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     );
   }
 
-  /// One grid card, wrapped with a reveal key and outline while the map-opened
+  /// One grid card, wrapped with a reveal key and tinted while the map-opened
   /// device is being focused.
   Widget _buildCard(ChargingPileDevice device, ThemeData theme) {
     final card = ChargingPileDeviceCard(
@@ -865,9 +855,10 @@ class _ChargingPilePageState extends State<ChargingPilePage>
     return KeyedSubtree(
       key: _deviceKey(device.id),
       child: DecoratedBox(
+        position: DecorationPosition.foreground,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: theme.colorScheme.primary, width: 2),
+          borderRadius: BorderRadius.circular(16),
+          color: theme.colorScheme.primary.withValues(alpha: 0.12),
         ),
         child: card,
       ),

@@ -1,3 +1,6 @@
+import '../../widgets/app_pagination_footer.dart';
+import '../../widgets/adaptive_feedback.dart';
+import '../../widgets/app_search_field.dart';
 import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
@@ -59,6 +62,7 @@ class PortalNoticesPanelState extends State<PortalNoticesPanel>
   bool _hasMore = true;
   bool _loading = true;
   bool _loadingMore = false;
+  String? _loadMoreError;
   bool _searchLoading = false;
   PortalNotice? _selectedNotice;
 
@@ -100,6 +104,7 @@ class PortalNoticesPanelState extends State<PortalNoticesPanel>
     setState(() {
       _loading = true;
       _loadingMore = false;
+      _loadMoreError = null;
       _searchLoading = false;
       _error = null;
     });
@@ -131,7 +136,10 @@ class PortalNoticesPanelState extends State<PortalNoticesPanel>
   Future<void> _loadMore() async {
     if (_loadingMore || !_hasMore || _loading) return;
     final generation = _requestGeneration;
-    setState(() => _loadingMore = true);
+    setState(() {
+      _loadingMore = true;
+      _loadMoreError = null;
+    });
     try {
       final page = await _loadPage(_pageNumber + 1);
       if (!mounted || generation != _requestGeneration) return;
@@ -149,7 +157,7 @@ class PortalNoticesPanelState extends State<PortalNoticesPanel>
         stackTrace: diagnosticStack,
         operationId: UserOperationId.portalNotices,
       );
-      _showMessage('加载更多失败，请稍后重试');
+      setState(() => _loadMoreError = '加载失败，请重试');
     } finally {
       if (mounted && generation == _requestGeneration) {
         setState(() => _loadingMore = false);
@@ -211,6 +219,7 @@ class PortalNoticesPanelState extends State<PortalNoticesPanel>
       _searchGroups = const [];
       _loading = false;
       _loadingMore = false;
+      _loadMoreError = null;
       _searchLoading = query.isNotEmpty;
     });
     if (query.isEmpty) {
@@ -235,6 +244,7 @@ class PortalNoticesPanelState extends State<PortalNoticesPanel>
     setState(() {
       _loading = false;
       _loadingMore = false;
+      _loadMoreError = null;
       _searchLoading = true;
       _error = null;
       _searchGroups = const [];
@@ -292,6 +302,7 @@ class PortalNoticesPanelState extends State<PortalNoticesPanel>
       _resetListResultState();
       _loading = false;
       _loadingMore = false;
+      _loadMoreError = null;
       _searchLoading = false;
     });
     if (_isSearchGroupMode) {
@@ -391,7 +402,7 @@ class PortalNoticesPanelState extends State<PortalNoticesPanel>
   @override
   Widget build(BuildContext context) {
     if (_loading && _notices.isEmpty && !_searchLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AdaptiveLoadingState();
     }
     if (_error != null && _notices.isEmpty) {
       return PortalNoticeFullPageError(
@@ -524,21 +535,12 @@ class PortalNoticesPanelState extends State<PortalNoticesPanel>
             else if (_notices.isNotEmpty)
               _NoticeList(notices: _notices, onNoticeTap: _openNotice),
             const SizedBox(height: 16),
-            if (_hasMore && _notices.isNotEmpty)
-              Center(
-                child: OutlinedButton(
-                  onPressed: _loadingMore ? null : _loadMore,
-                  child: Text(_loadingMore ? '加载中…' : '加载更多'),
-                ),
-              )
-            else if (!_hasMore && _notices.isNotEmpty)
-              Center(
-                child: Text(
-                  '已显示全部 ${_notices.length} 条通知',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
+            if (_notices.isNotEmpty)
+              AppPaginationFooter(
+                loading: _loadingMore,
+                hasMore: _hasMore,
+                error: _loadMoreError,
+                onLoadMore: _loadMore,
               ),
           ],
         ],
@@ -562,25 +564,12 @@ class _NoticeSearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
+    return AppSearchField(
       controller: controller,
-      textInputAction: TextInputAction.search,
+      hintText: '搜索公告标题或部门',
       onChanged: onChanged,
       onSubmitted: onSubmitted,
-      decoration: InputDecoration(
-        hintText: '搜索公告标题或部门',
-        prefixIcon: const Icon(Icons.search),
-        suffixIcon:
-            controller.text.isEmpty
-                ? null
-                : IconButton(
-                  tooltip: '清空搜索',
-                  onPressed: onClear,
-                  icon: const Icon(Icons.close),
-                ),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        isDense: true,
-      ),
+      onClear: onClear,
     );
   }
 }

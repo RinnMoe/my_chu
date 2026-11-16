@@ -1,3 +1,4 @@
+import 'app_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 
 /// One value-bearing action in an [AdaptiveActionSheet].
@@ -24,17 +25,14 @@ Future<T?> showAdaptiveActionSheet<T>(
   String? title,
   String? message,
   required List<AdaptiveActionSheetOption<T>> options,
-  String cancelLabel = '取消',
 }) {
-  return showModalBottomSheet<T>(
+  return showAppBottomSheet<T>(
     context: context,
-    showDragHandle: true,
     builder:
         (sheetContext) => AdaptiveActionSheet<T>(
           title: title,
           message: message,
           options: options,
-          cancelLabel: cancelLabel,
         ),
   );
 }
@@ -46,13 +44,11 @@ class AdaptiveActionSheet<T> extends StatelessWidget {
     this.title,
     this.message,
     required this.options,
-    this.cancelLabel = '取消',
   });
 
   final String? title;
   final String? message;
   final List<AdaptiveActionSheetOption<T>> options;
-  final String cancelLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -60,22 +56,22 @@ class AdaptiveActionSheet<T> extends StatelessWidget {
     return SafeArea(
       child: ListView(
         shrinkWrap: true,
-        padding: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.only(bottom: 16),
         children: [
-          if (title != null || message != null)
+          if (title != null)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (title != null)
-                    Text(title!, style: theme.textTheme.titleLarge),
-                  if (message != null) ...[
-                    const SizedBox(height: 4),
-                    Text(message!, style: theme.textTheme.bodyMedium),
-                  ],
-                ],
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+              child: Text(
+                title!,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
+            ),
+          if (message != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(message!, style: theme.textTheme.bodyMedium),
             ),
           for (final option in options)
             ListTile(
@@ -93,10 +89,6 @@ class AdaptiveActionSheet<T> extends StatelessWidget {
                       ? () => Navigator.of(context).pop(option.value)
                       : null,
             ),
-          ListTile(
-            title: Text(cancelLabel),
-            onTap: () => Navigator.of(context).pop(),
-          ),
         ],
       ),
     );

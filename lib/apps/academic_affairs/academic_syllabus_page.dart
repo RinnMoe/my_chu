@@ -1,3 +1,7 @@
+import '../../widgets/app_pagination_footer.dart';
+import '../../widgets/adaptive_feedback.dart';
+import '../../widgets/app_selection.dart';
+import '../../widgets/app_bottom_sheet.dart';
 import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_boundary.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
@@ -232,9 +236,8 @@ class _AcademicSyllabusPageState extends State<AcademicSyllabusPage>
       initial: _currentFilters(),
       backend: _backend,
     );
-    final filters = await showModalBottomSheet<SyllabusSearchFilters>(
+    final filters = await showAppBottomSheet<SyllabusSearchFilters>(
       context: context,
-      isScrollControlled: true,
       builder: (_) => sheet,
     );
     if (filters == null) return;
@@ -290,21 +293,12 @@ class _AcademicSyllabusPageState extends State<AcademicSyllabusPage>
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: DropdownButtonFormField<String?>(
-            initialValue: _selectedSemester,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: '学年学期',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            menuMaxHeight: MediaQuery.sizeOf(context).height * .6,
-            items: [
+          child: AppSelectField<String?>(
+            label: '学期',
+            value: _selectedSemester,
+            options: [
               for (final semester in _semesters)
-                DropdownMenuItem<String?>(
-                  value: semester.id,
-                  child: Text(semester.label, overflow: TextOverflow.ellipsis),
-                ),
+                AppSelectionOption(value: semester.id, label: semester.label),
             ],
             onChanged: (value) {
               if (value == null || value == _selectedSemester) return;
@@ -337,7 +331,7 @@ class _AcademicSyllabusPageState extends State<AcademicSyllabusPage>
 
   Widget _buildBody() {
     if (_loading && _rows.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const AdaptiveLoadingState();
     }
     if (_error != null && _rows.isEmpty) {
       return AcademicSectionFallback(
@@ -350,7 +344,6 @@ class _AcademicSyllabusPageState extends State<AcademicSyllabusPage>
     if (_rows.isEmpty) {
       return AcademicEmptyState(message: '暂无排课数据', onRefresh: _loadInitial);
     }
-    final showFooter = _hasMore || _loadingMore || _loadMoreError != null;
     Widget itemBuilder(BuildContext context, int index) {
       if (index >= _rows.length) {
         return _SyllabusLoadMoreFooter(
@@ -368,7 +361,7 @@ class _AcademicSyllabusPageState extends State<AcademicSyllabusPage>
     final list = ListView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
-      itemCount: _rows.length + (showFooter ? 1 : 0),
+      itemCount: _rows.length + 1,
       itemBuilder: itemBuilder,
     );
 
@@ -504,30 +497,12 @@ class _SyllabusLoadMoreFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (loadingMore) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (error != null) {
-      return Card(
-        child: ListTile(
-          title: Text(academicErrorMessage(error!)),
-          trailing: TextButton(onPressed: onRetry, child: const Text('重试')),
-        ),
-      );
-    }
-    if (hasMore) {
-      return Center(
-        child: TextButton.icon(
-          onPressed: onLoadMore,
-          icon: const Icon(Icons.expand_more),
-          label: const Text('加载更多'),
-        ),
-      );
-    }
-    return const SizedBox(height: 12);
+    return AppPaginationFooter(
+      loading: loadingMore,
+      hasMore: hasMore,
+      error: error == null ? null : academicErrorMessage(error!),
+      onLoadMore: error == null ? onLoadMore : onRetry,
+    );
   }
 }
 
@@ -608,7 +583,12 @@ class _SyllabusFilterSheetState extends State<_SyllabusFilterSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('筛选条件', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              '筛选条件',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 12),
             _filterField(
               _lessonNoController,

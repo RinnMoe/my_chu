@@ -1,3 +1,4 @@
+import '../../widgets/adaptive_feedback.dart';
 import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
@@ -207,7 +208,7 @@ class PortalPersonalStatusPanelState extends State<PortalPersonalStatusPanel>
   Widget _buildMaterialPersonalTab() {
     final data = _data;
     if (_loading && data == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const AdaptiveLoadingState();
     }
     if (_error != null && data == null) {
       return _FullPageError(message: _error!, onRetry: _load);
@@ -251,7 +252,9 @@ class _PersonalStatusPanel extends StatelessWidget {
     final rows = <Widget>[];
     void addRow(bool visible, Widget row) {
       if (!visible) return;
-      if (rows.isNotEmpty) rows.add(const Divider(height: 1));
+      if (rows.isNotEmpty) {
+        rows.add(const Divider(height: 1, indent: 16, endIndent: 16));
+      }
       rows.add(row);
     }
 

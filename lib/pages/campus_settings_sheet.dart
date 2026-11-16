@@ -1,3 +1,5 @@
+import '../widgets/app_selection.dart';
+import '../widgets/app_bottom_sheet.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -11,12 +13,7 @@ import '../services/logging/logger.dart';
 Future<bool?> showCampusSettingsSheet(BuildContext context) {
   const sheet = CampusSettingsSheet();
 
-  return showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (_) => sheet,
-  );
+  return showAppBottomSheet<bool>(context: context, builder: (_) => sheet);
 }
 
 /// Profile-only campus selector. Its rows follow the theme settings sheet;
@@ -151,7 +148,7 @@ class _CampusSettingsSheetState extends State<CampusSettingsSheet> {
       top: false,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.8,
+          maxHeight: appBottomSheetContentHeight(context),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -159,9 +156,9 @@ class _CampusSettingsSheetState extends State<CampusSettingsSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
-                child: Text('校区设置', style: theme.textTheme.titleLarge),
+              const AppSheetHeader(
+                title: '校区',
+                padding: EdgeInsets.only(bottom: 8),
               ),
               if (_loading)
                 const SizedBox(
@@ -173,47 +170,26 @@ class _CampusSettingsSheetState extends State<CampusSettingsSheet> {
               else
                 Flexible(
                   fit: FlexFit.loose,
-                  child: RadioGroup<String>(
-                    groupValue: _selectedCampusId,
-                    onChanged: (campusId) {
-                      if (campusId != null && !_saving) {
-                        unawaited(_save(campusId));
-                      }
-                    },
-                    child: ListView(
-                      shrinkWrap: true,
-                      children: [
-                        for (final campus in _campuses)
-                          RadioListTile<String>(
-                            value: campus.campusId,
-                            title: Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    campus.displayName,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (_isDefaultFallback(campus)) ...[
-                                  const SizedBox(width: 8),
-                                  const CompactBadge(label: '默认'),
-                                ],
-                              ],
-                            ),
-                            subtitle: _addressSubtitle(campus),
-                            enabled: !_saving,
-                            secondary:
-                                _saving && campus.campusId == _selectedCampusId
-                                    ? const SizedBox.square(
-                                      dimension: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                    : null,
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final campus in _campuses)
+                        AppSelectionTile(
+                          title: Wrap(
+                            spacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(campus.displayName),
+                              if (_isDefaultFallback(campus))
+                                const CompactBadge(label: '默认'),
+                            ],
                           ),
-                      ],
-                    ),
+                          subtitle: _addressSubtitle(campus),
+                          selected: campus.campusId == _selectedCampusId,
+                          enabled: !_saving,
+                          onTap: () => unawaited(_save(campus.campusId)),
+                        ),
+                    ],
                   ),
                 ),
               if (_saveError != null) ...[

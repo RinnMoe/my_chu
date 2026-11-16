@@ -201,7 +201,7 @@ class _BottomBarSectionState extends State<BottomBarSection> {
     return AdaptiveSettingsSection(
       title: '底栏设置',
       footer: '点击某一行，设为应用启动后的首屏',
-      dividerIndent: 64,
+      dividerIndent: 16,
       children: _buildRows(),
     );
   }

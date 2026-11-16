@@ -1,3 +1,4 @@
+import '../widgets/app_bottom_sheet.dart';
 import '../capabilities/academic_schedule/recent_schedule_repository.dart';
 import '../services/host_auth_state.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
@@ -626,9 +627,9 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
     final metadata = plugin.metadata;
     if (!mounted) return;
 
-    final action = await showModalBottomSheet<_QuickAppAction>(
+    final action = await showAppBottomSheet<_QuickAppAction>(
       context: context,
-      showDragHandle: true,
+      scrollBody: true,
       builder:
           (context) => SafeArea(
             child: Column(

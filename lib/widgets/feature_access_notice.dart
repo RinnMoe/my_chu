@@ -1,3 +1,4 @@
+import 'app_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 
 import '../services/remote_feature_policy/feature_access_guard.dart';
@@ -72,13 +73,13 @@ Future<void> showFeatureUnavailableNotice(
   FeatureAccessDecision decision,
 ) {
   final presentation = FeatureAccessPresentation.of(decision);
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    showDragHandle: true,
+    scrollBody: true,
     builder:
         (sheetContext) => SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,8 +94,8 @@ Future<void> showFeatureUnavailableNotice(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           presentation.title,
-                          style: Theme.of(sheetContext).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w700),
+                          style: Theme.of(sheetContext).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
                     ),
@@ -227,8 +228,8 @@ class _FeatureAccessHostState extends State<FeatureAccessHost> {
                       Text(
                         presentation.title,
                         textAlign: TextAlign.center,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 8),

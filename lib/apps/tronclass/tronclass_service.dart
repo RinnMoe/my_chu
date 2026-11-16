@@ -1,4 +1,3 @@
-import '../../services/failure_details.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -6,15 +5,15 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show ValueChanged, visibleForTesting;
 
 import '../../capabilities/account_scoped_cache.dart';
-import '../../services/time_reminder_service.dart';
 import '../../capabilities/east8_time.dart';
 import '../../capabilities/in_app_download/in_app_download.dart';
 import '../../services/auth_service.dart';
 import '../../services/campus_session.dart';
-import '../../services/service_endpoints.dart';
-import 'tronclass_models.dart';
-
+import '../../services/failure_details.dart';
 import '../../services/logging/logger.dart';
+import '../../services/service_endpoints.dart';
+import '../../services/time_reminder_service.dart';
+import 'tronclass_models.dart';
 
 const _mobileUserAgent =
     'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) '
@@ -25,8 +24,14 @@ const _mobileUserAgent =
 class TronclassService {
   static const todosTargetAppId = 'feature.portal.personal';
 
-  TronclassService({String? baseUrl})
-    : baseUrl = (baseUrl ?? defaultBaseUrl).replaceFirst(RegExp(r'/+$'), '');
+  TronclassService({
+    String? baseUrl,
+    CampusSessionClient? client,
+    InAppDownloadCapability? downloadCapability,
+  }) : baseUrl = (baseUrl ?? defaultBaseUrl).replaceFirst(RegExp(r'/+$'), ''),
+       _client = client ?? CampusSession.client(CampusServices.courseOnline),
+       _downloadCapability =
+           downloadCapability ?? const InAppDownloadCapability();
 
   static const defaultBaseUrl = CampusServiceEndpoints.courseBase;
   static const _summaryTtl = Duration(seconds: 20);
@@ -35,8 +40,8 @@ class TronclassService {
       'id,name,display_name,course_code,department(id,name),'
       'instructors(id,name),second_name,start_date,end_date';
 
-  static final _client = CampusSession.client(CampusServices.courseOnline);
-  static const _downloadCapability = InAppDownloadCapability();
+  final CampusSessionClient _client;
+  final InAppDownloadCapability _downloadCapability;
   static final AccountScopedCache<List<TronclassTodo>> _todosCache =
       AccountScopedCache<List<TronclassTodo>>(ttl: _summaryTtl);
 
@@ -245,8 +250,7 @@ class TronclassService {
           );
         }
         final upload = Map<String, dynamic>.from(rawUpload);
-        // 与 TronClass++ 一致：使用 reference_id 获取 preview=true 的文件链接，
-        // 不按网页下载按钮的 allow_download 标记过滤可读取的附件。
+        // 保留上传 ID 以优先获取原件，引用 ID 用于文档预览回退。
         final file = TronclassCoursewareFile.fromJson(
           upload,
           course: course,
@@ -268,7 +272,7 @@ class TronclassService {
     return files;
   }
 
-  /// 下载课件：取下载链接后交给公共应用内下载能力保存。
+  /// 下载课件：优先读取原件，获取失败时回退到原有文档预览。
   Future<InAppDownloadedFile> downloadCoursewareFile(
     TronclassCoursewareFile file, {
     ValueChanged<InAppDownloadProgress>? onProgress,
@@ -278,6 +282,32 @@ class TronclassService {
         '课件缺少文件 ID',
         reason: FailureReason.malformedResponse,
       );
+    }
+
+    if (file.uploadId.isNotEmpty) {
+      final originalUri = Uri.parse(baseUrl)
+          .resolve('/api/uploads/${Uri.encodeComponent(file.uploadId)}/blob')
+          .replace(
+            queryParameters: {
+              'preview': 'true',
+              'refer_type': 'learning_activity',
+              'refer_id': file.activityId,
+            },
+          );
+      try {
+        return await _downloadCapability.download(
+          url: originalUri,
+          fileName: file.name.isEmpty ? 'courseware' : file.name,
+          extraHeaders: _headers(),
+          followRedirects: true,
+          onProgress: onProgress,
+        );
+      } on InAppDownloadException catch (error) {
+        if (error.type != InAppDownloadErrorType.http &&
+            error.type != InAppDownloadErrorType.network) {
+          rethrow;
+        }
+      }
     }
 
     final data = await _requestJson(

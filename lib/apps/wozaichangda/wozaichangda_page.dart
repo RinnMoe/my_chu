@@ -1,3 +1,4 @@
+import '../../widgets/adaptive_feedback.dart';
 import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'package:flutter/material.dart';
@@ -91,7 +92,7 @@ class _WozaichangdaPageState extends State<WozaichangdaPage>
 
   Widget _buildBody(ThemeData theme) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AdaptiveLoadingState();
     }
 
     if (_error != null) {

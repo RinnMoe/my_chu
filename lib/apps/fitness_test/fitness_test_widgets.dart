@@ -1,3 +1,4 @@
+import '../../widgets/app_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 
 import 'fitness_test_models.dart';
@@ -320,10 +321,8 @@ Future<void> showFitnessTestResultSheet(
   required FitnessTestGender gender,
   required FitnessTestGradeGroup gradeGroup,
 }) {
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder:
         (_) => _ResultSheet(
           result: result,
@@ -369,11 +368,11 @@ class _ResultSheet extends StatelessWidget {
       top: false,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.86,
+          maxHeight: appBottomSheetContentHeight(context),
         ),
         child: ListView(
           shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
           children: [
             Row(
               children: [
@@ -583,10 +582,8 @@ class _BreakdownTable extends StatelessWidget {
 
 /// 评分标准：权重、等级分界、加分规则与依据。
 Future<void> showFitnessTestStandardSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
     builder: (_) => const _StandardSheet(),
   );
 }
@@ -622,11 +619,11 @@ class _StandardSheet extends StatelessWidget {
       top: false,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+          maxHeight: appBottomSheetContentHeight(context),
         ),
         child: ListView(
           shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
           children: [
             Text('单项与权重', style: theme.textTheme.titleSmall),
             const SizedBox(height: 8),

@@ -1,3 +1,4 @@
+import '../widgets/adaptive_settings.dart';
 import 'package:flutter/material.dart';
 
 import '../capabilities/dev_visibility.dart';
@@ -72,29 +73,13 @@ class _AboutPageState extends State<AboutPage> {
   }
 
   Widget _section(BuildContext context, String title, List<Widget> children) {
-    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: Semantics(
-              header: true,
-              child: Text(
-                title,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-            ),
-          ),
-          Card(
-            margin: EdgeInsets.zero,
-            clipBehavior: Clip.antiAlias,
-            child: Column(children: children),
-          ),
+          AppSectionHeading(title),
+          Card(clipBehavior: Clip.antiAlias, child: Column(children: children)),
         ],
       ),
     );
@@ -137,7 +122,7 @@ class _AboutPageState extends State<AboutPage> {
             trailing: const Icon(Icons.chevron_right),
             onTap: _openFeedback,
           ),
-          const Divider(height: 1, indent: 56),
+          const Divider(height: 1, indent: 16, endIndent: 16),
           ListTile(
             leading: const Icon(Icons.groups_outlined),
             title: const Text('QQ交流群'),
@@ -145,7 +130,7 @@ class _AboutPageState extends State<AboutPage> {
             trailing: const Icon(Icons.chevron_right),
             onTap: _joinQqGroup,
           ),
-          const Divider(height: 1, indent: 56),
+          const Divider(height: 1, indent: 16, endIndent: 16),
           ListTile(
             leading: const Icon(Icons.volunteer_activism_outlined),
             title: const Text('赞赏'),
@@ -153,7 +138,7 @@ class _AboutPageState extends State<AboutPage> {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _pushPage((_) => const AppreciationPage()),
           ),
-          const Divider(height: 1, indent: 56),
+          const Divider(height: 1, indent: 16, endIndent: 16),
           ListTile(
             leading: const Icon(Icons.privacy_tip_outlined),
             title: const Text('用户协议'),
@@ -161,7 +146,7 @@ class _AboutPageState extends State<AboutPage> {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _pushPage((_) => const PrivacySettingsPage()),
           ),
-          const Divider(height: 1, indent: 56),
+          const Divider(height: 1, indent: 16, endIndent: 16),
           ListTile(
             leading: const Icon(Icons.source_outlined),
             title: const Text('开源信息'),
@@ -176,7 +161,7 @@ class _AboutPageState extends State<AboutPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Divider(height: 1, indent: 56),
+                const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
                   leading: const Icon(Icons.build_outlined),
                   title: const Text('开发者工具'),

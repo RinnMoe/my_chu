@@ -129,7 +129,7 @@ class FeatureIconTile extends StatelessWidget {
   }
 }
 
-const featureCatalogCardRadius = featureIconTileRadius;
+const featureCatalogCardRadius = 16.0;
 
 /// Compact catalog card used by the 功能 page.
 ///
@@ -162,7 +162,6 @@ class FeatureCatalogCard extends StatelessWidget {
     final colors = theme.colorScheme;
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(featureCatalogCardRadius),
-      side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.36)),
     );
     return Semantics(
       container: true,
@@ -176,7 +175,7 @@ class FeatureCatalogCard extends StatelessWidget {
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
         elevation: 0,
-        color: colors.surfaceContainerLowest,
+        color: colors.surfaceContainer,
         surfaceTintColor: Colors.transparent,
         shape: shape,
         child: InkWell(

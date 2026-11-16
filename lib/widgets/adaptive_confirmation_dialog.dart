@@ -46,7 +46,7 @@ class AdaptiveConfirmationDialog extends StatelessWidget {
     final theme = Theme.of(context);
     return AlertDialog(
       title: Text(title),
-      content: Text(message),
+      content: message.isEmpty ? null : Text(message),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),

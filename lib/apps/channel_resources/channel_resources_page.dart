@@ -1,3 +1,4 @@
+import '../../widgets/adaptive_feedback.dart';
 import 'package:flutter/material.dart';
 
 import '../../pages/channel_account_page.dart';
@@ -159,7 +160,7 @@ class _ChannelResourcesPageState extends State<ChannelResourcesPage> {
     if (service == null) {
       return Scaffold(
         appBar: _buildAppBar(context),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const AdaptiveLoadingState(),
       );
     }
     return ValueListenableBuilder<ChannelAccountState>(
@@ -169,7 +170,7 @@ class _ChannelResourcesPageState extends State<ChannelResourcesPage> {
           case ChannelAccountStatus.restoring:
             return Scaffold(
               appBar: _buildAppBar(context),
-              body: const Center(child: CircularProgressIndicator()),
+              body: const AdaptiveLoadingState(),
             );
           case ChannelAccountStatus.unavailable:
             return Scaffold(

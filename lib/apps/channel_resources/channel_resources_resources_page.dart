@@ -1,3 +1,5 @@
+import '../../widgets/adaptive_feedback.dart';
+import '../../widgets/app_search_field.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -255,7 +257,7 @@ class _ChannelResourcesResourcesPageState
   @override
   Widget build(BuildContext context) {
     if (_loading && _page == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const AdaptiveLoadingState();
     }
     if (_error != null && _page == null) {
       return ChannelResourcesErrorView(message: _error!, onRetry: _load);
@@ -358,26 +360,16 @@ class _ChannelResourcesResourcesPageState
     return Column(
       children: [
         if (_searchVisible) ...[
-          SearchBar(
+          AppSearchField(
             controller: _searchController,
             hintText: '搜索资料名称或编号',
-            leading: const Icon(Icons.search),
-            trailing: [
-              if (_searchController.text.isNotEmpty)
-                IconButton(
-                  tooltip: '清除搜索',
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() {});
-                    _pageNumber = 1;
-                    _loadResources();
-                  },
-                  icon: const Icon(Icons.clear),
-                ),
-            ],
             onChanged: (_) => setState(() {}),
             onSubmitted: (_) {
               _pageNumber = 1;
+              _loadResources();
+            },
+            onClear: () {
+              setState(() => _pageNumber = 1);
               _loadResources();
             },
           ),

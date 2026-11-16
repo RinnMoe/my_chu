@@ -1,3 +1,5 @@
+import '../widgets/adaptive_confirmation_dialog.dart';
+import '../widgets/adaptive_feedback.dart';
 import 'package:flutter/material.dart';
 
 import '../capabilities/channel_account_capability.dart';
@@ -123,23 +125,12 @@ class _ChannelAccountPageState extends State<ChannelAccountPage> {
   }
 
   Future<void> _forgetRememberedPassword() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: const Text('删除已保存的密码？'),
-            content: const Text('删除后不会影响当前频道账号登录状态。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('取消'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('删除'),
-              ),
-            ],
-          ),
+    final confirmed = await showAdaptiveConfirmationDialog(
+      context,
+      title: '删除已保存的密码？',
+      message: '删除后不会影响当前频道账号登录状态。',
+      confirmLabel: '删除',
+      destructive: true,
     );
     if (confirmed != true) return;
     await _capability.clearRememberedCredential();
@@ -156,23 +147,12 @@ class _ChannelAccountPageState extends State<ChannelAccountPage> {
   }
 
   Future<void> _logout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: const Text('退出校园频道账号？'),
-            content: const Text('这只会退出校园频道账号，不会影响统一身份认证登录。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('取消'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('退出'),
-              ),
-            ],
-          ),
+    final confirmed = await showAdaptiveConfirmationDialog(
+      context,
+      title: '退出校园频道账号？',
+      message: '这只会退出校园频道账号，不会影响统一身份认证登录。',
+      confirmLabel: '退出',
+      destructive: true,
     );
     if (confirmed != true) return;
     setState(() => _busy = true);
@@ -399,7 +379,7 @@ class _ChannelAccountPageState extends State<ChannelAccountPage> {
         valueListenable: _capability.stateListenable,
         builder: (context, state, _) {
           if (state.status == ChannelAccountStatus.restoring) {
-            return const Center(child: CircularProgressIndicator());
+            return const AdaptiveLoadingState();
           }
           if (state.isAuthenticated && state.user != null) {
             return _accountBody(state.user!);

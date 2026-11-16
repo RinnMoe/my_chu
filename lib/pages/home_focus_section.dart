@@ -141,7 +141,8 @@ class HomeFocusSection extends StatelessWidget {
               ],
               if (items.isNotEmpty)
                 for (var i = 0; i < items.length; i++) ...[
-                  if (i > 0) const Divider(height: 1, indent: 56),
+                  if (i > 0)
+                    const Divider(height: 1, indent: 16, endIndent: 16),
                   _FocusRow(
                     item: items[i],
                     onTap: () => _openItem(context, items[i]),

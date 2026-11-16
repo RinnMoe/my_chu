@@ -1,3 +1,4 @@
+import '../widgets/adaptive_confirmation_dialog.dart';
 import '../services/time_reminder_service.dart';
 import '../services/course_live_activity_service.dart';
 import 'dart:async';
@@ -95,23 +96,12 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
   }
 
   Future<bool> _confirmWithdrawal() async {
-    return await showDialog<bool>(
-          context: context,
-          builder:
-              (dialogContext) => AlertDialog(
-                title: const Text('撤回用户协议同意？'),
-                content: const Text('撤回后应用会退出，下次打开时需要重新确认。'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(false),
-                    child: const Text('取消'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(true),
-                    child: const Text('撤回并退出'),
-                  ),
-                ],
-              ),
+    return await showAdaptiveConfirmationDialog(
+          context,
+          title: '撤回用户协议同意？',
+          message: '撤回后应用会退出，下次打开时需要重新确认。',
+          confirmLabel: '撤回并退出',
+          destructive: true,
         ) ??
         false;
   }

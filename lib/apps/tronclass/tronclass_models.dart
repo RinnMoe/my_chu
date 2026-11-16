@@ -104,6 +104,7 @@ class TronclassCoursewareFile {
   final String activityTitle;
   final String courseId;
   final String fileId;
+  final String uploadId;
   final String name;
   final int size;
   final String type;
@@ -113,6 +114,7 @@ class TronclassCoursewareFile {
     required this.activityTitle,
     required this.courseId,
     required this.fileId,
+    this.uploadId = '',
     required this.name,
     required this.size,
     required this.type,
@@ -129,6 +131,7 @@ class TronclassCoursewareFile {
       activityTitle: activityTitle,
       courseId: course.id,
       fileId: _string(json['reference_id']),
+      uploadId: _string(json['id']),
       name: _string(json['name']),
       size: _int(json['size']),
       type: _string(json['type']),

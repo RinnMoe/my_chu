@@ -1,3 +1,4 @@
+import '../../widgets/app_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import '../../widgets/appearance_color_dialog.dart';
 import '../../services/theme_service.dart';
@@ -194,9 +195,9 @@ class _AcademicScheduleAppearancePageState
     AcademicScheduleStyle Function(double) update,
   ) async {
     var current = value;
-    final result = await showModalBottomSheet<double>(
+    final result = await showAppBottomSheet<double>(
       context: context,
-      barrierColor: Colors.transparent,
+      scrollBody: true,
       builder:
           (context) => StatefulBuilder(
             builder:
@@ -211,7 +212,8 @@ class _AcademicScheduleAppearancePageState
                             Expanded(
                               child: Text(
                                 title,
-                                style: Theme.of(context).textTheme.titleMedium,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
                               ),
                             ),
                             Text(_formatStyleValue(current, unit)),

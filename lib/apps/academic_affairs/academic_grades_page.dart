@@ -1,3 +1,5 @@
+import '../../widgets/app_selection.dart';
+import '../../widgets/app_bottom_sheet.dart';
 import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_boundary.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
@@ -403,7 +405,7 @@ class _EnrollmentSummaryCard extends StatelessWidget {
                 Container(
                   width: 1,
                   height: 72,
-                  color: valueColor.withValues(alpha: 0.18),
+                  color: theme.colorScheme.outlineVariant,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -419,7 +421,7 @@ class _EnrollmentSummaryCard extends StatelessWidget {
                       const SizedBox(height: 8),
                       Container(
                         height: 1,
-                        color: valueColor.withValues(alpha: 0.18),
+                        color: theme.colorScheme.outlineVariant,
                       ),
                       const SizedBox(height: 8),
                       supportingMetric(
@@ -484,43 +486,12 @@ class _TermSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DropdownButtonFormField<String?>(
-      key: ValueKey<String?>(selectedTerm),
-      initialValue: selectedTerm,
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: '学期',
-        filled: true,
-        fillColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: Theme.of(context).colorScheme.primary,
-            width: 1.5,
-          ),
-        ),
-      ),
-      menuMaxHeight: MediaQuery.sizeOf(context).height * .6,
-      items: [
-        const DropdownMenuItem<String?>(value: null, child: Text('全部学期')),
-        for (final term in terms)
-          DropdownMenuItem<String?>(
-            value: term,
-            child: Text(term, overflow: TextOverflow.ellipsis),
-          ),
+    return AppSelectField<String?>(
+      label: '学期',
+      value: selectedTerm,
+      options: [
+        const AppSelectionOption(value: null, label: '全部学期'),
+        for (final term in terms) AppSelectionOption(value: term, label: term),
       ],
       onChanged: onTermChanged,
     );
@@ -549,14 +520,14 @@ class _MaterialTermOverviewCard extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final hasSummary = summary != null || weightedGpa != null;
     return Card(
-      color: colors.surfaceContainerLow,
+      color: colors.surfaceContainer,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide.none,
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -705,7 +676,7 @@ class _TermSummaryCard extends StatelessWidget {
     if (embedded) return child;
     return Container(
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
+        color: colors.surfaceContainer,
         borderRadius: BorderRadius.circular(18),
       ),
       child: child,
@@ -724,9 +695,9 @@ class _GradeListSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Material(
-      color: colors.surfaceContainerLowest,
+      color: colors.surfaceContainer,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide.none,
       ),
       clipBehavior: Clip.antiAlias,
@@ -736,9 +707,9 @@ class _GradeListSection extends StatelessWidget {
             if (index > 0)
               Divider(
                 height: 1,
-                indent: 66,
-                endIndent: 14,
-                color: colors.outlineVariant.withValues(alpha: 0.65),
+                indent: 16,
+                endIndent: 16,
+                color: colors.outlineVariant,
               ),
             _CourseGradeRow(
               grade: grades[index],
@@ -828,7 +799,7 @@ class _CourseGradeRow extends StatelessWidget {
         key: rowKey,
         onTap: openDetails,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1136,14 +1107,12 @@ Future<void> _showCourseGradeDetails(
   BuildContext context,
   AcademicCourseGrade grade,
 ) async {
-  await showModalBottomSheet<void>(
+  await showAppBottomSheet<void>(
     context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
     builder:
         (sheetContext) => SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: _MaterialGradeDetailContent(grade: grade),
           ),
         ),

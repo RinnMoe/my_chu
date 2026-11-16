@@ -1,3 +1,4 @@
+import '../../widgets/adaptive_feedback.dart';
 import 'package:flutter/material.dart';
 
 import 'academic_affairs_models.dart';
@@ -42,7 +43,7 @@ class AcademicSectionFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AdaptiveLoadingState();
     }
     if (error == null) {
       return AcademicEmptyState(message: emptyMessage, onRefresh: onRefresh);
@@ -63,24 +64,9 @@ class AcademicErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off_outlined, size: 48),
-            const SizedBox(height: 12),
-            Text(academicErrorMessage(error), textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('重新加载'),
-            ),
-          ],
-        ),
-      ),
+    return AdaptiveErrorState(
+      title: academicErrorMessage(error),
+      onRetry: onRetry,
     );
   }
 }
@@ -147,20 +133,7 @@ class AcademicEmptyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 40),
-          const SizedBox(height: 8),
-          Text(text, textAlign: TextAlign.center),
-          if (action != null) action!,
-        ],
-      ),
-    );
-
-    return Card(child: child);
+    return AdaptiveStatusState(icon: icon, message: text, action: action);
   }
 }
 

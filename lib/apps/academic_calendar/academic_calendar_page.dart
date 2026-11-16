@@ -1,3 +1,5 @@
+import '../../widgets/app_selection.dart';
+import '../../widgets/app_bottom_sheet.dart';
 import '../../services/reliability_event.dart';
 import 'dart:async';
 
@@ -291,12 +293,14 @@ class _AcademicCalendarPageState extends State<AcademicCalendarPage> {
           onPressed: () => unawaited(_showTermPicker(context, calendar)),
           style: TextButton.styleFrom(
             foregroundColor: Theme.of(context).colorScheme.onSurface,
-            minimumSize: Size.zero,
+            minimumSize: const Size(48, 48),
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            tapTargetSize: MaterialTapTargetSize.padded,
           ),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 208, maxWidth: 208),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.sizeOf(context).width * .5,
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.max,
               children: [
@@ -322,75 +326,62 @@ class _AcademicCalendarPageState extends State<AcademicCalendarPage> {
     BuildContext context,
     AcademicCalendarData calendar,
   ) async {
-    final selected = await showModalBottomSheet<AcademicCalendarTerm>(
+    final selected = await showAppBottomSheet<AcademicCalendarTerm>(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
       builder: (sheetContext) {
         var refreshing = false;
         return StatefulBuilder(
           builder: (context, setSheetState) {
             final selectedCalendar = _calendar ?? calendar;
-            return SizedBox(
-              height: MediaQuery.sizeOf(sheetContext).height * .5,
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: appBottomSheetContentHeight(context),
+              ),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 8, 2),
-                    child: Row(
-                      children: [
-                        Text(
-                          '选择学期',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          tooltip: '刷新',
-                          onPressed:
-                              refreshing
-                                  ? null
-                                  : () async {
-                                    setSheetState(() => refreshing = true);
-                                    try {
-                                      await _loadInitial(force: true);
-                                    } finally {
-                                      if (sheetContext.mounted) {
-                                        setSheetState(() => refreshing = false);
-                                      }
+                  AppSheetHeader(
+                    title: '学期',
+                    actions: [
+                      IconButton(
+                        tooltip: '刷新',
+                        onPressed:
+                            refreshing
+                                ? null
+                                : () async {
+                                  setSheetState(() => refreshing = true);
+                                  try {
+                                    await _loadInitial(force: true);
+                                  } finally {
+                                    if (sheetContext.mounted) {
+                                      setSheetState(() => refreshing = false);
                                     }
-                                  },
-                          icon:
-                              refreshing
-                                  ? const SizedBox.square(
-                                    dimension: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                  : const Icon(Icons.refresh),
-                        ),
-                      ],
-                    ),
+                                  }
+                                },
+                        icon:
+                            refreshing
+                                ? const SizedBox.square(
+                                  dimension: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                                : const Icon(Icons.refresh),
+                      ),
+                    ],
                   ),
-                  Expanded(
+                  Flexible(
                     child: ListView.separated(
-                      padding: const EdgeInsets.only(top: 2, bottom: 16),
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.only(bottom: 16),
                       itemCount: _terms.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 2),
                       itemBuilder: (_, index) {
                         final term = _terms[index];
                         final isSelected = term.id == selectedCalendar.term.id;
-                        return ListTile(
+                        return AppSelectionTile(
                           title: Text(term.label),
                           selected: isSelected,
-                          trailing:
-                              isSelected
-                                  ? const Icon(Icons.check_circle_outline)
-                                  : null,
                           onTap: () => Navigator.of(sheetContext).pop(term),
                         );
                       },
@@ -494,7 +485,6 @@ class _CalendarWeekTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final materialColors = Theme.of(context).colorScheme;
     final surface = materialColors.surface;
-    final separator = materialColors.outlineVariant;
     final header = materialColors.surfaceContainerHighest;
     final currentWeek = calendar.weekFor(currentDate);
     final holidayNamesByDate = _calendarHolidayNamesByDate(
@@ -506,14 +496,13 @@ class _CalendarWeekTable extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: surface,
-        border: Border.all(color: separator),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
           Container(
             color: header,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
                 const SizedBox(width: _CalendarWeekTable.weekColumnWidth),
@@ -621,13 +610,12 @@ class _CalendarWeekRow extends StatelessWidget {
             ? (materialColors.surfaceContainerHighest)
             : (materialColors.surface);
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 10, 10, 9),
-      decoration: BoxDecoration(
-        color: rowColor,
-        border: Border(top: BorderSide(color: separator)),
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 9),
+      decoration: BoxDecoration(color: rowColor),
       child: Column(
         children: [
+          Divider(height: 1, color: separator),
+          const SizedBox(height: 10),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

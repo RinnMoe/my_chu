@@ -1,3 +1,5 @@
+import '../widgets/adaptive_feedback.dart';
+import '../widgets/adaptive_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../capabilities/time_reminder_registry.dart';
@@ -307,18 +309,18 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Material(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
+        color: colors.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
             SwitchListTile(
               key: ValueKey('reminder-switch-${category.name}'),
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 8,
+                horizontal: 16,
+                vertical: 4,
               ),
-              secondary: Icon(icon, color: colors.primary),
+              secondary: Icon(icon, color: colors.onSurfaceVariant),
               title: Text(category.label),
               subtitle: description == null ? null : Text(description),
               value: setting.enabled,
@@ -334,40 +336,15 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
                       ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Divider(
-                height: 1,
-                color: colors.outlineVariant.withValues(alpha: 0.5),
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(height: 1, color: colors.outlineVariant),
             ),
-            ListTile(
+            AdaptiveSettingsRow(
               key: ValueKey('reminder-advance-${category.name}'),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 4,
-              ),
+              icon: Icons.schedule_outlined,
+              title: '提前时间',
+              trailingValue: '${setting.advance} ${category.unit}',
               enabled: editable && setting.enabled,
-              title: const Text('提前时间'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${setting.advance} ${category.unit}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color:
-                          setting.enabled && editable
-                              ? colors.primary
-                              : colors.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 20,
-                    color: colors.onSurfaceVariant,
-                  ),
-                ],
-              ),
               onTap:
                   editable && setting.enabled
                       ? () => _advance(category, setting)
@@ -490,20 +467,20 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Material(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
+        color: colors.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
             SwitchListTile(
               key: const ValueKey('course-live-activity-switch'),
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 8,
+                horizontal: 16,
+                vertical: 4,
               ),
               secondary: Icon(
                 Icons.notifications_active_outlined,
-                color: colors.primary,
+                color: colors.onSurfaceVariant,
               ),
               title: const Text('课程实时动态'),
               subtitle: const Text('课前显示时间与教室，课中显示上课进度'),
@@ -561,16 +538,13 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Divider(
-                height: 1,
-                color: colors.outlineVariant.withValues(alpha: 0.5),
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(height: 1, color: colors.outlineVariant),
             ),
             ListTile(
               key: const ValueKey('course-live-activity-settings'),
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
+                horizontal: 16,
                 vertical: 4,
               ),
               enabled: _liveSupported,
@@ -600,31 +574,18 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage>
       appBar: AppBar(title: const Text('时间提醒')),
       body:
           _error
-              ? Center(
-                child: TextButton(
-                  onPressed: _load,
-                  child: const Text('加载失败，点击重试'),
-                ),
-              )
+              ? AdaptiveErrorState(title: '提醒设置加载失败', onRetry: _load)
               : _settings == null
-              ? const Center(child: CircularProgressIndicator())
+              ? const AdaptiveLoadingState()
               : Align(
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
+                  constraints: const BoxConstraints(maxWidth: 760),
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                     children: [
                       if (!_status.ready) _permissionNotice(context),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 4, bottom: 12),
-                        child: Text(
-                          '提醒事项',
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ),
+                      const AppSectionHeading('提醒事项'),
                       for (final category in TimeReminderCategory.values.where(
                         (category) =>
                             !PlatformCompatibilityService.isAndroid ||

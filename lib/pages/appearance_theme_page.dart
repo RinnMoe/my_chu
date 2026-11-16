@@ -1,3 +1,5 @@
+import '../widgets/adaptive_feedback.dart';
+import '../widgets/adaptive_settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../widgets/appearance_color_dialog.dart';
@@ -59,7 +61,7 @@ class _AppearanceThemePageState extends State<AppearanceThemePage> {
                     child: const Text('加载失败，重试'),
                   ),
                 )
-                : const Center(child: CircularProgressIndicator()),
+                : const AdaptiveLoadingState(),
       );
     },
   );
@@ -105,8 +107,8 @@ class _ThemeSettings extends StatelessWidget {
       final scheme = Theme.of(context).colorScheme;
       final seed = preferences.seedColor ?? AppBrand.seed;
       Widget heading(String title) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 24, 4, 12),
-        child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+        padding: const EdgeInsets.only(top: 24),
+        child: AppSectionHeading(title),
       );
       Widget card(String title, Color color, {bool custom = false}) {
         final selected =
@@ -119,11 +121,8 @@ class _ThemeSettings extends StatelessWidget {
         return Semantics(
           selected: selected,
           child: Material(
-            color:
-                selected
-                    ? scheme.primaryContainer
-                    : scheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(20),
+            color: selected ? scheme.primaryContainer : scheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(16),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onLongPress:
@@ -195,8 +194,8 @@ class _ThemeSettings extends StatelessWidget {
           children: [
             heading('明暗模式'),
             Material(
-              color: scheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(20),
+              color: scheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(16),
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
@@ -268,8 +267,8 @@ class _ThemeSettings extends StatelessWidget {
                 color:
                     preferences.useDynamicColors
                         ? scheme.primaryContainer
-                        : scheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(20),
+                        : scheme.surfaceContainer,
+                borderRadius: BorderRadius.circular(16),
                 clipBehavior: Clip.antiAlias,
                 child: ListTile(
                   key: const ValueKey('wallpaper-dynamic-color'),
@@ -316,8 +315,8 @@ class _ThemeSettings extends StatelessWidget {
             ),
             heading('底栏样式'),
             Material(
-              color: scheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(20),
+              color: scheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(16),
               clipBehavior: Clip.antiAlias,
               child: SettingResetRegion(
                 onReset:
@@ -342,8 +341,8 @@ class _ThemeSettings extends StatelessWidget {
             if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) ...[
               heading('交互'),
               Material(
-                color: scheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(20),
+                color: scheme.surfaceContainer,
+                borderRadius: BorderRadius.circular(16),
                 clipBehavior: Clip.antiAlias,
                 child: SettingResetRegion(
                   onReset:

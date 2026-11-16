@@ -1,3 +1,4 @@
+import 'widgets/adaptive_feedback.dart';
 import 'services/logging/runtime_error_reporter.dart';
 import 'services/host_auth_state.dart';
 import 'services/auth_service.dart';
@@ -216,11 +217,23 @@ class MyApp extends StatelessWidget {
         elevation: 0,
         margin: EdgeInsets.zero,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: scheme.outlineVariant),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        showDragHandle: true,
+        backgroundColor: scheme.surfaceContainerLow,
+        modalBarrierColor: Colors.black54,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
       ),
+      listTileTheme: ListTileThemeData(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        iconColor: scheme.onSurfaceVariant,
+        selectedTileColor: scheme.primaryContainer,
+        selectedColor: scheme.onPrimaryContainer,
+      ),
+      chipTheme: const ChipThemeData(showCheckmark: false),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: scheme.surfaceContainerHigh,
@@ -976,7 +989,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     if (_tabs.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const AdaptiveLoadingState();
     }
     if (_startupReady && _currentKey == _launchKey) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

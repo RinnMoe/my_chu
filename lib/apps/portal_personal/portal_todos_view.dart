@@ -1,3 +1,4 @@
+import '../../widgets/adaptive_feedback.dart';
 import '../../services/reliability_event.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'package:flutter/material.dart';
@@ -98,7 +99,7 @@ class _PortalTodosViewState extends State<PortalTodosView>
   Widget _buildMaterial() {
     final todos = _todos;
     if (_loading && todos == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const AdaptiveLoadingState();
     }
     if (_error != null && todos == null) {
       return _ErrorState(message: _error!, onRetry: _retry);

@@ -1,3 +1,4 @@
+import '../../widgets/app_bottom_sheet.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -9,10 +10,8 @@ import 'dorm_electricity_repository.dart';
 Future<void> showElectricityPicker(
   BuildContext context,
   ElectricityRepository repository,
-) => showModalBottomSheet<void>(
+) => showAppBottomSheet<void>(
   context: context,
-  isScrollControlled: true,
-  showDragHandle: true,
   builder: (_) => ElectricityPicker(repository: repository),
 );
 
@@ -175,20 +174,17 @@ class _ElectricityPickerState extends State<ElectricityPicker> {
       child: SafeArea(
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(context).height * .85,
+            maxHeight: appBottomSheetContentHeight(context),
             maxWidth: 640,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                child: Text('选择宿舍', style: theme.textTheme.titleLarge),
-              ),
+              const AppSheetHeader(title: '选择宿舍'),
               Flexible(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [

@@ -12,7 +12,10 @@ class AdaptiveLoadingState extends StatelessWidget {
     final indicator = SizedBox(
       width: radius * 2,
       height: radius * 2,
-      child: const CircularProgressIndicator(strokeWidth: 3),
+      child: const CircularProgressIndicator(
+        strokeWidth: 3,
+        semanticsLabel: '正在加载',
+      ),
     );
     if (label == null) return Center(child: indicator);
     return Center(
@@ -41,29 +44,67 @@ class AdaptiveErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return AdaptiveStatusState(
+      icon: Icons.cloud_off_outlined,
+      message: [title, if (message != null) message!].join('\n'),
+      error: true,
+      action:
+          onRetry == null
+              ? null
+              : FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: Text(retryLabel),
+              ),
+    );
+  }
+}
+
+class AdaptiveStatusState extends StatelessWidget {
+  const AdaptiveStatusState({
+    super.key,
+    required this.icon,
+    required this.message,
+    this.action,
+    this.error = false,
+  });
+
+  final IconData icon;
+  final String message;
+  final Widget? action;
+  final bool error;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            title,
-            style: theme.textTheme.titleMedium,
-            textAlign: TextAlign.center,
-          ),
-          if (message != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              message!,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Semantics(
+          liveRegion: error,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ExcludeSemantics(
+                child: Icon(
+                  icon,
+                  size: 48,
+                  color:
+                      error
+                          ? theme.colorScheme.error
+                          : theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-          if (onRetry != null)
-            TextButton(onPressed: onRetry, child: Text(retryLabel)),
-        ],
+              const SizedBox(height: 12),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium,
+              ),
+              if (action != null) ...[const SizedBox(height: 16), action!],
+            ],
+          ),
+        ),
       ),
     );
   }

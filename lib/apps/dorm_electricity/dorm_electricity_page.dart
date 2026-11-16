@@ -1,3 +1,4 @@
+import '../../widgets/adaptive_feedback.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -688,7 +689,7 @@ class _DormElectricityPageState extends State<DormElectricityPage>
                       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
                       child:
                           !_ready
-                              ? const Center(child: CircularProgressIndicator())
+                              ? const AdaptiveLoadingState()
                               : _restoreError != null
                               ? _error(
                                 _restoreError!,

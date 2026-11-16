@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import '../../widgets/app_bottom_sheet.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/ip_status_service.dart';
@@ -33,8 +36,9 @@ class ProfileSettingTile extends StatelessWidget {
 
 /// 账号分组首行：身份信息与当前网络环境。
 ///
-/// 身份卡并入“账号”分组后不再单独占一张卡片，`ListTile` 的分栏与相邻设置项
-/// 对齐；网络状态作为尾随控件，点开同一个网络详情面板。
+/// 身份卡并入“账号”分组后不再单独占一张卡片，分栏与相邻设置项对齐；姓名与
+/// 学号两行保持紧凑并整体居中，网络状态作为尾随控件与两行居中对齐。当前字号
+/// 和可用宽度放不下时，网络状态改排在身份下方，避免挤压姓名与学号。
 class ProfileIdentityRow extends StatelessWidget {
   final bool loading;
   final bool loadFailed;
@@ -72,16 +76,23 @@ class ProfileIdentityRow extends StatelessWidget {
         onRetryAccount == null
             ? null
             : TextButton(onPressed: onRetryAccount, child: const Text('重试'));
+    final chip = _NetworkStatusChip(
+      status: networkStatus,
+      loading: networkLoading,
+      onPressed: onOpenNetworkDetails,
+    );
+    final chipWidth =
+        networkLoading
+            ? 76.0
+            : _networkChipWidth(context, _networkStatusLabel(networkStatus));
     if (loading) {
-      return ListTile(
-        leading: const Icon(Icons.account_circle_outlined),
+      return _IdentityTile(
         title: const _Skeleton(width: 160, height: 18),
-        subtitle: const _Skeleton(width: 112, height: 14),
-        trailing: _NetworkStatusChip(
-          status: networkStatus,
-          loading: networkLoading,
-          onPressed: onOpenNetworkDetails,
-        ),
+        titleWidth: 160,
+        detail: const _Skeleton(width: 112, height: 14),
+        detailWidth: 112,
+        chip: chip,
+        chipWidth: chipWidth,
       );
     }
     if (loadFailed) {
@@ -95,21 +106,126 @@ class ProfileIdentityRow extends StatelessWidget {
       if (uid?.trim().isNotEmpty ?? false) uid!.trim(),
       if (identity?.trim().isNotEmpty ?? false) identity!.trim(),
     ].join(' ');
-    return ListTile(
-      leading: const Icon(Icons.account_circle_outlined),
+    return _IdentityTile(
       title: Text(
         name ?? '未登录',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: titleStyle,
       ),
-      subtitle:
+      titleWidth: _textWidth(context, name ?? '未登录', titleStyle),
+      detail:
           accountLine.isEmpty ? null : Text(accountLine, style: detailStyle),
-      trailing: _NetworkStatusChip(
-        status: networkStatus,
-        loading: networkLoading,
-        onPressed: onOpenNetworkDetails,
-      ),
+      detailWidth:
+          accountLine.isEmpty
+              ? 0
+              : _textWidth(context, accountLine, detailStyle),
+      chip: chip,
+      chipWidth: chipWidth,
+    );
+  }
+}
+
+String _networkStatusLabel(CampusNetworkStatus? status) {
+  if (status?.inWhiteList == true) {
+    return '校园网';
+  }
+  return status == null ? '未知网络' : '校外网';
+}
+
+double _textWidth(BuildContext context, String text, TextStyle? style) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  final width = painter.width;
+  painter.dispose();
+  return width;
+}
+
+/// 网络状态按钮在当前主题下的固有宽度：文本、内边距与描边。
+double _networkChipWidth(BuildContext context, String label) {
+  final theme = Theme.of(context);
+  final style = OutlinedButtonTheme.of(context).style;
+  final textWidth = _textWidth(context, label, theme.textTheme.labelLarge);
+  final paddingProperty = style?.padding;
+  final padding =
+      paddingProperty?.resolve(const <WidgetState>{}) ??
+      const EdgeInsets.symmetric(horizontal: 24);
+  final borderWidth =
+      style?.side?.resolve(const <WidgetState>{})?.width ?? 1.0;
+  return textWidth + padding.horizontal + 2 * borderWidth;
+}
+
+/// 账号身份行：姓名与学号作为紧凑的两行整体居中，网络状态作为尾随控件与
+/// 两行居中对齐；当前字号和可用宽度放不下时，网络状态移到身份信息下方。
+class _IdentityTile extends StatelessWidget {
+  const _IdentityTile({
+    required this.title,
+    required this.titleWidth,
+    this.detail,
+    this.detailWidth = 0,
+    required this.chip,
+    required this.chipWidth,
+  });
+
+  final Widget title;
+  final double titleWidth;
+  final Widget? detail;
+  final double detailWidth;
+  final Widget chip;
+  final double chipWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final tileTheme = ListTileTheme.of(context);
+    final contentPadding =
+        (tileTheme.contentPadding ??
+                const EdgeInsetsDirectional.only(start: 16, end: 24))
+            .resolve(Directionality.of(context));
+    final titleGap = tileTheme.horizontalTitleGap ?? 16;
+    final leadingWidth = math.max(tileTheme.minLeadingWidth ?? 24, 24.0);
+    final chromeWidth =
+        contentPadding.left +
+        contentPadding.right +
+        leadingWidth +
+        titleGap;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 与 `_RenderListTile._computeSizes` 一致：文字区宽度等于列表宽度减去
+        // 内容留白、前导图标与标题间距，以及尾随控件及其间距。
+        final textWidth =
+            constraints.maxWidth -
+            chromeWidth -
+            math.max(chipWidth + titleGap, 32.0);
+        final fitsInline =
+            textWidth > 0 && textWidth >= math.max(titleWidth, detailWidth);
+        return ListTile(
+          leading: const Icon(Icons.account_circle_outlined),
+          title: title,
+          subtitle:
+              fitsInline
+                  ? detail
+                  : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (detail != null) ...[
+                        detail!,
+                        const SizedBox(height: 8),
+                      ],
+                      chip,
+                    ],
+                  ),
+          trailing: fitsInline ? chip : null,
+          isThreeLine: !fitsInline,
+          titleAlignment:
+              fitsInline
+                  ? ListTileTitleAlignment.center
+                  : ListTileTitleAlignment.threeLine,
+        );
+      },
     );
   }
 }
@@ -149,7 +265,7 @@ class _NetworkStatusChip extends StatelessWidget {
     if (loading) {
       return const SizedBox(
         width: 76,
-        height: 32,
+        height: 48,
         child: Center(
           child: SizedBox(
             width: 16,
@@ -159,17 +275,11 @@ class _NetworkStatusChip extends StatelessWidget {
         ),
       );
     }
-    final label =
-        status?.inWhiteList == true
-            ? '校园网'
-            : status == null
-            ? '网络状态不可用'
-            : '校外网';
+    final label = _networkStatusLabel(status);
 
-    return ActionChip(
-      label: Text(label),
-      visualDensity: VisualDensity.compact,
+    return OutlinedButton(
       onPressed: onPressed,
+      child: Text(label, textAlign: TextAlign.center, softWrap: true),
     );
   }
 }
@@ -201,9 +311,9 @@ Future<void> showNetworkStatusSheet(
   required CampusNetworkStatus? status,
   required Future<CampusNetworkStatus?> Function() refresh,
 }) {
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    showDragHandle: true,
+    scrollBody: true,
     builder: (_) => _NetworkStatusSheet(status: status, refresh: refresh),
   );
 }
@@ -249,7 +359,12 @@ class _NetworkStatusSheetState extends State<_NetworkStatusSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('网络环境', style: theme.textTheme.titleLarge),
+            Text(
+              '网络环境',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 12),
             Card(
               child: Column(

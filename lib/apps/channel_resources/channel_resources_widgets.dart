@@ -1,3 +1,4 @@
+import '../../widgets/adaptive_feedback.dart';
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
@@ -17,28 +18,7 @@ class ChannelResourcesErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.cloud_off_outlined, size: 44, color: colors.error),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            if (onRetry != null) ...[
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: const Text('重试'),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
+    return AdaptiveErrorState(title: message, onRetry: onRetry);
   }
 }
 
@@ -56,31 +36,17 @@ class ChannelResourcesEmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 50, color: colors.onSurfaceVariant),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: colors.onSurfaceVariant),
-            ),
-            if (onRetry != null) ...[
-              const SizedBox(height: 12),
-              TextButton.icon(
+    return AdaptiveStatusState(
+      icon: icon,
+      message: message,
+      action:
+          onRetry == null
+              ? null
+              : TextButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: const Text('重试'),
+                label: const Text('刷新'),
               ),
-            ],
-          ],
-        ),
-      ),
     );
   }
 }

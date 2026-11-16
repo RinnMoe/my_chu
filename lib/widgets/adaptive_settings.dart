@@ -8,7 +8,7 @@ class AdaptiveSettingsSection extends StatelessWidget {
     this.footer,
     required this.children,
     this.margin = EdgeInsets.zero,
-    this.dividerIndent = 56,
+    this.dividerIndent = 16,
   });
 
   final String? title;
@@ -30,22 +30,18 @@ class AdaptiveSettingsSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (title != null) ...[
-                Text(
-                  title!,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
+              if (title != null) ...[AppSectionHeading(title!)],
               Card(
                 clipBehavior: Clip.antiAlias,
                 child: Column(
                   children: [
                     for (var index = 0; index < children.length; index++) ...[
-                      if (index > 0) Divider(height: 1, indent: dividerIndent),
+                      if (index > 0)
+                        Divider(
+                          height: 1,
+                          indent: dividerIndent,
+                          endIndent: 16,
+                        ),
                       children[index],
                     ],
                   ],
@@ -82,6 +78,7 @@ class AdaptiveSettingsRow extends StatelessWidget {
     this.trailing,
     this.onTap,
     this.showChevron = true,
+    this.enabled = true,
   });
 
   final IconData icon;
@@ -91,16 +88,63 @@ class AdaptiveSettingsRow extends StatelessWidget {
   final Widget? trailing;
   final VoidCallback? onTap;
   final bool showChevron;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ListTile(
-      leading: Icon(icon, color: theme.colorScheme.onSurfaceVariant),
-      title: Text(title),
-      subtitle: subtitle == null ? null : Text(subtitle!),
-      trailing: trailing ?? _buildTrailing(context),
-      onTap: onTap,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final value = trailingValue;
+        final titleStyle = theme.textTheme.bodyLarge!;
+        final valueStyle = theme.textTheme.bodyMedium!.copyWith(
+          color:
+              enabled
+                  ? theme.colorScheme.onSurfaceVariant
+                  : theme.disabledColor,
+        );
+        double textWidth(String text, TextStyle style) {
+          final painter = TextPainter(
+            text: TextSpan(text: text, style: style),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+          )..layout();
+          final width = painter.width;
+          painter.dispose();
+          return width;
+        }
+
+        final stacked =
+            value != null &&
+            trailing == null &&
+            textWidth(title, titleStyle) + textWidth(value, valueStyle) >
+                constraints.maxWidth - 136;
+        return ListTile(
+          enabled: enabled,
+          leading: Icon(icon),
+          title: Text(title),
+          subtitle:
+              stacked
+                  ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (subtitle != null) Text(subtitle!),
+                      Text(value, style: valueStyle),
+                    ],
+                  )
+                  : subtitle == null
+                  ? null
+                  : Text(subtitle!),
+          trailing:
+              trailing ??
+              (stacked
+                  ? showChevron
+                      ? const Icon(Icons.chevron_right)
+                      : null
+                  : _buildTrailing(context)),
+          onTap: onTap,
+        );
+      },
     );
   }
 
@@ -116,7 +160,10 @@ class AdaptiveSettingsRow extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                  color:
+                      enabled
+                          ? theme.colorScheme.onSurfaceVariant
+                          : theme.disabledColor,
                 ),
               ),
             );
@@ -132,4 +179,25 @@ class AdaptiveSettingsRow extends StatelessWidget {
       ],
     );
   }
+}
+
+class AppSectionHeading extends StatelessWidget {
+  const AppSectionHeading(this.title, {super.key});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Semantics(
+      header: true,
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+  );
 }
