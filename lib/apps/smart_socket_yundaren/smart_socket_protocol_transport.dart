@@ -8,8 +8,9 @@ import '../../services/logging/logger.dart';
 
 class BleTransportException implements Exception {
   final String message;
+  final String? userMessage;
 
-  const BleTransportException(this.message);
+  const BleTransportException(this.message, {this.userMessage});
 
   @override
   String toString() => message;
@@ -20,6 +21,7 @@ abstract interface class BleProtocolTransport {
 
   Stream<void> get unexpectedDisconnects;
 
+  /// Prepares the target address, scanning only when the transport needs it.
   Future<void> scanForTarget(String mac);
 
   Future<void> connect();
@@ -52,6 +54,7 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
       StreamController<void>.broadcast(sync: true);
 
   BluetoothDevice? _device;
+  Completer<BluetoothDevice?>? _scanTarget;
   BluetoothCharacteristic? _writeCharacteristic;
   StreamSubscription<List<int>>? _notificationSubscription;
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
@@ -76,18 +79,26 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
   Future<void> scanForTarget(String mac) async {
     _ensureActive();
     if (!await _readSupport()) {
-      throw const BleTransportException('当前设备不支持 BLE');
+      throw const BleTransportException(
+        '当前设备不支持 BLE',
+        userMessage: '此手机无法连接该插座',
+      );
     }
     final adapterState = await _readLiveAdapterState();
     if (adapterState != BluetoothAdapterState.on) {
-      throw const BleTransportException('蓝牙未开启，请开启后重试');
+      throw const BleTransportException('蓝牙未开启', userMessage: '蓝牙未开启，请开启后重试');
     }
+    _ensureActive();
+    _device = BluetoothDevice.fromId(_formatMac(_normalizeMac(mac)));
+  }
 
+  Future<BluetoothDevice> _scanForTarget(String target) async {
     await FlutterBluePlus.stopScan();
-    final target = _normalizeMac(mac);
-    final found = Completer<BluetoothDevice>();
+    _ensureActive();
+    final found = _scanTarget = Completer<BluetoothDevice?>();
+    found.future.ignore(); // Native scan errors may arrive during startScan.
     late final StreamSubscription<List<ScanResult>> subscription;
-    subscription = FlutterBluePlus.scanResults.listen(
+    subscription = FlutterBluePlus.onScanResults.listen(
       (results) {
         for (final result in results) {
           if (_normalizeMac(result.device.remoteId.str) == target &&
@@ -111,21 +122,27 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
         removeIfGone: const Duration(seconds: 5),
         androidUsesFineLocation: true,
       );
-      _device = await found.future.timeout(
+      final device = await found.future.timeout(
         const Duration(seconds: 12),
         onTimeout:
             () =>
-                throw BleTransportException(
-                  '12 秒内未找到二维码设备 ${_formatMac(target)}',
+                throw const BleTransportException(
+                  'BLE 直连失败，扫描时也未找到插座',
+                  userMessage: '未找到插座',
                 ),
       );
+      return device ?? (throw const BleTransportException('蓝牙连接已关闭'));
     } on BleTransportException catch (diagnosticError, diagnosticStack) {
       AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       rethrow;
     } catch (error, diagnosticStack) {
       AppLogger.error(error, stackTrace: diagnosticStack);
-      throw BleTransportException('扫描目标设备失败（${error.runtimeType}）');
+      throw BleTransportException(
+        '扫描目标设备失败（${error.runtimeType}）',
+        userMessage: '查找插座失败',
+      );
     } finally {
+      _scanTarget = null;
       await subscription.cancel();
       await FlutterBluePlus.stopScan();
     }
@@ -134,12 +151,35 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
   @override
   Future<void> connect() async {
     _ensureActive();
-    final device = _device;
+    var device = _device;
     if (device == null) {
       throw const BleTransportException('尚未找到目标设备');
     }
     _intentionalDisconnect = false;
-    await _connectionSubscription?.cancel();
+    try {
+      await device.connect(timeout: const Duration(seconds: 8), mtu: null);
+    } catch (error, stack) {
+      AppLogger.error(error, stackTrace: stack);
+      _ensureActive();
+      // FlutterBluePlus cancels timed-out GATT attempts itself.
+      device = await _scanForTarget(_normalizeMac(device.remoteId.str));
+      _ensureActive();
+      _device = device;
+      try {
+        await device.connect(timeout: const Duration(seconds: 15), mtu: null);
+      } catch (error, stack) {
+        AppLogger.error(error, stackTrace: stack);
+        throw const BleTransportException(
+          '已找到插座，但 BLE 连接失败',
+          userMessage: '无法连接插座',
+        );
+      }
+    }
+    _ensureActive();
+    if (!device.isConnected) {
+      throw const BleTransportException('插座的 BLE 连接已断开', userMessage: '连接中断');
+    }
+    _connected = true;
     _connectionSubscription = device.connectionState.listen((state) {
       final wasConnected = _connected;
       _connected = state == BluetoothConnectionState.connected;
@@ -147,17 +187,6 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
         _disconnectController.add(null);
       }
     });
-    try {
-      await device.connect(
-        timeout: const Duration(seconds: 15),
-        mtu: null,
-        autoConnect: false,
-      );
-      _connected = true;
-    } catch (error, diagnosticStack) {
-      AppLogger.error(error, stackTrace: diagnosticStack);
-      throw BleTransportException('连接设备失败（${error.runtimeType}）');
-    }
   }
 
   @override
@@ -188,8 +217,8 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
       if (write == null || !write.properties.writeWithoutResponse) {
         throw const BleTransportException('设备缺少可无响应写入的 FF02 特征');
       }
+      _ensureActive();
       _writeCharacteristic = write;
-      await _notificationSubscription?.cancel();
       _notificationSubscription = notify.onValueReceived.listen(
         _notificationController.add,
         onError: _notificationController.addError,
@@ -225,13 +254,14 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
   @override
   Future<void> disconnect() async {
     _intentionalDisconnect = true;
-    await FlutterBluePlus.stopScan();
+    final scan = _scanTarget;
+    if (scan != null && !scan.isCompleted) scan.complete(null);
     await _notificationSubscription?.cancel();
     _notificationSubscription = null;
     final device = _device;
     if (device != null) {
       try {
-        await device.disconnect();
+        await device.disconnect(queue: false);
       } catch (diagnosticError, diagnosticStack) {
         AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
         // Local teardown remains best-effort when the adapter is already off.

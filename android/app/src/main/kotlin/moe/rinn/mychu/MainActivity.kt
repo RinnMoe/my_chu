@@ -57,6 +57,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         // 不能调用 super：它会注册 GeneratedPluginRegistrant 中的全部插件（含 Mapbox）。
         MyChuPluginRegistrant.registerWith(flutterEngine)
+        flutterEngine.plugins.add(ClassicBluetoothPlugin())
         appUpdateChannel?.dispose()
         appUpdateChannel = AppUpdateChannel(applicationContext, flutterEngine)
         PlatformCompatibilityChannel.register(this, flutterEngine)

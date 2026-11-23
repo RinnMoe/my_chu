@@ -47,12 +47,12 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
   late final SmartSocketProtocolService _service;
   late final QrScannerCapability _scanner;
   late final HostPermissionService _permissionService;
-  StreamSubscription<void>? _disconnectSubscription;
   _SmartSocketView _view = _SmartSocketView.ready;
   BleQrInfo? _qr;
   String? _failure;
   String? _failureHint;
   bool _permanentlyDenied = false;
+  bool _requestingPermission = false;
   String _openingMessage = '正在准备开启';
 
   bool get _platformSupported =>
@@ -67,16 +67,6 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
     _scanner = widget.scannerForTesting ?? qrScannerCapability;
     _permissionService =
         widget.permissionServiceForTesting ?? hostPermissionService;
-    _disconnectSubscription = _service.unexpectedDisconnects.listen((_) {
-      if (!mounted || _view != _SmartSocketView.opening) {
-        return;
-      }
-      setState(() {
-        _failure = '连接中断';
-        _failureHint = '请检查手机蓝牙和设备状态后重试';
-        _view = _SmartSocketView.error;
-      });
-    });
     if (!_platformSupported) {
       _view = _SmartSocketView.unsupported;
     } else if (widget.initialQrForTesting case final initialQr?) {
@@ -87,7 +77,8 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.inactive ||
+    // The Android pairing dialog can make the app inactive temporarily.
+    if ((state == AppLifecycleState.inactive && _qr?.usesBle == true) ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       unawaited(_disconnectForBackground());
@@ -146,18 +137,32 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
 
   Future<void> _openSocket() async {
     final qr = _qr;
-    if (qr == null || _view == _SmartSocketView.opening) return;
-    final permission = await _permissionService.requestBleCentralPermissions(
-      presentPurpose:
-          (purpose) => presentHostPermissionPurpose(
-            context,
-            HostPermissionPurpose(
-              permission: purpose.permission,
-              title: '允许启动插座',
-              message: '需要附近设备权限来查找并启动插座。',
+    if (qr == null ||
+        _view != _SmartSocketView.review ||
+        _requestingPermission) {
+      return;
+    }
+    final requestPermissions =
+        qr.usesBle
+            ? _permissionService.requestBleCentralPermissions
+            : _permissionService.requestClassicBluetoothPermissions;
+    _requestingPermission = true;
+    final HostPermissionFeatureResult permission;
+    try {
+      permission = await requestPermissions(
+        presentPurpose:
+            (purpose) => presentHostPermissionPurpose(
+              context,
+              HostPermissionPurpose(
+                permission: purpose.permission,
+                title: '允许启动插座',
+                message: '需要蓝牙权限来连接并启动插座。',
+              ),
             ),
-          ),
-    );
+      );
+    } finally {
+      _requestingPermission = false;
+    }
     if (!mounted) return;
     if (!permission.granted) {
       setState(() {
@@ -173,7 +178,7 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
       _failure = null;
       _failureHint = null;
       _permanentlyDenied = false;
-      _openingMessage = '正在查找插座';
+      _openingMessage = '正在准备蓝牙连接';
       _view = _SmartSocketView.opening;
     });
     try {
@@ -182,7 +187,7 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
         onUpdate: (update) {
           if (!mounted) return;
           final message = switch (update.phase) {
-            SmartSocketPhase.scanning => '正在查找插座',
+            SmartSocketPhase.scanning => '正在准备蓝牙连接',
             SmartSocketPhase.connecting ||
             SmartSocketPhase.discovering => '正在连接插座',
             SmartSocketPhase.sendingStart => '正在开启插座',
@@ -194,26 +199,32 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
           }
         },
       );
-      if (!mounted) return;
+      if (!mounted || !identical(_qr, qr)) return;
       await _service.disconnect();
-      if (!mounted) return;
+      if (!mounted || !identical(_qr, qr)) return;
       setState(() {
         _openingMessage = '开启成功';
         _view = _SmartSocketView.success;
       });
     } on SmartSocketFailure catch (error, diagnosticStack) {
       AppLogger.error(error, stackTrace: diagnosticStack);
-      if (!mounted) return;
+      if (!mounted || !identical(_qr, qr)) return;
       setState(() {
-        _failure = error.uncertainDeviceState ? '连接中断' : '连接超时';
-        _failureHint = '请检查手机蓝牙和设备状态后重试';
+        _failure =
+            error.uncertainDeviceState
+                ? '插座状态待确认'
+                : error.userMessage ?? '开启插座失败';
+        _failureHint =
+            error.uncertainDeviceState
+                ? '请先确认插座当前状态，再决定是否重试'
+                : '请检查手机蓝牙和设备状态后重试';
         _view = _SmartSocketView.error;
       });
     } catch (diagnosticError, diagnosticStack) {
       AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
-      if (!mounted) return;
+      if (!mounted || !identical(_qr, qr)) return;
       setState(() {
-        _failure = '连接超时';
+        _failure = '开启插座失败';
         _failureHint = '请检查手机蓝牙和设备状态后重试';
         _view = _SmartSocketView.error;
       });
@@ -223,7 +234,7 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
   Future<void> _disconnectForBackground() async {
     if (_view != _SmartSocketView.opening) return;
     await _service.disconnect();
-    if (!mounted) return;
+    if (!mounted || _view != _SmartSocketView.opening) return;
     setState(() {
       _failure = '连接中断';
       _failureHint = '请检查手机蓝牙和设备状态后重试';
@@ -390,7 +401,7 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
   );
 
   Widget _buildError(BuildContext context) {
-    final failure = _failure ?? '连接超时';
+    final failure = _failure ?? '开启插座失败';
     return ListView(
       key: const ValueKey('error'),
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
@@ -427,7 +438,6 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    unawaited(_disconnectSubscription?.cancel());
     unawaited(_service.dispose());
     super.dispose();
   }

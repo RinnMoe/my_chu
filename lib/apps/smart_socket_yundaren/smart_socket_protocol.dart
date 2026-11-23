@@ -29,6 +29,17 @@ class BleQrInfo {
 
   String get formattedMac => formatMac(mac);
 
+  bool get usesBle => snCode.startsWith('C4');
+
+  // The vendor rewrites C0 to 00 before opening the RFCOMM socket.
+  String get effectiveAddress =>
+      snCode.startsWith('C0') ? '00${snCode.substring(2)}' : snCode;
+
+  bool matchesMac(List<int> candidate) =>
+      bytesEqual(mac, candidate) ||
+      (effectiveAddress != snCode &&
+          bytesEqual(hexToBytes(effectiveAddress), candidate));
+
   static BleQrInfo parse(String content) {
     final value = content.trim();
     final parts = value.split(',');
@@ -281,7 +292,7 @@ class BleStartProtocol {
     required DateTime time,
     required int appRandom,
   }) {
-    if (!bytesEqual(qr.mac, device.mac)) {
+    if (!qr.matchesMac(device.mac)) {
       throw const BleProtocolException('二维码 MAC 与 BLE 设备 MAC 不一致');
     }
     if (appRandom < 1000 || appRandom > 10000) {

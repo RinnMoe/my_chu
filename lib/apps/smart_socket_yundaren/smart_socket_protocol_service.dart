@@ -6,6 +6,7 @@ import '../../services/host_platform.dart';
 import 'smart_socket_protocol.dart';
 import 'smart_socket_protocol_transport.dart';
 import 'ble_protocol_transport_ohos.dart';
+import 'classic_spp_protocol_transport.dart';
 
 import '../../services/logging/logger.dart';
 
@@ -16,6 +17,18 @@ BleProtocolTransport createDefaultBleProtocolTransport({
     return HarmonyBleProtocolTransport();
   }
   return FlutterBlueProtocolTransport();
+}
+
+BleProtocolTransport createSmartSocketTransport(
+  BleQrInfo qr, {
+  HostPlatform? hostPlatform,
+}) {
+  final platform = hostPlatform ?? HostPlatform.current;
+  if (qr.usesBle) {
+    return createDefaultBleProtocolTransport(hostPlatform: platform);
+  }
+  if (platform == HostPlatform.android) return ClassicSppProtocolTransport();
+  throw const SmartSocketFailure('当前平台不支持经典蓝牙插座', userMessage: '此手机无法连接该插座');
 }
 
 enum SmartSocketPhase {
@@ -65,8 +78,13 @@ class SmartSocketResult {
 class SmartSocketFailure implements Exception {
   final String message;
   final bool uncertainDeviceState;
+  final String? userMessage;
 
-  const SmartSocketFailure(this.message, {this.uncertainDeviceState = false});
+  const SmartSocketFailure(
+    this.message, {
+    this.uncertainDeviceState = false,
+    this.userMessage,
+  });
 
   @override
   String toString() => message;
@@ -75,26 +93,33 @@ class SmartSocketFailure implements Exception {
 typedef SmartSocketUpdateCallback = void Function(SmartSocketUpdate update);
 
 class SmartSocketProtocolService {
-  final BleProtocolTransport transport;
+  final BleProtocolTransport? _injectedTransport;
+  final BleProtocolTransport Function(BleQrInfo) _createTransport;
   final DateTime Function() _clock;
   final Random _random;
   final Duration commandTimeout;
 
   StreamSubscription<List<int>>? _notificationSubscription;
+  StreamSubscription<void>? _disconnectSubscription;
   StreamController<BleFrame>? _frameController;
+  final _disconnects = StreamController<void>.broadcast();
+  BleProtocolTransport? _activeTransport;
+  Future<void>? _disconnecting;
   bool _running = false;
   bool _disposed = false;
 
   SmartSocketProtocolService({
     BleProtocolTransport? transport,
+    BleProtocolTransport Function(BleQrInfo)? transportFactory,
     DateTime Function()? clock,
     Random? random,
     this.commandTimeout = const Duration(seconds: 5),
-  }) : transport = transport ?? createDefaultBleProtocolTransport(),
+  }) : _injectedTransport = transport,
+       _createTransport = transportFactory ?? createSmartSocketTransport,
        _clock = clock ?? east8Now,
        _random = random ?? Random();
 
-  Stream<void> get unexpectedDisconnects => transport.unexpectedDisconnects;
+  Stream<void> get unexpectedDisconnects => _disconnects.stream;
 
   Future<SmartSocketResult> run(
     BleQrInfo qr, {
@@ -102,15 +127,32 @@ class SmartSocketProtocolService {
   }) async {
     if (_disposed) throw const SmartSocketFailure('插座连接页面已关闭');
     if (_running) throw const SmartSocketFailure('插座连接正在进行中');
+    if (_activeTransport != null) {
+      throw const SmartSocketFailure('请先断开上一次插座连接');
+    }
     _running = true;
     try {
-      _emit(onUpdate, SmartSocketPhase.scanning, '正在查找 ${qr.formattedMac}');
-      await transport.scanForTarget(qr.snCode);
-      _emit(onUpdate, SmartSocketPhase.connecting, '已找到设备，正在连接');
+      if (_disconnecting case final pending?) await pending;
+      if (_disposed) throw const SmartSocketFailure('插座连接页面已关闭');
+      final transport = _injectedTransport ?? _createTransport(qr);
+      _activeTransport = transport;
+      _disconnectSubscription = transport.unexpectedDisconnects.listen((_) {
+        if (!identical(_activeTransport, transport)) return;
+        _frameController?.addError(
+          const BleTransportException('蓝牙连接已断开', userMessage: '连接中断'),
+        );
+        _disconnects.add(null);
+      });
+      _emit(onUpdate, SmartSocketPhase.scanning, '正在准备蓝牙连接');
+      await transport.scanForTarget(qr.effectiveAddress);
+      _ensureCurrent(transport);
+      _emit(onUpdate, SmartSocketPhase.connecting, '正在连接设备');
       await transport.connect();
-      _emit(onUpdate, SmartSocketPhase.discovering, '正在发现 FF00/FF01/FF02');
+      _ensureCurrent(transport);
+      _listenForFrames(transport);
+      _emit(onUpdate, SmartSocketPhase.discovering, '正在准备设备通信');
       await transport.discoverAndSubscribe();
-      await _listenForFrames();
+      _ensureCurrent(transport);
 
       _emit(onUpdate, SmartSocketPhase.querying, '发送 0x23 查询设备状态');
       var device = BleDeviceInfo.fromFrame(
@@ -130,7 +172,7 @@ class SmartSocketProtocolService {
         clearedOrder = BleStoredOrder.fromFrame(
           await _exchange(0x85, const [0], onUpdate: onUpdate),
         );
-        if (!bytesEqual(clearedOrder.mac, qr.mac)) {
+        if (!qr.matchesMac(clearedOrder.mac)) {
           throw const SmartSocketFailure('旧记录 MAC 与二维码 MAC 不一致');
         }
         if (clearedOrder.productId != device.productId ||
@@ -159,8 +201,9 @@ class SmartSocketProtocolService {
         final verified = BleDeviceInfo.fromFrame(
           await _exchange(0x23, const [0], onUpdate: onUpdate),
         );
-        _verifyStableIdentity(device, verified);
         _verifyMac(qr, verified);
+        // Both responses already matched the QR address, including its C0/00 alias.
+        _verifyStableIdentity(device, verified);
         if (!verified.isIdle) {
           throw const SmartSocketFailure('0x86 后设备仍不是空闲状态');
         }
@@ -196,7 +239,7 @@ class SmartSocketProtocolService {
         ),
         0x31,
       );
-      _emit(onUpdate, SmartSocketPhase.running, 'START 成功，保持 BLE 连接');
+      _emit(onUpdate, SmartSocketPhase.running, 'START 成功，保持蓝牙连接');
       return SmartSocketResult(
         device: device,
         clearedOrder: clearedOrder,
@@ -214,11 +257,11 @@ class SmartSocketProtocolService {
     } on BleTransportException catch (error, diagnosticStack) {
       AppLogger.error(error, stackTrace: diagnosticStack);
       await disconnect();
-      throw SmartSocketFailure(error.message);
+      throw SmartSocketFailure(error.message, userMessage: error.userMessage);
     } catch (error, diagnosticStack) {
       AppLogger.error(error, stackTrace: diagnosticStack);
       await disconnect();
-      throw SmartSocketFailure('BLE 连接失败（${error.runtimeType}）');
+      throw SmartSocketFailure('蓝牙连接失败（${error.runtimeType}）');
     } finally {
       _running = false;
     }
@@ -231,7 +274,10 @@ class SmartSocketProtocolService {
     bool uncertainOnFailure = false,
   }) async {
     final frames = _frameController;
-    if (frames == null) throw const SmartSocketFailure('FF01 通知尚未准备完成');
+    final transport = _activeTransport;
+    if (frames == null || transport == null) {
+      throw const SmartSocketFailure('蓝牙连接已关闭');
+    }
     final response = Completer<BleFrame>();
     late final StreamSubscription<BleFrame> responseSubscription;
     responseSubscription = frames.stream.listen(
@@ -248,6 +294,13 @@ class SmartSocketProtocolService {
           response.completeError(error, stackTrace);
         }
       },
+      onDone: () {
+        if (!response.isCompleted) {
+          response.completeError(
+            const BleTransportException('蓝牙连接已断开', userMessage: '连接中断'),
+          );
+        }
+      },
     );
     final request = BleFrameCodec.request(command, payload);
     _emit(
@@ -256,11 +309,12 @@ class SmartSocketProtocolService {
       '写入 0x${command.toRadixString(16).padLeft(2, '0').toUpperCase()}',
       frame: request.trim(),
     );
-    var attempted = false;
+    // A response (or disconnect) can arrive before the write callback.
+    response.future.ignore();
     try {
-      attempted = true;
       await transport.writeAscii(request);
       final received = await response.future.timeout(commandTimeout);
+      _ensureCurrent(transport);
       _emit(
         onUpdate,
         _phaseForCommand(command),
@@ -272,7 +326,8 @@ class SmartSocketProtocolService {
       AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw SmartSocketFailure(
         '等待 0x${command.toRadixString(16).padLeft(2, '0').toUpperCase()} 响应超时',
-        uncertainDeviceState: uncertainOnFailure && attempted,
+        uncertainDeviceState: uncertainOnFailure,
+        userMessage: '等待插座响应超时',
       );
     } on SmartSocketFailure catch (diagnosticError, diagnosticStack) {
       AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
@@ -281,19 +336,18 @@ class SmartSocketProtocolService {
       AppLogger.error(error, stackTrace: diagnosticStack);
       throw SmartSocketFailure(
         '0x${command.toRadixString(16).padLeft(2, '0').toUpperCase()} 传输失败（${error.runtimeType}）',
-        uncertainDeviceState: uncertainOnFailure && attempted,
+        uncertainDeviceState: uncertainOnFailure,
+        userMessage: error is BleTransportException ? error.userMessage : null,
       );
     } finally {
       await responseSubscription.cancel();
     }
   }
 
-  Future<void> _listenForFrames() async {
-    await _frameController?.close();
+  void _listenForFrames(BleProtocolTransport transport) {
     final frames = StreamController<BleFrame>.broadcast(sync: true);
     _frameController = frames;
     final decoder = BleNotificationDecoder();
-    await _notificationSubscription?.cancel();
     _notificationSubscription = transport.notifications.listen((bytes) {
       try {
         for (final frame in decoder.add(bytes)) {
@@ -306,24 +360,47 @@ class SmartSocketProtocolService {
     }, onError: frames.addError);
   }
 
-  Future<void> disconnect() async {
-    await _notificationSubscription?.cancel();
+  Future<void> disconnect() {
+    final transport = _activeTransport;
+    if (transport == null) return _disconnecting ?? Future.value();
+    _activeTransport = null;
+    final notifications = _notificationSubscription;
     _notificationSubscription = null;
-    await _frameController?.close();
+    final disconnects = _disconnectSubscription;
+    _disconnectSubscription = null;
+    final frames = _frameController;
     _frameController = null;
-    await transport.disconnect();
+    return _disconnecting = Future.wait<void>([
+      if (notifications != null) notifications.cancel(),
+      if (disconnects != null) disconnects.cancel(),
+      if (frames != null) frames.close().then<void>((_) {}),
+      if (identical(transport, _injectedTransport))
+        transport.disconnect()
+      else
+        transport.dispose(),
+    ]).then<void>((_) {}).whenComplete(() => _disconnecting = null);
   }
 
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
     await disconnect();
-    await transport.dispose();
+    await _injectedTransport?.dispose();
+    await _disconnects.close();
+  }
+
+  void _ensureCurrent(BleProtocolTransport transport) {
+    if (!identical(_activeTransport, transport)) {
+      throw const BleTransportException('蓝牙连接已断开', userMessage: '连接中断');
+    }
   }
 
   void _verifyMac(BleQrInfo qr, BleDeviceInfo device) {
-    if (!bytesEqual(qr.mac, device.mac)) {
-      throw const SmartSocketFailure('二维码 MAC 与 BLE 设备响应 MAC 不一致');
+    if (!qr.matchesMac(device.mac)) {
+      throw const SmartSocketFailure(
+        '二维码 MAC 与设备响应 MAC 不一致',
+        userMessage: '插座与二维码不匹配',
+      );
     }
   }
 
@@ -331,7 +408,6 @@ class SmartSocketProtocolService {
     final stable =
         before.productId == after.productId &&
         before.deviceId == after.deviceId &&
-        bytesEqual(before.mac, after.mac) &&
         bytesEqual(before.tacTime, after.tacTime) &&
         before.macType == after.macType &&
         before.lType == after.lType;

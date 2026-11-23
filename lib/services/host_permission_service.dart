@@ -324,6 +324,28 @@ class HostPermissionService {
     if (_hostPlatform != HostPlatform.android) {
       return Future.value(HostPermissionFeatureResult.unsupported);
     }
+    return _requestAndroidBluetoothPermissions(
+      bleCentralPurposesForSdk,
+      presentPurpose,
+    );
+  }
+
+  Future<HostPermissionFeatureResult> requestClassicBluetoothPermissions({
+    HostPermissionPurposePresenter? presentPurpose,
+  }) {
+    if (_hostPlatform != HostPlatform.android) {
+      return Future.value(HostPermissionFeatureResult.unsupported);
+    }
+    return _requestAndroidBluetoothPermissions(
+      (sdkInt) => sdkInt != null && sdkInt <= 30 ? [] : [_nearbyConnectPurpose],
+      presentPurpose,
+    );
+  }
+
+  Future<HostPermissionFeatureResult> _requestAndroidBluetoothPermissions(
+    List<HostPermissionPurpose> Function(int?) purposesForSdk,
+    HostPermissionPurposePresenter? presentPurpose,
+  ) {
     return _serialize(() async {
       int? sdkInt;
       try {
@@ -334,7 +356,7 @@ class HostPermissionService {
         // Android on a legacy location permission.
       }
       return _requestFeatureLocked(
-        bleCentralPurposesForSdk(sdkInt),
+        purposesForSdk(sdkInt),
         presentPurpose: presentPurpose,
       );
     });
