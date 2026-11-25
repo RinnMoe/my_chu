@@ -13,18 +13,17 @@ bool _forcingUpdate = false;
 Future<void> presentAppUpdateCheck(
   BuildContext context, {
   AppUpdateService? service,
-  bool manual = false,
   bool forceRefresh = false,
   Future<void> Function()? onUpdateAvailable,
 }) async {
   final updates = service ?? AppUpdateService.shared;
-  await updates.refresh(force: manual || forceRefresh);
+  await updates.refresh(force: forceRefresh);
   if (!context.mounted) return;
-  final offer = updates.offer;
-  if (offer != null && onUpdateAvailable != null) {
+  if (updates.offer != null && onUpdateAvailable != null) {
     await onUpdateAvailable();
     if (!context.mounted) return;
   }
+  final offer = updates.offer;
   if (offer != null && offer.force) {
     if (_forcingUpdate) return;
     _forcingUpdate = true;
@@ -37,16 +36,6 @@ Future<void> presentAppUpdateCheck(
     } finally {
       _forcingUpdate = false;
     }
-  } else if (manual && (offer == null || onUpdateAvailable == null)) {
-    final message = switch (updates.state) {
-      UpdateCheckState.available => '新版本已显示在“选项”页面，可选择下载更新',
-      UpdateCheckState.current => '当前已是最新版本',
-      UpdateCheckState.disabled => '暂时无法检查更新，请稍后重试',
-      _ => '检查更新失败，请稍后重试',
-    };
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

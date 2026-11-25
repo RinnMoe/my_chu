@@ -135,6 +135,10 @@ try {
     }
 
     if (-not $SkipBuild) {
+        if ($Channel -eq 'official') {
+            & dart run mychu:release_notes "--check-version=$versionName"
+            if ($LASTEXITCODE -ne 0) { throw "Missing release notes for $versionName." }
+        }
         & flutter @buildArguments
         if ($LASTEXITCODE -ne 0) {
             throw "Flutter Release build failed with exit code $LASTEXITCODE"

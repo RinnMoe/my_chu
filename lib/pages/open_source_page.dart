@@ -7,7 +7,7 @@ import '../services/logging/logger.dart';
 
 class OpenSourcePage extends StatelessWidget {
   const OpenSourcePage({super.key});
-  static bool _electricityLicenseRegistered = false;
+  static bool _assetLicensesRegistered = false;
 
   static const _dependencies = <_DependencyEntry>[
     _DependencyEntry('Mapbox Maps Flutter', '校园地图展示'),
@@ -38,12 +38,15 @@ class OpenSourcePage extends StatelessWidget {
   }
 
   void _showDependencyLicenses(BuildContext context) {
-    if (!_electricityLicenseRegistered) {
-      _electricityLicenseRegistered = true;
+    if (!_assetLicensesRegistered) {
+      _assetLicensesRegistered = true;
       LicenseRegistry.addLicense(() async* {
         yield LicenseEntryWithLineBreaks([
           'bdfairy-Fetch',
         ], await rootBundle.loadString('assets/dorm_electricity/LICENSE'));
+        yield LicenseEntryWithLineBreaks([
+          'Primer Octicons',
+        ], await rootBundle.loadString('assets/images/github_mark.LICENSE'));
       });
     }
     showLicensePage(context: context, applicationName: 'MyCHU');

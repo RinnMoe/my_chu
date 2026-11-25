@@ -20,13 +20,13 @@ import '../widgets/adaptive_settings.dart';
 import '../widgets/glass_surface.dart';
 import 'about_page.dart';
 import 'app_update_section.dart';
-import 'app_update_prompts.dart';
 import 'appearance_theme_page.dart';
 import 'campus_settings_sheet.dart';
 import 'channel_account_page.dart';
 import 'notification_settings_page.dart';
 import 'page_preferences_page.dart';
 import 'profile/profile_widgets.dart';
+import 'release_notes_page.dart';
 
 class ProfilePage extends StatefulWidget {
   final VoidCallback onSignedOut;
@@ -51,28 +51,8 @@ class _ProfilePageState extends State<ProfilePage>
   bool _networkLoading = true;
   String _campusLabel = '渭水校区';
   String _versionLabel = '';
-  final _updateCardKey = GlobalKey();
   bool _signOutDialogOpen = false;
   bool _signingOut = false;
-
-  Future<void> _checkForUpdates() => presentAppUpdateCheck(
-    context,
-    service: widget.updates,
-    manual: true,
-    onUpdateAvailable: () async {
-      // The service notification must lay out the newly inserted card first.
-      await WidgetsBinding.instance.endOfFrame;
-      if (!mounted) return;
-      final cardContext = _updateCardKey.currentContext;
-      if (cardContext != null && cardContext.mounted) {
-        await Scrollable.ensureVisible(
-          cardContext,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-        );
-      }
-    },
-  );
 
   @override
   void initState() {
@@ -278,7 +258,7 @@ class _ProfilePageState extends State<ProfilePage>
           padding: EdgeInsets.fromLTRB(16, 4, 16, 24 + bottomInset),
           sliver: SliverList.list(
             children: [
-              AppUpdateSection(key: _updateCardKey, service: widget.updates),
+              AppUpdateSection(service: widget.updates),
               const SizedBox(height: 24),
               AdaptiveSettingsSection(
                 title: '账号',
@@ -351,10 +331,11 @@ class _ProfilePageState extends State<ProfilePage>
                 margin: EdgeInsets.zero,
                 children: [
                   ProfileSettingTile(
-                    icon: Icons.update_rounded,
-                    title: '检查更新',
+                    icon: Icons.new_releases_outlined,
+                    title: '更新日志',
                     trailingValue: _versionLabel.isEmpty ? null : _versionLabel,
-                    onTap: _checkForUpdates,
+                    onTap:
+                        () => _push(ReleaseNotesPage(updates: widget.updates)),
                   ),
                   ProfileSettingTile(
                     icon: Icons.info_outline,

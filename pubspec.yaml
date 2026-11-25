@@ -68,7 +68,12 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - path: CHANGELOG.md
+      transformers:
+        - package: mychu:release_notes
     - assets/experiment_course_selection/CHUSYXKhelper.user.js
+    - assets/images/github_mark.png
+    - assets/images/github_mark.LICENSE
     - assets/images/yundaren_socket.jpg
     - assets/images/feedback_wechat_qr.jpg
     - assets/images/appreciation_wechat.png
