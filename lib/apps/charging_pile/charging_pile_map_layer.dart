@@ -81,7 +81,9 @@ class ChargingPileLayerProvider implements MapLayerProvider {
   final StreamController<MapLayerFeatureUpdate> _updates =
       StreamController<MapLayerFeatureUpdate>.broadcast();
 
-  ChargingPileCatalogDocument? _catalog;
+  ChargingPileCatalogDocument? _overrideCatalog;
+  ChargingPileCatalogDocument? get _currentCatalog =>
+      _locations == null ? _repository.catalogDocument : _overrideCatalog;
   VoidCallback? _release;
   bool _active = false;
   bool _disposed = false;
@@ -93,12 +95,13 @@ class ChargingPileLayerProvider implements MapLayerProvider {
     MapLayerLoadRequest request,
   ) async {
     final catalog =
-        _catalog ?? await (_locations?.call() ?? _repository.ensureCatalog());
+        _currentCatalog ??
+        await (_locations?.call() ?? _repository.ensureCatalog());
     request.cancellation.throwIfCancelled();
-    _catalog = catalog;
+    if (_locations != null) _overrideCatalog = catalog;
     await _repository.ensureCacheRestored();
     request.cancellation.throwIfCancelled();
-    return _buildFeatures(catalog, request.campusId);
+    return _buildFeatures(_currentCatalog ?? catalog, request.campusId);
   }
 
   @override
@@ -142,7 +145,7 @@ class ChargingPileLayerProvider implements MapLayerProvider {
   @override
   void onFeatureSelected(String? featureId) {
     if (featureId == null || !_active || _disposed) return;
-    final catalog = _catalog;
+    final catalog = _currentCatalog;
     if (catalog == null || catalog.deviceFor(featureId)?.point == null) return;
     if (!_repository.isStale(featureId)) return;
     unawaited(_refreshOne(featureId));
@@ -189,7 +192,7 @@ class ChargingPileLayerProvider implements MapLayerProvider {
   }
 
   void _emitSnapshot() {
-    final catalog = _catalog;
+    final catalog = _currentCatalog;
     final campusId = _campusId;
     if (catalog == null || campusId == null || _updates.isClosed) return;
     _updates.add(

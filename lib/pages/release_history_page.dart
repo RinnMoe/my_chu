@@ -45,34 +45,116 @@ class ReleaseHistoryPage extends StatelessWidget {
       title: const Text('历史更新日志'),
       actions: const [GitHubReleasesButton()],
     ),
-    body: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760),
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            if (releases.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('暂无历史更新记录'),
-              )
-            else
-              for (final release in releases)
-                Card(
-                  clipBehavior: Clip.antiAlias,
-                  child: ExpansionTile(
-                    key: PageStorageKey(release.version),
-                    title: Text('v${release.version}'),
-                    subtitle: Text(release.date),
-                    childrenPadding: const EdgeInsets.symmetric(horizontal: 12),
-                    children: [ReleaseNoteEntries(sections: release.sections)],
+    body: SafeArea(
+      top: false,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680),
+          child:
+              releases.isEmpty
+                  ? const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('暂无历史更新记录，可在 GitHub 查看。'),
+                  )
+                  : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    itemCount: releases.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder:
+                        (context, index) =>
+                            _ReleaseHistoryTile(release: releases[index]),
                   ),
-                ),
-          ],
         ),
       ),
     ),
   );
+}
+
+class _ReleaseHistoryTile extends StatelessWidget {
+  const _ReleaseHistoryTile({required this.release});
+
+  final AppRelease release;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final muted = theme.textTheme.bodyMedium?.copyWith(
+      color: colors.onSurfaceVariant,
+    );
+
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        key: PageStorageKey(release.version),
+        // The card owns the outline in both states.
+        shape: const Border(),
+        collapsedShape: const Border(),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        minTileHeight: 56,
+        textColor: colors.onSurface,
+        iconColor: colors.primary,
+        title: SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 2,
+            children: [
+              Text(
+                'v${release.version}',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(release.date, style: muted),
+            ],
+          ),
+        ),
+        expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          Divider(height: 1, color: colors.outlineVariant),
+          const SizedBox(height: 12),
+          if (release.sections.isEmpty)
+            Text('本版本暂无更新记录', style: muted)
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 16,
+              children: [
+                for (final section in release.sections)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 8,
+                    children: [
+                      if (section.title != null)
+                        AppSectionHeading(section.title!),
+                      for (final entry in section.entries)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          spacing: 8,
+                          children: [
+                            ExcludeSemantics(child: Text('•', style: muted)),
+                            Expanded(
+                              child: Text(
+                                entry,
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class ReleaseNoteEntries extends StatelessWidget {

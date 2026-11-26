@@ -42,7 +42,7 @@ class ChargingPileStatusCache {
   static const legacySchemaVersion = 1;
 
   /// Upper bounds for one persisted document.
-  static const maxDevices = 260;
+  static const maxDevices = 512;
   static const maxSlotsPerDevice = 20;
 
   static const int _minSlotId = 1;

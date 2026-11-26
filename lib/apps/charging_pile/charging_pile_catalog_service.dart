@@ -171,6 +171,7 @@ class ChargingPileCatalogService extends ChangeNotifier {
         raw,
         strictness: ChargingPileCatalogStrictness.tolerant,
         campusResolver: campusResolver,
+        onError: AppLogger.error,
       );
     } on Object catch (diagnosticError, diagnosticStack) {
       AppLogger.error(diagnosticError, stackTrace: diagnosticStack);

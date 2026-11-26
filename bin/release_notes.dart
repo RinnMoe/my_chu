@@ -83,23 +83,59 @@ List<AppRelease> parseChangelog(String markdown) {
   return releases;
 }
 
+File resolveChangelogSource(File input) {
+  final project = Directory.current.absolute;
+  // This script is present in the private repository and excluded from exports.
+  if (!File.fromUri(
+    project.uri.resolve('tool/opensource/sync_snapshot.ps1'),
+  ).existsSync()) {
+    return input;
+  }
+
+  const publicChangelog = 'MyCHU_opensource/CHANGELOG.md';
+  final sibling = File.fromUri(project.parent.uri.resolve(publicChangelog));
+  if (sibling.existsSync()) return sibling;
+
+  // A linked worktree can be outside the directory containing both clones.
+  final git = Process.runSync('git', [
+    'rev-parse',
+    '--path-format=absolute',
+    '--git-common-dir',
+  ]);
+  if (git.exitCode == 0) {
+    final commonDir = Directory((git.stdout as String).trim());
+    final besideMain = File.fromUri(
+      commonDir.parent.parent.uri.resolve(publicChangelog),
+    );
+    if (besideMain.existsSync()) return besideMain;
+  }
+  throw FileSystemException('Public CHANGELOG.md is required', sibling.path);
+}
+
 void main(List<String> arguments) {
+  try {
+    _run(arguments);
+  } on FormatException catch (error) {
+    stderr.writeln(error.message);
+    exitCode = 65;
+  } on FileSystemException catch (error) {
+    stderr.writeln(error);
+    exitCode = 66;
+  }
+}
+
+void _run(List<String> arguments) {
   const checkPrefix = '--check-version=';
   if (arguments.length == 1 && arguments.single.startsWith(checkPrefix)) {
     final version = arguments.single.substring(checkPrefix.length);
-    try {
-      final releases = parseChangelog(File('CHANGELOG.md').readAsStringSync());
-      final hasNotes = releases.any(
-        (release) => release.version == version && release.sections.isNotEmpty,
-      );
-      if (!hasNotes) {
-        throw FormatException(
-          'CHANGELOG.md has no notes for version $version.',
-        );
-      }
-    } on FormatException catch (error) {
-      stderr.writeln(error.message);
-      exitCode = 65;
+    final releases = parseChangelog(
+      resolveChangelogSource(File('CHANGELOG.md')).readAsStringSync(),
+    );
+    final hasNotes = releases.any(
+      (release) => release.version == version && release.sections.isNotEmpty,
+    );
+    if (!hasNotes) {
+      throw FormatException('CHANGELOG.md has no notes for version $version.');
     }
     return;
   }
@@ -112,14 +148,11 @@ void main(List<String> arguments) {
     exitCode = 64;
     return;
   }
-  try {
-    final input = File(arguments[0].substring('--input='.length));
-    final output = File(arguments[1].substring('--output='.length));
-    output.writeAsStringSync(
-      jsonEncode(parseChangelog(input.readAsStringSync())),
-    );
-  } on FormatException catch (error) {
-    stderr.writeln(error.message);
-    exitCode = 65;
-  }
+  final input = resolveChangelogSource(
+    File(arguments[0].substring('--input='.length)),
+  );
+  final output = File(arguments[1].substring('--output='.length));
+  output.writeAsStringSync(
+    jsonEncode(parseChangelog(input.readAsStringSync())),
+  );
 }

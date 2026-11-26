@@ -5,10 +5,11 @@ import 'package:crypto/crypto.dart';
 
 import 'charging_pile_models.dart';
 
-import '../../services/logging/logger.dart';
-
 /// 把站点分区名的前缀（`渭水`）解析成本仓库的校区 ID；认不出返回 null。
 typedef ChargingPileCampusResolver = String? Function(String prefix);
+
+typedef ChargingPileCatalogErrorHandler =
+    void Function(Object error, {StackTrace? stackTrace});
 
 /// 目录文档解析失败的原因。上层据此区分「资源损坏」「版本过新」「单条脏数据」。
 enum ChargingPileCatalogFailure {
@@ -88,6 +89,7 @@ class ChargingPileCatalogDocument {
   static const Map<String, String> campusByLocationPrefix = <String, String>{
     '渭水': 'weishui',
     '北院': 'beiyuan',
+    '南院': 'beiyuan',
     '雁塔': 'yanta',
     '小寨': 'xiaozhai',
   };
@@ -171,12 +173,13 @@ class ChargingPileCatalogDocument {
     ChargingPileCatalogStrictness strictness =
         ChargingPileCatalogStrictness.strict,
     ChargingPileCampusResolver? campusResolver,
+    ChargingPileCatalogErrorHandler? onError,
   }) {
     final Object? decoded;
     try {
       decoded = jsonDecode(jsonText);
     } on FormatException catch (error, diagnosticStack) {
-      AppLogger.error(error, stackTrace: diagnosticStack);
+      onError?.call(error, stackTrace: diagnosticStack);
       throw ChargingPileCatalogException(
         ChargingPileCatalogFailure.malformedJson,
         'JSON 无法解析：${error.message}',
@@ -294,14 +297,14 @@ class ChargingPileCatalogDocument {
             area: area,
             source: source ?? ChargingPileSource.zhumang,
             portCount: _asIntOrNull(map['ports'], '$path.ports'),
-            point: _parsePoint(map['lng'], map['lat'], path, strictness),
+            point: _parsePoint(map['lng'], map['lat'], path, strictness, onError),
           ),
         );
       } on ChargingPileCatalogException catch (
         diagnosticError,
         diagnosticStack
       ) {
-        AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+        onError?.call(diagnosticError, stackTrace: diagnosticStack);
         if (strictness == ChargingPileCatalogStrictness.strict) rethrow;
         dropped += 1;
       }
@@ -362,6 +365,7 @@ class ChargingPileCatalogDocument {
     Object? rawLat,
     String path,
     ChargingPileCatalogStrictness strictness,
+    ChargingPileCatalogErrorHandler? onError,
   ) {
     if (rawLng == null || rawLat == null) return null;
     try {
@@ -379,7 +383,7 @@ class ChargingPileCatalogDocument {
         longitude: wgs.longitude,
       );
     } on ChargingPileCatalogException catch (diagnosticError, diagnosticStack) {
-      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+      onError?.call(diagnosticError, stackTrace: diagnosticStack);
       // 坐标坏掉只影响「能不能落图」，不该让整份目录作废。
       if (strictness == ChargingPileCatalogStrictness.strict) rethrow;
       return null;

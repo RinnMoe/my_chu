@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
+import '../../services/logging/logger.dart';
 import 'charging_pile_catalog_document.dart';
 import 'charging_pile_http_client.dart';
 
@@ -55,6 +56,7 @@ class BundledChargingPileCatalogSource implements ChargingPileCatalogSource {
       document: ChargingPileCatalogDocument.parse(
         text,
         campusResolver: campusResolver,
+        onError: AppLogger.error,
       ),
       rawText: text,
     );
@@ -115,6 +117,7 @@ class RemoteChargingPileCatalogSource implements ChargingPileCatalogSource {
         text,
         strictness: ChargingPileCatalogStrictness.tolerant,
         campusResolver: campusResolver,
+        onError: AppLogger.error,
       ),
       rawText: text,
     );

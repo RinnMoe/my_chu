@@ -80,6 +80,8 @@ class ChargingPileRepository extends ChangeNotifier {
   /// 目录是否已有可用快照。未就绪时页面显示加载态而不是空列表。
   bool get hasCatalog => _catalog.isNotEmpty;
 
+  ChargingPileCatalogDocument? get catalogDocument => _document;
+
   /// Delay before the single retry of a transient network failure.
   final Duration retryDelay;
 
@@ -309,9 +311,7 @@ class ChargingPileRepository extends ChangeNotifier {
   /// 单个分区没取到就保留该区上一次的结果；分区内某台没采到则记为未知 ——
   /// 站点自己的口径是「没采到 = 未知」，不是「占用」。
   ///
-  /// ⚠️ 源站快照现在覆盖目录里的全部 10 个分区（渭水 5、北院 1、雁塔 4）。
-  /// 补集逻辑仍然保留：源站以后新增分区、或某个分区临时缺数据时，未覆盖的
-  /// 设备会交给 `/api/pile` 补齐；全量覆盖时它自动退化成一个请求。
+  /// 源站新增分区或某个分区临时缺数据时，未覆盖的设备由 `/api/pile` 补齐。
   Future<void> refreshSnapshot({bool force = false}) async {
     if (_disposed) return;
     final runtime = _runtime;
@@ -327,6 +327,17 @@ class ChargingPileRepository extends ChangeNotifier {
     try {
       final snapshot = await _snapshotClient.fetch(force: force);
       if (_disposed || runtime.isCancelled) return;
+      final catalogs = _catalogs;
+      if (catalogs != null &&
+          catalogs.isRefreshing &&
+          snapshot.areas.any(
+            (area) => area.devices.keys.any(
+              (id) => _devicesById[id]?.area.key != area.key,
+            ),
+          )) {
+        await catalogs.refresh();
+        if (_disposed || runtime.isCancelled) return;
+      }
       final covered = _applySnapshot(snapshot);
       batch.completed = batch.total;
       _networkFailures = 0;

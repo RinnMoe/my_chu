@@ -42,31 +42,37 @@
         "校本部",
         "校本部北院",
         "长安大学校本部北院",
-        "南校区北院教学区"
+        "南校区北院教学区",
+        "校本部南院",
+        "长安大学校本部南院",
+        "长安大学本部南院住宅区"
       ],
       "address": "西安市南二环路中段",
       "enabled": true,
       "places_path": "assets/maps/beiyuan/places.json",
       "boundary_path": "assets/maps/beiyuan/boundary.geojson",
       "bounds": {
-        "west": 108.948131,
-        "south": 34.230973,
-        "east": 108.957620,
-        "north": 34.237930
+        "west": 108.939668,
+        "south": 34.227172,
+        "east": 108.959252,
+        "north": 34.238908
       },
       "initial_center": [
-        108.95288,
-        34.23445
+        108.94946,
+        34.23305
       ],
-      "initial_zoom": 17,
-      "min_zoom": 15,
+      "initial_zoom": 14,
+      "min_zoom": 14,
       "max_zoom": 19,
       "context_padding": 0.005,
       "sort_order": 1,
       "default_place_id": null,
       "coordinate_system": "WGS84",
       "boundary_osm_type": "way",
-      "boundary_osm_id": "379492031"
+      "boundary_osm_id": "379492031",
+      "additional_boundary_osm_ways": {
+        "259480954": "长安大学本部南院住宅区"
+      }
     },
     {
       "campus_id": "yanta",

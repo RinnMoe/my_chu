@@ -68,6 +68,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    # The private checkout's transformer reads the public checkout's changelog.
     - path: CHANGELOG.md
       transformers:
         - package: mychu:release_notes
