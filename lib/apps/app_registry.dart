@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'ai_assistant/ai_assistant_app.dart';
 import 'wozaichangda/wozaichangda_page.dart';
 import 'app.dart';
 import 'academic_affairs/academic_exams_app.dart';
@@ -72,6 +73,7 @@ class AppRegistry {
     chargingPileApp,
     dormElectricityApp,
     computerClinicApp,
+    aiAssistantApp,
   ];
 
   static AppDefinition? builtInById(String id) {

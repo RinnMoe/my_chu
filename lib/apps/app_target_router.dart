@@ -9,9 +9,11 @@ import '../services/remote_feature_policy/feature_access_guard.dart';
 import '../widgets/campus_auth_boundary.dart';
 import '../widgets/beta_feature_notice.dart';
 import '../widgets/feature_access_notice.dart';
+import '../services/navigation_layout_service.dart';
 import '../services/root_navigation_service.dart';
 import 'app.dart';
 import 'app_registry.dart';
+import 'app_route_tracker.dart';
 import 'app_service.dart';
 
 import '../services/logging/logger.dart';
@@ -90,10 +92,34 @@ Future<void> openAppDefinition(
 
   final builder = pageBuilder ?? plugin.pageBuilder;
   if (builder == null) return;
+
+  // 已作为根底栏页面存在的应用直接切换，不再 Push 第二份页面。
+  if (plugin.metadata.showInNavigation) {
+    final layout = await NavigationLayoutService.read();
+    if (!context.mounted) return;
+    if (layout.order.contains(plugin.metadata.id)) {
+      RootNavigationService.selectTab(plugin.metadata.id);
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      _recordAppUsage(plugin);
+      return;
+    }
+  }
+
+  // 已有同名 Push 页面时回到该页面，避免重复创建 WebView。
+  final existingRoute = AppRouteTracker.instance.routeFor(plugin.metadata.id);
+  if (existingRoute != null) {
+    Navigator.of(context).popUntil((route) => route == existingRoute);
+    _recordAppUsage(plugin);
+    return;
+  }
+
   unawaited(
     Navigator.push(
       context,
       MaterialPageRoute(
+        settings: RouteSettings(
+          name: AppRouteTracker.routeNameFor(plugin.metadata.id),
+        ),
         builder:
             (context) => FeatureAccessHost(
               featureId: plugin.metadata.id,

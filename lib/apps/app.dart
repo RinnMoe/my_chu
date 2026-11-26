@@ -161,6 +161,9 @@ class AppMetadata {
     if (iconCodePoint == Icons.computer_outlined.codePoint) {
       return Icons.computer_outlined;
     }
+    if (iconCodePoint == Icons.auto_awesome_outlined.codePoint) {
+      return Icons.auto_awesome_outlined;
+    }
     return Icons.extension_outlined;
   }
 

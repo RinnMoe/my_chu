@@ -29,6 +29,7 @@ import 'capabilities/academic_schedule/academic_schedule_alerts.dart';
 import 'capabilities/desktop_widgets/desktop_widget_bridge.dart';
 import 'capabilities/desktop_widgets/desktop_widget_models.dart';
 import 'apps/app_registry.dart';
+import 'apps/app_route_tracker.dart';
 import 'apps/map_layer_catalog.dart';
 import 'apps/app_service.dart';
 import 'services/login_required_notifier.dart';
@@ -157,6 +158,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'MyCHU',
       debugShowCheckedModeBanner: false,
+      navigatorObservers: [AppRouteTracker.instance],
       builder:
           (context, child) =>
               ScaffoldMessenger(child: child ?? const SizedBox.shrink()),

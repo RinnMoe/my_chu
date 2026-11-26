@@ -114,6 +114,15 @@ flutter:
     - assets/dorm_electricity/changan_tree.json
     - assets/dorm_electricity/changan.json
     - assets/dorm_electricity/LICENSE
+    # chat-demo 静态产物；版本与哈希由 assets/chat_demo/build-info.json、
+    # manifest.json 记录，页面通过 WebViewAssetLoader 读取同源本地资源。
+    - assets/chat_demo/
+    - assets/chat_demo/static/
+    - assets/chat_demo/static/css/
+    - assets/chat_demo/static/css/async/
+    - assets/chat_demo/static/js/
+    - assets/chat_demo/static/js/async/
+    - assets/chat_demo/static/media/
 
 flutter_launcher_icons:
   android: true

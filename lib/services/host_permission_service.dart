@@ -75,13 +75,15 @@ class HostPermissionService {
         message: '用于发送课前、考试和待办截止的时间提醒。',
       );
 
+  static const HostPermissionPurpose microphonePurpose = HostPermissionPurpose(
+    permission: Permission.microphone,
+    title: '麦克风权限申请',
+    message: '用于校园网页中的音频或视频功能，不会在后台录音。',
+  );
+
   static const List<HostPermissionPurpose> initialHomePurposes = [
     locationPurpose,
-    HostPermissionPurpose(
-      permission: Permission.microphone,
-      title: '麦克风权限申请',
-      message: '用于校园网页中的音频或视频功能，不会在后台录音。',
-    ),
+    microphonePurpose,
   ];
 
   static const HostPermissionPurpose locationPurpose = HostPermissionPurpose(
@@ -190,6 +192,13 @@ class HostPermissionService {
   /// dialogs. A denied permission or a platform error is isolated to that
   /// permission and does not prevent the remaining permissions from being
   /// attempted.
+  /// Requests microphone access for the embedded AI page's voice input.
+  Future<HostPermissionFeatureResult> requestMicrophonePermission({
+    HostPermissionPurposePresenter? presentPurpose,
+  }) => _requestFeatureLocked([
+    microphonePurpose,
+  ], presentPurpose: presentPurpose);
+
   Future<void> requestInitialHomePermissions({
     HostPermissionPurposePresenter? presentPurpose,
   }) {
