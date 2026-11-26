@@ -40,6 +40,8 @@ class AppMetadata {
   final bool showInNavigation;
   final String? navigationLabel;
   final DevelopmentFlag developmentFlag;
+  // ignore: non_constant_identifier_names
+  final String? BETA_DES;
 
   const AppMetadata({
     required this.id,
@@ -52,6 +54,8 @@ class AppMetadata {
     this.showInNavigation = false,
     this.navigationLabel,
     this.developmentFlag = DevelopmentFlag.dev,
+    // ignore: non_constant_identifier_names
+    this.BETA_DES,
   });
 
   IconData get icon {
@@ -154,12 +158,17 @@ class AppMetadata {
     if (iconCodePoint == Icons.monitor_weight_outlined.codePoint) {
       return Icons.monitor_weight_outlined;
     }
+    if (iconCodePoint == Icons.computer_outlined.codePoint) {
+      return Icons.computer_outlined;
+    }
     return Icons.extension_outlined;
   }
 
   bool get core => isCoreAppId(id);
 
   bool get requiresDev => developmentFlag == DevelopmentFlag.dev;
+
+  bool get isBeta => developmentFlag == DevelopmentFlag.beta;
 
   /// Effective catalog category derived by the host.
   ///

@@ -62,6 +62,7 @@ import 'pages/host_permission_purpose_overlay.dart';
 import 'widgets/adaptive_navigation_item.dart';
 import 'widgets/adaptive_root_navigation.dart';
 import 'widgets/feature_access_notice.dart';
+import 'widgets/beta_feature_notice.dart';
 import 'widgets/adaptive_startup_splash.dart';
 import 'widgets/root_destination_active_scope.dart';
 
@@ -914,17 +915,23 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         // Remote hiding only removes the runtime tab; the persisted navigation
         // layout keeps the user's choice so it returns when the policy does.
         FeatureEntryVisibility.isVisible(plugin)) {
-      return (context) => FeatureAccessHost(
-        featureId: plugin.metadata.id,
-        child:
+      return (context) {
+        final child =
             plugin.requiresCampusAccount
                 ? CampusAuthBoundary(
                   title: plugin.metadata.name,
                   retainGuestShell: plugin.retainsGuestShell,
                   builder: plugin.pageBuilder!,
                 )
-                : plugin.pageBuilder!(context),
-      );
+                : plugin.pageBuilder!(context);
+        return FeatureAccessHost(
+          featureId: plugin.metadata.id,
+          child:
+              plugin.metadata.isBeta
+                  ? BetaFeatureTab(metadata: plugin.metadata, child: child)
+                  : child,
+        );
+      };
     }
     return null;
   }

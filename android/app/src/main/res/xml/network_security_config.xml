@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Release defaults to denying cleartext traffic. Keep the legacy HTTP
-         exceptions below exact-host only; never widen this to chd.edu.cn. -->
+    <!-- Release defaults to denying cleartext traffic. Keep the campus HTTP
+         exceptions exact-host only; never widen them to chd.edu.cn. -->
     <base-config cleartextTrafficPermitted="false" />
     <domain-config cleartextTrafficPermitted="true">
         <!-- Dorm electricity is served by this exact third-party HTTP host. -->
@@ -18,5 +18,9 @@
     <domain-config cleartextTrafficPermitted="true">
         <!-- OPAC currently serves its public SPA over the legacy HTTP entry. -->
         <domain includeSubdomains="false">opac.chd.edu.cn</domain>
+    </domain-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- MikeCRM serves the clinic form and its CDN resources over HTTP. -->
+        <domain includeSubdomains="true">mikecrm.com</domain>
     </domain-config>
 </network-security-config>

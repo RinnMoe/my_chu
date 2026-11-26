@@ -61,3 +61,31 @@ class AppGlassAppBar extends StatelessWidget implements PreferredSizeWidget {
     child: _bar(),
   );
 }
+
+/// 折叠后固定在顶部的根页面玻璃标题栏。
+class AppGlassSliverAppBar extends StatelessWidget {
+  const AppGlassSliverAppBar({super.key, required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => SliverAppBar(
+    pinned: true,
+    expandedHeight: 112,
+    toolbarHeight: 64,
+    backgroundColor: Colors.transparent,
+    surfaceTintColor: Colors.transparent,
+    elevation: 0,
+    scrolledUnderElevation: 0,
+    forceMaterialTransparency: true,
+    flexibleSpace: AppGlassSurface(
+      shape: const LiquidRoundedRectangle(borderRadius: 0),
+      bottomFadeExtent: 32,
+      child: FlexibleSpaceBar(
+        titlePadding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        expandedTitleScale: 1,
+        title: Text(title, style: Theme.of(context).textTheme.headlineSmall),
+      ),
+    ),
+  );
+}

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../apps/app.dart';
 import '../capabilities/dev_visibility.dart';
+import 'beta_feature_notice.dart';
 
 const featureIconTileIconSize = 52.0;
 const featureCatalogIconSize = 40.0;
@@ -167,7 +168,7 @@ class FeatureCatalogCard extends StatelessWidget {
       container: true,
       excludeSemantics: true,
       button: true,
-      label: metadata.name,
+      label: metadata.isBeta ? '${metadata.name}，测试中的功能' : metadata.name,
       hint: onLongPress == null ? null : '长按查看功能详情',
       onTap: onTap,
       onLongPress: onLongPress,
@@ -231,12 +232,22 @@ class FeatureCatalogCard extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                metadata.name,
-                maxLines: maxLines,
-                overflow: TextOverflow.ellipsis,
-                softWrap: true,
-                style: labelStyle,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    metadata.name,
+                    maxLines: maxLines,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
+                    style: labelStyle,
+                  ),
+                  if (metadata.isBeta) ...[
+                    const SizedBox(height: 2),
+                    const BetaBadge(),
+                  ],
+                ],
               ),
             ),
           ],

@@ -11,4 +11,8 @@
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">opac.chd.edu.cn</domain>
     </domain-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- MikeCRM serves the clinic form and its CDN resources over HTTP. -->
+        <domain includeSubdomains="true">mikecrm.com</domain>
+    </domain-config>
 </network-security-config>

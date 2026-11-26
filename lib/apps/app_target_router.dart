@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../capabilities/academic_schedule/academic_schedule_capability.dart';
 import '../services/remote_feature_policy/feature_access_guard.dart';
 import '../widgets/campus_auth_boundary.dart';
+import '../widgets/beta_feature_notice.dart';
 import '../widgets/feature_access_notice.dart';
 import '../services/root_navigation_service.dart';
 import 'app.dart';
@@ -53,6 +54,11 @@ Future<void> openAppDefinition(
     await showFeatureUnavailableNotice(context, decision);
     return;
   }
+  if (plugin.metadata.isBeta &&
+      !await acknowledgeBetaFeature(context, plugin.metadata)) {
+    return;
+  }
+  if (!context.mounted) return;
 
   final action = plugin.openAction;
   if (action != null) {

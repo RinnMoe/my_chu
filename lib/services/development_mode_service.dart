@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 /// Development visibility state declared by an app.
-enum DevelopmentFlag { none, dev }
+enum DevelopmentFlag { none, dev, beta }
 
 /// Maps a build mode to the development visibility flag used by app metadata.
 ///

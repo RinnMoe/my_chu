@@ -15,7 +15,6 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:flutter/services.dart';
-import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
 import 'package:mychu/widgets/dual_pane_placeholder.dart';
 
@@ -263,7 +262,6 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
             targetKey: _scheduleSemesterKey,
             title: '切换学期',
             message: '点击左上角的年份和春／秋标识，选择要查看的学期。',
-            contentAlign: ContentAlign.bottom,
           ),
         );
       }
@@ -273,18 +271,11 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
             targetKey: _scheduleWeekKey,
             title: '切换周次',
             message: '点击周次选择要查看的周，也可以左右滑动课表切周。',
-            contentAlign: ContentAlign.bottom,
           ),
         );
       }
       if (_firstCourseKey.currentContext != null) {
-        steps.add(
-          CoachMarkStep(
-            targetKey: _firstCourseKey,
-            title: '查看课程详情',
-            contentAlign: ContentAlign.bottom,
-          ),
-        );
+        steps.add(CoachMarkStep(targetKey: _firstCourseKey, title: '查看课程详情'));
       }
       if (_scheduleScopeKey.currentContext != null) {
         steps.add(
@@ -292,7 +283,6 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
             targetKey: _scheduleScopeKey,
             title: '切换个人/班级课表',
             message: '点击右上角的“个人”或“班级”，切换课表范围。',
-            contentAlign: ContentAlign.bottom,
           ),
         );
       }
@@ -305,7 +295,6 @@ class _AcademicSchedulePageState extends State<AcademicSchedulePage>
               isPersonal
                   ? '这里可导出、添加课程或恢复原始课表；点击课程后还可进入详情编辑。'
                   : '导出、刷新和课程显示选项都在这里；切换到个人课表后还可添加或编辑课程。',
-          contentAlign: ContentAlign.bottom,
         ),
       );
       presented = CoachMarkPresenter.show(

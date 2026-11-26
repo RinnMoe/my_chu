@@ -69,45 +69,33 @@ class _AppsPageState extends State<AppsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final page = Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: const AppGlassAppBar(title: Text('功能')),
-      // 顶部留白由滚动内容承担，页面才能滚到玻璃标题栏后面。
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    return Scaffold(
       body: SafeArea(
         top: false,
         bottom: false,
-        child: _buildCatalogBody(context),
+        child: CustomScrollView(
+          key: const PageStorageKey<String>('feature-catalog-category'),
+          slivers: [
+            const AppGlassSliverAppBar(title: '功能'),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(16, 4, 16, 24 + bottomInset),
+              sliver: SliverToBoxAdapter(child: _buildCatalogBody()),
+            ),
+          ],
+        ),
       ),
     );
-    return page;
   }
 
-  Widget _buildCatalogBody(BuildContext context) {
-    // 玻璃标题栏与底栏浮在内容上，滚动留白跟随两条栏的高度。
-    final mediaQuery = MediaQuery.of(context);
-    final topInset = mediaQuery.padding.top + kToolbarHeight + 8;
-    final bottomInset = mediaQuery.padding.bottom;
-    if (_loading) {
-      return SingleChildScrollView(
-        key: const PageStorageKey<String>('feature-catalog-loading'),
-        padding: EdgeInsets.fromLTRB(16, topInset, 16, 24 + bottomInset),
-        child: const _AppsSkeleton(),
-      );
-    }
+  Widget _buildCatalogBody() {
+    if (_loading) return const _AppsSkeleton();
     if (_apps.isEmpty) {
-      return SingleChildScrollView(
-        key: const PageStorageKey<String>('feature-catalog-empty'),
-        padding: EdgeInsets.fromLTRB(16, topInset, 16, 24 + bottomInset),
-        child: const _HintRow(icon: Icons.apps_outlined, text: '暂无已添加功能'),
-      );
+      return const _HintRow(icon: Icons.apps_outlined, text: '暂无已添加功能');
     }
-    return SingleChildScrollView(
-      key: const PageStorageKey<String>('feature-catalog-category'),
-      padding: EdgeInsets.fromLTRB(16, topInset, 16, 24 + bottomInset),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: _buildCategoryChildren(),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: _buildCategoryChildren(),
     );
   }
 
@@ -265,12 +253,24 @@ class _FeatureGrid extends StatelessWidget {
         final textScaler = MediaQuery.textScalerOf(context);
         final lineHeight = textScaler.scale(baseFontSize) * 1.25;
         const maxLines = 2;
+        final betaBadgeHeight =
+            plugins.any((plugin) => plugin.metadata.isBeta)
+                ? textScaler.scale(
+                          Theme.of(context).textTheme.labelSmall?.fontSize ??
+                              11,
+                        ) *
+                        1.25 +
+                    6
+                : 0.0;
         final tileExtent =
             math
                 .max(
                   featureCatalogTileMinHeight,
                   16.0 +
-                      math.max(featureCatalogIconSize, lineHeight * maxLines),
+                      math.max(
+                        featureCatalogIconSize,
+                        lineHeight * maxLines + betaBadgeHeight,
+                      ),
                 )
                 .toDouble();
         final tileWidth =
