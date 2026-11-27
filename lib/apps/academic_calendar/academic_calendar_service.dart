@@ -506,14 +506,17 @@ class AcademicCalendarParser {
     if (academicYear.isEmpty || semester < 1) {
       throw const FormatException('校历学期字段缺失');
     }
+    final rawStartTime = row['startTime'];
+    final startDate =
+        rawStartTime == null ||
+                (rawStartTime is String && rawStartTime.trim().isEmpty)
+            ? null
+            : _requiredTimestamp(rawStartTime);
     return AcademicCalendarTerm(
       academicYear: academicYear,
       semester: semester,
       description: _text(row['describe'] ?? row['description']),
-      startDate:
-          row.containsKey('startTime')
-              ? _requiredTimestamp(row['startTime'])
-              : null,
+      startDate: startDate,
       color: _nullableText(row['colorCode'] ?? row['color']),
     );
   }
@@ -585,8 +588,40 @@ class AcademicCalendarParser {
 
   static DateTime? _optionalTimestamp(Object? value) {
     if (value is bool || value == null) return null;
-    final milliseconds = value is num ? value.toInt() : int.tryParse('$value');
-    if (milliseconds == null || milliseconds <= 0) return null;
+    if (value is num) {
+      return _east8DayFromMilliseconds(value.toInt());
+    }
+    final text = '$value'.trim();
+    if (text.isEmpty) return null;
+    final milliseconds = int.tryParse(text);
+    if (milliseconds != null) {
+      return _east8DayFromMilliseconds(milliseconds);
+    }
+    final match = RegExp(
+      r'^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(.*)$',
+    ).firstMatch(text);
+    if (match == null) return null;
+    final year = int.parse(match.group(1)!);
+    final month = int.parse(match.group(2)!);
+    final day = int.parse(match.group(3)!);
+    final calendarDay = DateTime(year, month, day);
+    if (calendarDay.year != year ||
+        calendarDay.month != month ||
+        calendarDay.day != day) {
+      return null;
+    }
+    final normalized =
+        '${year.toString().padLeft(4, '0')}-'
+        '${month.toString().padLeft(2, '0')}-'
+        '${day.toString().padLeft(2, '0')}'
+        '${match.group(4)!}';
+    final east8 = parseEast8(normalized);
+    if (east8 == null) return null;
+    return DateTime(east8.year, east8.month, east8.day);
+  }
+
+  static DateTime? _east8DayFromMilliseconds(int milliseconds) {
+    if (milliseconds <= 0) return null;
     try {
       final east8 = DateTime.fromMillisecondsSinceEpoch(
         milliseconds,
