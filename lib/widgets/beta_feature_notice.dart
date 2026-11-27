@@ -92,12 +92,19 @@ class BetaBadge extends StatelessWidget {
         color: Colors.amber.shade200,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(
-        'BETA',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: Colors.brown.shade900,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.4,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'BETA',
+          maxLines: 1,
+          softWrap: false,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Colors.brown.shade900,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+            letterSpacing: 0.4,
+          ),
         ),
       ),
     );

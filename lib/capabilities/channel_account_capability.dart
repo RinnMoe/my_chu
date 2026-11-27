@@ -1,3 +1,4 @@
+import '../services/session_storage_support.dart';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -47,6 +48,8 @@ class ChannelAccountCapability {
            savedCredential ??
            SavedLoginCredentialCapability(scope: 'channel_resources');
 
+  static const String logoutConfirmationMessage = '这只会退出校园频道账号，不会影响统一身份认证登录。';
+
   static final ChannelAccountCapability current = ChannelAccountCapability(
     ChannelResourcesSessionService.current,
   );
@@ -55,6 +58,7 @@ class ChannelAccountCapability {
   final SavedLoginCredentialCapability _savedCredential;
 
   ChannelAccountUser? get user => _session.user;
+  bool get hasIdentity => _session.hasIdentity;
   ChannelAccountState get state => _session.authState;
   ValueListenable<ChannelAccountState> get stateListenable =>
       _session.authStateListenable;
@@ -64,7 +68,16 @@ class ChannelAccountCapability {
   Future<SavedLoginCredential?> readRememberedCredential() =>
       _savedCredential.read();
 
-  Future<void> clearRememberedCredential() => _savedCredential.clear();
+  Future<void> _updateRememberedCredential(
+    int revision,
+    Future<void> Function() update,
+  ) =>
+      AccountSessionStorageQueue.run('host.channel.saved-credential', () async {
+        if (_session.revision == revision) await update();
+      });
+
+  Future<void> clearRememberedCredential() =>
+      _updateRememberedCredential(_session.revision, _savedCredential.clear);
 
   Future<ChannelAccountState> login({
     required String username,
@@ -76,19 +89,26 @@ class ChannelAccountCapability {
       password: password,
       rememberSession: rememberPassword,
     );
-    if (state.isAuthenticated) {
-      if (rememberPassword) {
-        await _savedCredential.save(username, password);
-      } else {
-        await _savedCredential.clear();
-      }
+    if (state.isAuthenticated && identical(_session.user, state.user)) {
+      await _updateRememberedCredential(_session.revision, () async {
+        if (rememberPassword) {
+          await _savedCredential.save(username, password);
+        } else {
+          await _savedCredential.clear();
+        }
+      });
     }
     return state;
   }
 
   Future<void> logout() async {
-    await _session.logout();
-    await _savedCredential.clear();
+    final pending = _session.logout();
+    final revision = _session.revision;
+    try {
+      await pending;
+    } finally {
+      await _updateRememberedCredential(revision, _savedCredential.clear);
+    }
   }
 
   Future<void> changePassword({
@@ -101,7 +121,12 @@ class ChannelAccountCapability {
       newPassword: newPassword,
       newUsername: newUsername,
     );
-    await _savedCredential.clear();
+    if (!_session.authState.isAuthenticated) {
+      await _updateRememberedCredential(
+        _session.revision,
+        _savedCredential.clear,
+      );
+    }
   }
 
   Future<ChannelAccountHttpResponse> request(

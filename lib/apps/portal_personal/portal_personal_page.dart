@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/user_error_message.dart';
 import '../../services/logging/logger.dart';
+import '../../services/remote_feature_policy/feature_access_guard.dart';
+import '../app_target_router.dart';
 import '../information_portal/information_portal_models.dart';
 import '../information_portal/information_portal_service.dart';
 import 'portal_todos_view.dart';
@@ -283,6 +285,10 @@ class _PersonalStatusPanel extends StatelessWidget {
           title: '校园邮箱',
           value: email.mainInfo,
           subtitle: _emailAddress(email.subInfo),
+          onTap:
+              FeatureEntryVisibility.isVisibleById('feature.mail')
+                  ? () => openTargetId(context, 'feature.mail')
+                  : null,
         ),
       );
     }
@@ -303,11 +309,10 @@ class _PersonalStatusPanel extends StatelessWidget {
         subtitle: taskCenter?.subInfo,
       ),
     );
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return Material(
+      color: colors.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
       child: Column(children: rows),
     );
   }
@@ -339,6 +344,7 @@ class _PersonalStatusRow extends StatelessWidget {
   final String value;
   final String? subtitle;
   final Widget? trailing;
+  final VoidCallback? onTap;
 
   const _PersonalStatusRow({
     required this.icon,
@@ -346,13 +352,14 @@ class _PersonalStatusRow extends StatelessWidget {
     required this.value,
     this.subtitle,
     this.trailing,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Padding(
+    final content = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
@@ -387,9 +394,18 @@ class _PersonalStatusRow extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) trailing!,
+          if (trailing != null)
+            trailing!
+          else if (onTap != null)
+            Icon(Icons.chevron_right, color: colors.onSurfaceVariant),
         ],
       ),
+    );
+    if (onTap == null) return content;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: content,
     );
   }
 }

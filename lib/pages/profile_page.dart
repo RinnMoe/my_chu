@@ -1,4 +1,3 @@
-import '../capabilities/host_login.dart';
 import 'package:mychu/widgets/campus_auth_refresh.dart';
 import 'dart:async';
 
@@ -8,7 +7,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../models/account.dart';
 import '../services/auth_service.dart';
 import '../services/file_save_service.dart';
-import '../services/auth_lifecycle_service.dart';
 import '../services/ip_status_service.dart';
 import '../services/logging/logger.dart';
 import '../services/portal_identity_service.dart';
@@ -16,14 +14,13 @@ import '../services/campus_settings_service.dart';
 import '../capabilities/chat_demo/chat_demo_brand.dart';
 import '../services/deepseek_api_settings_service.dart';
 import '../services/updates/app_update_service.dart';
-import '../widgets/adaptive_confirmation_dialog.dart';
 import '../widgets/adaptive_settings.dart';
 import '../widgets/app_glass_app_bar.dart';
 import 'about_page.dart';
+import 'account_management_page.dart';
 import 'app_update_section.dart';
 import 'appearance_theme_page.dart';
 import 'campus_settings_sheet.dart';
-import 'channel_account_page.dart';
 import 'deepseek_api_settings_page.dart';
 import 'notification_settings_page.dart';
 import 'page_preferences_page.dart';
@@ -31,10 +28,10 @@ import 'profile/profile_widgets.dart';
 import 'release_notes_page.dart';
 
 class ProfilePage extends StatefulWidget {
-  final VoidCallback onSignedOut;
+  final VoidCallback? onSignedOut;
   final AppUpdateService? updates;
 
-  const ProfilePage({super.key, required this.onSignedOut, this.updates});
+  const ProfilePage({super.key, this.onSignedOut, this.updates});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -54,8 +51,6 @@ class _ProfilePageState extends State<ProfilePage>
   String _campusLabel = '渭水校区';
   String _versionLabel = '';
   bool _deepSeekConfigured = false;
-  bool _signOutDialogOpen = false;
-  bool _signingOut = false;
 
   @override
   void initState() {
@@ -192,6 +187,14 @@ class _ProfilePageState extends State<ProfilePage>
     Navigator.push(context, MaterialPageRoute<void>(builder: (_) => page));
   }
 
+  Future<void> _openAccountManagement() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const AccountManagementPage()),
+    );
+    if (mounted) await _load();
+  }
+
   Future<void> _shareApp() async {
     final opened = await FileSaveService.shareText(
       text: '点击下载MyCHU: https://mychu.rinn.moe',
@@ -200,51 +203,6 @@ class _ProfilePageState extends State<ProfilePage>
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('未能打开系统分享，请重试')));
-  }
-
-  Future<void> _confirmSignOut() async {
-    if (_signOutDialogOpen || _signingOut) return;
-    _signOutDialogOpen = true;
-    try {
-      const signOutMessage = '退出登录会清除本机保存的登录信息、课程提醒和桌面课表小组件。';
-      final confirmation = showAdaptiveConfirmationDialog(
-        context,
-        title: '退出登录',
-        message: signOutMessage,
-        confirmLabel: '退出登录',
-        destructive: true,
-        // A second tap while the dialog opens must not dismiss the destructive
-        // confirmation through the barrier; only the explicit buttons decide.
-        barrierDismissible: false,
-      );
-      final confirmed = await confirmation;
-      if (confirmed != true || !mounted) return;
-      setState(() => _signingOut = true);
-      var signOutFailed = false;
-      try {
-        await AuthLifecycleService.signOut();
-      } catch (error, diagnosticStack) {
-        AppLogger.error(error, stackTrace: diagnosticStack);
-        signOutFailed = true;
-        AppLogger.error(error, stackTrace: StackTrace.current);
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('退出登录未完成，请重试')));
-        }
-      } finally {
-        // The confirmation dialog is a separate route, so the page-level auth
-        // listener can skip its deferred refresh while the dialog is current.
-        // Reload from storage in all cases: after a successful sign-out this
-        // shows the signed-out state immediately, and after a partial failure
-        // it shows the actual remaining account state.
-        if (mounted) await _load();
-        if (mounted) setState(() => _signingOut = false);
-      }
-      if (mounted && !signOutFailed) widget.onSignedOut();
-    } finally {
-      _signOutDialogOpen = false;
-    }
   }
 
   @override
@@ -291,9 +249,9 @@ class _ProfilePageState extends State<ProfilePage>
                             ),
                   ),
                   ProfileSettingTile(
-                    icon: Icons.forum_outlined,
-                    title: '频道账号',
-                    onTap: () => _push(const ChannelAccountPage()),
+                    icon: Icons.manage_accounts_outlined,
+                    title: '账号管理',
+                    onTap: _openAccountManagement,
                   ),
                 ],
               ),
@@ -362,15 +320,6 @@ class _ProfilePageState extends State<ProfilePage>
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              if (_account != null)
-                SignOutAction(onPressed: _signingOut ? null : _confirmSignOut)
-              else
-                FilledButton.icon(
-                  onPressed: () => HostLogin.open(context),
-                  icon: const Icon(Icons.login),
-                  label: const Text('登录校园账号'),
-                ),
             ],
           ),
         ),

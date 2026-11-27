@@ -1,4 +1,5 @@
 import '../../apps/app.dart';
+import '../../apps/app_registry.dart';
 import '../../apps/app_service.dart';
 import '../development_mode_service.dart';
 import 'remote_feature_policy_models.dart';
@@ -209,6 +210,11 @@ class FeatureEntryVisibility {
 
   static bool isVisible(AppDefinition app) =>
       FeatureAccessGuard.instance.decideForDefinition(app).isEntryVisible;
+
+  static bool isVisibleById(String id) {
+    final app = AppRegistry.publishedById(id);
+    return app != null && isVisible(app);
+  }
 
   static List<AppDefinition> filter(Iterable<AppDefinition> apps) => [
     for (final app in apps)

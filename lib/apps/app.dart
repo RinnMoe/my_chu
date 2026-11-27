@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../capabilities/accounts/account_provider.dart';
 import '../services/development_mode_service.dart';
 
 export '../services/development_mode_service.dart' show DevelopmentFlag;
@@ -164,6 +165,9 @@ class AppMetadata {
     if (iconCodePoint == Icons.auto_awesome_outlined.codePoint) {
       return Icons.auto_awesome_outlined;
     }
+    if (iconCodePoint == Icons.mail_outline.codePoint) {
+      return Icons.mail_outline;
+    }
     return Icons.extension_outlined;
   }
 
@@ -191,6 +195,7 @@ class AppDefinition {
   final bool retainsGuestShell;
   final WidgetBuilder? pageBuilder;
   final AppOpenAction? openAction;
+  final AccountProvider? account;
 
   WidgetBuilder? get builder => pageBuilder;
 
@@ -199,6 +204,7 @@ class AppDefinition {
     this.requiresCampusAccount = true,
     this.retainsGuestShell = false,
     required WidgetBuilder builder,
+    this.account,
   }) : pageBuilder = builder,
        openAction = null;
 
@@ -207,6 +213,7 @@ class AppDefinition {
     this.requiresCampusAccount = true,
     this.retainsGuestShell = false,
     required AppOpenAction action,
+    this.account,
   }) : pageBuilder = null,
        openAction = action {
     if (metadata.showInNavigation) {

@@ -19,6 +19,7 @@ import '../services/auth_service.dart';
 import '../services/credential_sync_service.dart';
 import '../services/home_layout_service.dart';
 import '../services/home_focus_service.dart';
+import '../services/mail/mail_session.dart';
 import '../services/tronclass_rollcall_store.dart';
 import '../services/logging/logger.dart';
 import '../services/weather_service.dart';
@@ -120,6 +121,7 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
     HomeLayoutService.revision.addListener(_onQuickAppsSourceChanged);
     CredentialSyncService.statusNotifier.addListener(_onCredentialSyncChanged);
     MobileCampusNoticeService.noticesRevision.addListener(_onHomeFocusRevision);
+    MailSession.instance.revision.addListener(_onHomeFocusRevision);
     AppRemoteServicesService.revision.addListener(_onHomeFocusRevision);
     CampusSettingsService.revision.addListener(_onCampusSettingsChanged);
     TemporalChangeService.revision.addListener(_onTemporalChange);
@@ -153,6 +155,7 @@ class _HomePageState extends State<HomePage> with CampusAuthRefresh<HomePage> {
     MobileCampusNoticeService.noticesRevision.removeListener(
       _onHomeFocusRevision,
     );
+    MailSession.instance.revision.removeListener(_onHomeFocusRevision);
     AppRemoteServicesService.revision.removeListener(_onHomeFocusRevision);
     CampusSettingsService.revision.removeListener(_onCampusSettingsChanged);
     TemporalChangeService.revision.removeListener(_onTemporalChange);

@@ -15,6 +15,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
+import 'capabilities/accounts/account_registry.dart';
 import 'capabilities/time_reminder_registry.dart';
 import 'capabilities/authenticated_web_view_capability.dart';
 import 'pages/apps_page.dart';
@@ -387,6 +388,7 @@ class _AppShellState extends State<AppShell> {
       // 协议索引检查与身份探测都放到首帧之后，启动不再等待任何网络。
       unawaited(_refreshPrivacyPolicy(generation));
       unawaited(HostAuthCoordinator.check());
+      unawaited(AccountRegistry.restoreAll());
     });
   }
 

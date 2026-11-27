@@ -150,7 +150,7 @@ class _ChannelAccountPageState extends State<ChannelAccountPage> {
     final confirmed = await showAdaptiveConfirmationDialog(
       context,
       title: '退出校园频道账号？',
-      message: '这只会退出校园频道账号，不会影响统一身份认证登录。',
+      message: ChannelAccountCapability.logoutConfirmationMessage,
       confirmLabel: '退出',
       destructive: true,
     );

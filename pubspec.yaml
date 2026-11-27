@@ -38,7 +38,7 @@ dependencies:
     path: third_party/flutter_inappwebview_ohos
   dio: ^5.8.0
   # 统一身份静默重登：复刻官方登录页 AES-128-CBC 密码加密（纯 Dart，无原生依赖）。
-  pointycastle: ^3.9.1
+  pointycastle: ^4.0.0
   # Official Mapbox renderer + hosted basemap/style/tile delivery.
   mapbox_maps_flutter: ^2.28.0
   # 宿主玻璃材质与原生液态交互，地图按钮在支持着色器时使用完整折射管线。
@@ -58,6 +58,8 @@ dependencies:
   # 底栏“功能/选项”图标需要 Material Symbols 字形（category_search、deployed_code 系列），
   # Flutter 内置 MaterialIcons 没有这些名称。Release/Profile 构建只打包实际用到的字形。
   material_symbols_icons: 4.2960.0
+  # 校园邮箱：纯 Dart IMAP/SMTP/MIME 客户端，支持收发邮件。
+  enough_mail: ^2.1.7
 
 dev_dependencies:
   flutter_test:

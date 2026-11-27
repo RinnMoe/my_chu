@@ -19,6 +19,8 @@ import 'app_content/app_content_service.dart';
 import 'demo_data_service.dart';
 import 'logging/logger.dart';
 import 'auth_service.dart';
+import 'mail/mail_focus_source.dart';
+import 'remote_feature_policy/feature_access_guard.dart';
 
 typedef _CurrentTeachingWeekLoader =
     Future<CurrentTeachingWeek?> Function(String accountKey);
@@ -42,6 +44,7 @@ enum HomeFocusKind {
   serviceAlert,
   importantReminder,
   publicHoliday,
+  mail,
 }
 
 enum HomeFocusPriority { p0, p1, p2, p3 }
@@ -173,6 +176,8 @@ class HomeFocusService {
     alertEvaluator,
     Future<List<PortalNotice>> Function()? noticesLoader,
     Future<List<AppAnnouncement>> Function(bool force)? announcementsLoader,
+    Future<MailFocusCandidate?> Function()? mailLoader,
+    bool Function()? mailVisible,
     PublicHolidayProvider? publicHolidayProvider,
     DateTime Function()? clock,
   }) : _examsLoader =
@@ -192,6 +197,10 @@ class HomeFocusService {
            announcementsLoader ??
            ((force) =>
                AppContentService.shared.loadAnnouncements(force: force)),
+       _mailLoader = mailLoader ?? MailFocusSource.instance.load,
+       _mailVisible =
+           mailVisible ??
+           (() => FeatureEntryVisibility.isVisibleById('feature.mail')),
        _publicHolidayProvider = publicHolidayProvider,
        _clock = clock ?? east8Now;
 
@@ -208,6 +217,8 @@ class HomeFocusService {
   final _SourceAlertEvaluator _alertEvaluator;
   final Future<List<PortalNotice>> Function() _noticesLoader;
   final Future<List<AppAnnouncement>> Function(bool force) _announcementsLoader;
+  final Future<MailFocusCandidate?> Function() _mailLoader;
+  final bool Function() _mailVisible;
   final PublicHolidayProvider? _publicHolidayProvider;
   final DateTime Function() _clock;
 
@@ -253,17 +264,25 @@ class HomeFocusService {
         code: 'home.focus.app_announcements.failed',
         message: '首页应用公告焦点加载失败',
       ),
+      _capture<MailFocusCandidate?>(
+        _mailVisible() ? _mailLoader : () async => null,
+        code: 'home.focus.mail.failed',
+        message: '首页邮箱焦点加载失败',
+      ),
     ]);
     final focus = results[0] as _FocusLoadResult<_FocusSourceSnapshot>;
     final notices = results[1] as _FocusLoadResult<List<PortalNotice>>;
     final publicHolidays = results[2] as _FocusLoadResult<List<HomeFocusItem>>;
     final announcements = results[3] as _FocusLoadResult<List<AppAnnouncement>>;
+    final mail = results[4] as _FocusLoadResult<MailFocusCandidate?>;
+    final mailItem = mail.value == null ? null : _fromMail(mail.value!, now);
     final items = <HomeFocusItem>[
       if (focus.value != null) ...focus.value!.candidates,
       if (notices.value != null) ..._fromNotices(notices.value!, now),
       if (publicHolidays.value != null) ...publicHolidays.value!,
       if (announcements.value != null)
         ..._fromAppAnnouncements(announcements.value!, now),
+      if (mailItem != null) mailItem,
     ];
     final unique = _deduplicate(items);
     final capped = _applyTypeCaps(unique);
@@ -707,6 +726,24 @@ class HomeFocusService {
     ];
   }
 
+  HomeFocusItem? _fromMail(MailFocusCandidate candidate, DateTime now) {
+    if (candidate.unread <= 0) return null;
+    return HomeFocusItem(
+      id: 'mail:unread',
+      kind: HomeFocusKind.mail,
+      title: '校园邮箱有 ${candidate.unread} 封未读',
+      subtitle: '',
+      tertiaryText:
+          candidate.checkedAt == null
+              ? null
+              : '更新于 ${_timeLabel(candidate.checkedAt!)}',
+      priority: HomeFocusPriority.p2,
+      createdAt: now,
+      source: '校园邮箱',
+      destination: const HomeFocusAppDestination(appId: 'feature.mail'),
+    );
+  }
+
   List<HomeFocusItem> _fromAppAnnouncements(
     List<AppAnnouncement> announcements,
     DateTime now,
@@ -746,6 +783,7 @@ class HomeFocusService {
   static const _typeCaps = <HomeFocusKind, int>{
     HomeFocusKind.campusNotice: 1,
     HomeFocusKind.appAnnouncement: 1,
+    HomeFocusKind.mail: 1,
   };
 
   List<HomeFocusItem> _applyTypeCaps(List<HomeFocusItem> items) {

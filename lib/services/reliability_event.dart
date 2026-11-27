@@ -29,7 +29,12 @@ enum UserOperationId {
   academicExams('academic.exams'),
   academicGrades('academic.grades'),
   academicSyllabus('academic.syllabus'),
-  classroomUsage('classroom.usage');
+  classroomUsage('classroom.usage'),
+  mailConnect('mail.connect'),
+  mailSync('mail.sync'),
+  mailRead('mail.read'),
+  mailAttachment('mail.attachment'),
+  mailSend('mail.send');
 
   const UserOperationId(this.key);
 

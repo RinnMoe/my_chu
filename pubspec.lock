@@ -33,6 +33,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.7.0"
+  asn1lib:
+    dependency: transitive
+    description:
+      name: asn1lib
+      sha256: cfb3cf6a53158918d52dda61bc26f0cc8612a0d3b9dc29e87eaa3423902ca636
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.6.8"
   async:
     dependency: transitive
     description:
@@ -41,6 +49,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.13.1"
+  basic_utils:
+    dependency: transitive
+    description:
+      name: basic_utils
+      sha256: "548047bef0b3b697be19fa62f46de54d99c9019a69fb7db92c69e19d87f633c7"
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.8.2"
   benchmark:
     dependency: transitive
     description:
@@ -201,6 +217,38 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.8.1"
+  encrypter_plus:
+    dependency: transitive
+    description:
+      name: encrypter_plus
+      sha256: "6f6f3c73e26058af4fd138369a928ccae667e45d254cf6ded6301a2d99551a67"
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.1.0"
+  enough_convert:
+    dependency: transitive
+    description:
+      name: enough_convert
+      sha256: "65bff24436f4da878435e80ba24a6f762870751a6f5fd4ea51cdec232d90a936"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.7.1"
+  enough_mail:
+    dependency: "direct main"
+    description:
+      name: enough_mail
+      sha256: b8b3d4da3f3d727013c5ffc562046ed1d2553a7ffdcc7e7a0e7e1bb96ed445ae
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.7"
+  event_bus:
+    dependency: transitive
+    description:
+      name: event_bus
+      sha256: "1a55e97923769c286d295240048fc180e7b0768902c3c2e869fe059aafa15304"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.1"
   fake_async:
     dependency: transitive
     description:
@@ -738,6 +786,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.16.1"
+  logging:
+    dependency: transitive
+    description:
+      name: logging
+      sha256: c8245ada5f1717ed44271ed1c26b8ce85ca3228fd2ffdb75468ab01979309d61
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.3.0"
   mapbox_maps_flutter:
     dependency: "direct main"
     description:
@@ -950,10 +1006,10 @@ packages:
     dependency: "direct main"
     description:
       name: pointycastle
-      sha256: "4be0097fcf3fd3e8449e53730c631200ebc7b88016acecab2b0da2f0149222fe"
+      sha256: "92aa3841d083cc4b0f4709b5c74fd6409a3e6ba833ffc7dc6a8fee096366acf5"
       url: "https://pub.dev"
     source: hosted
-    version: "3.9.1"
+    version: "4.0.0"
   posix:
     dependency: transitive
     description:
@@ -1079,6 +1135,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.0.4"
+  synchronized:
+    dependency: transitive
+    description:
+      name: synchronized
+      sha256: "0ce4712bd3be1fccfab14458059baebb400ba6c6239b65398e3464945fabbae7"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.6.1"
   term_glyph:
     dependency: transitive
     description:
@@ -1295,5 +1359,5 @@ packages:
     source: hosted
     version: "0.2.4"
 sdks:
-  dart: ">=3.10.0 <4.0.0"
+  dart: ">=3.12.0 <4.0.0"
   flutter: ">=3.41.0"

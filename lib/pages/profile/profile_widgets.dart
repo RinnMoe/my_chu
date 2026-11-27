@@ -153,8 +153,7 @@ double _networkChipWidth(BuildContext context, String label) {
   final padding =
       paddingProperty?.resolve(const <WidgetState>{}) ??
       const EdgeInsets.symmetric(horizontal: 24);
-  final borderWidth =
-      style?.side?.resolve(const <WidgetState>{})?.width ?? 1.0;
+  final borderWidth = style?.side?.resolve(const <WidgetState>{})?.width ?? 1.0;
   return textWidth + padding.horizontal + 2 * borderWidth;
 }
 
@@ -180,17 +179,13 @@ class _IdentityTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tileTheme = ListTileTheme.of(context);
-    final contentPadding =
-        (tileTheme.contentPadding ??
-                const EdgeInsetsDirectional.only(start: 16, end: 24))
-            .resolve(Directionality.of(context));
+    final contentPadding = (tileTheme.contentPadding ??
+            const EdgeInsetsDirectional.only(start: 16, end: 24))
+        .resolve(Directionality.of(context));
     final titleGap = tileTheme.horizontalTitleGap ?? 16;
     final leadingWidth = math.max(tileTheme.minLeadingWidth ?? 24, 24.0);
     final chromeWidth =
-        contentPadding.left +
-        contentPadding.right +
-        leadingWidth +
-        titleGap;
+        contentPadding.left + contentPadding.right + leadingWidth + titleGap;
     return LayoutBuilder(
       builder: (context, constraints) {
         // 与 `_RenderListTile._computeSizes` 一致：文字区宽度等于列表宽度减去
@@ -280,28 +275,6 @@ class _NetworkStatusChip extends StatelessWidget {
     return OutlinedButton(
       onPressed: onPressed,
       child: Text(label, textAlign: TextAlign.center, softWrap: true),
-    );
-  }
-}
-
-class SignOutAction extends StatelessWidget {
-  final VoidCallback? onPressed;
-
-  const SignOutAction({super.key, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: TextButton.icon(
-        onPressed: onPressed,
-        icon: const Icon(Icons.logout_outlined),
-        label: const Text('退出登录'),
-        style: TextButton.styleFrom(
-          foregroundColor: Theme.of(context).colorScheme.error,
-          padding: const EdgeInsets.symmetric(vertical: 12),
-        ),
-      ),
     );
   }
 }

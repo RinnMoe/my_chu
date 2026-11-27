@@ -426,6 +426,7 @@ class _FocusRow extends StatelessWidget {
       HomeFocusKind.serviceAlert => Icons.warning_amber_outlined,
       HomeFocusKind.importantReminder => Icons.notifications_active_outlined,
       HomeFocusKind.publicHoliday => Icons.event_note_outlined,
+      HomeFocusKind.mail => Icons.mail_outline,
     };
   }
 

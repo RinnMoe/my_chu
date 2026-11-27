@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'logging/logger.dart';
+import 'privacy_agreement_service.dart';
+import 'session_storage_support.dart';
 
 /// Authentication status for the external channel-resources service.
 enum ChannelResourcesSessionStatus {
@@ -172,6 +174,8 @@ class ChannelResourcesSession {
        _transport = transport ?? _defaultTransport,
        _baseUri = _normalizeBaseUri(baseUri ?? productionBaseUri);
 
+  int get revision => _generation;
+  bool get hasIdentity => _user != null || _refreshCookie != null;
   ChannelResourcesSessionStatus get status => _status;
   ChannelResourcesUser? get user => _user;
   ChannelResourcesAuthState get authState => _stateNotifier.value;
@@ -241,24 +245,17 @@ class ChannelResourcesSession {
     final running = _loginFlight;
     if (running != null) return running;
     final generation = ++_generation;
-    _accessToken = null;
-    _refreshCookie = null;
-    _user = null;
-    _errorType = null;
-    _status = ChannelResourcesSessionStatus.signedOut;
-    _emitState();
-    _rememberSession = rememberSession;
-    final future = _loginImpl(
+    late final Future<ChannelResourcesAuthState> pending;
+    pending = _loginImpl(
       username.trim(),
       password,
       generation,
       rememberSession,
-    );
-    _loginFlight = future;
-    future.whenComplete(() {
-      if (identical(_loginFlight, future)) _loginFlight = null;
+    ).whenComplete(() {
+      if (identical(_loginFlight, pending)) _loginFlight = null;
     });
-    return future;
+    _loginFlight = pending;
+    return pending;
   }
 
   Future<ChannelResourcesAuthState> _loginImpl(
@@ -268,18 +265,14 @@ class ChannelResourcesSession {
     bool rememberSession,
   ) async {
     if (username.isEmpty || password.isEmpty) {
-      _setLoginFailure(
+      return _loginFailure(
         generation,
         ChannelResourcesSessionErrorType.invalidCredentials,
       );
-      return authState;
     }
     try {
-      // An explicit login starts a new channel-account boundary. Remove the
-      // previous account's persisted refresh credential before sending the new
-      // password so a missing Set-Cookie can never inherit it.
-      await _deletePersistedRefreshCookie(generation);
-      _checkFence(generation);
+      // Credentials stay in this candidate until the response and durable
+      // refresh credential have both been verified. Failure preserves the owner.
       final response = await _sendRaw(
         'POST',
         _pathUri('auth/login'),
@@ -295,39 +288,38 @@ class ChannelResourcesSession {
       _checkFence(generation);
       if (response.statusCode == HttpStatus.unauthorized ||
           response.statusCode == HttpStatus.forbidden) {
-        _setLoginFailure(
+        return _loginFailure(
           generation,
           ChannelResourcesSessionErrorType.invalidCredentials,
         );
-        return authState;
       }
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        _setLoginFailure(generation, ChannelResourcesSessionErrorType.server);
-        return authState;
+        return _loginFailure(
+          generation,
+          ChannelResourcesSessionErrorType.server,
+        );
       }
       final payload = _jsonMap(response);
       final accessToken = _string(payload['access_token']);
       final user = _parseUser(payload['user']);
-      if (accessToken == null || user == null) {
-        throw const ChannelResourcesSessionException(
-          ChannelResourcesSessionErrorType.malformed,
-        );
-      }
       final rotatedCookie = _refreshCookieFrom(response.setCookieHeaders);
-      if (rememberSession && (rotatedCookie == null || rotatedCookie.isEmpty)) {
+      if (accessToken == null ||
+          user == null ||
+          rememberSession && (rotatedCookie == null || rotatedCookie.isEmpty)) {
         throw const ChannelResourcesSessionException(
           ChannelResourcesSessionErrorType.malformed,
         );
       }
+      await _replaceRefreshCredential(
+        generation,
+        rememberSession ? rotatedCookie : null,
+      );
       _checkFence(generation);
+      // Requests started against the retained owner during login become stale.
+      ++_generation;
       _accessToken = accessToken;
       _refreshCookie = rotatedCookie;
-      if (rememberSession) {
-        await _persistRefreshCookie(generation);
-      } else {
-        await _deletePersistedRefreshCookie(generation);
-      }
-      _checkFence(generation);
+      _rememberSession = rememberSession;
       _user = user;
       _status = ChannelResourcesSessionStatus.authenticated;
       _errorType = null;
@@ -336,12 +328,13 @@ class ChannelResourcesSession {
     } on ChannelResourcesSessionException catch (error, diagnosticStack) {
       AppLogger.error(error, stackTrace: diagnosticStack);
       if (error.type == ChannelResourcesSessionErrorType.stale) rethrow;
-      _setLoginFailure(generation, error.type);
-      return authState;
+      return _loginFailure(generation, error.type);
     } on Object catch (diagnosticError, diagnosticStack) {
       AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
-      _setLoginFailure(generation, ChannelResourcesSessionErrorType.network);
-      return authState;
+      return _loginFailure(
+        generation,
+        ChannelResourcesSessionErrorType.network,
+      );
     }
   }
 
@@ -461,19 +454,22 @@ class ChannelResourcesSession {
   /// Revokes the current access session when possible, then always clears the
   /// local refresh cookie and in-memory token.
   Future<void> logout() async {
-    final generation = _generation;
+    final token = _accessToken;
+    final memoryCookie = _refreshCookie;
+    final generation = _clearMemory();
+    final persisted = await _replaceRefreshCredential(
+      generation,
+      null,
+      restoreOnFailure: false,
+    );
+    final cookie = memoryCookie ?? (token == null ? persisted : null);
     try {
-      final cookie =
-          _refreshCookie ?? await _storage.read(key: _refreshStorageKey);
-      _checkFence(generation);
-      if (_accessToken != null || (cookie != null && cookie.isNotEmpty)) {
-        // res-hub can revoke by either credential, including a cold session
-        // whose access token has not yet been restored.
+      if (token != null || cookie != null && cookie.isNotEmpty) {
         await _sendRaw(
           'POST',
           _pathUri('auth/logout'),
           headers: {
-            if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
+            if (token != null) 'Authorization': 'Bearer $token',
             if (cookie != null && cookie.isNotEmpty)
               'Cookie': 'refresh_token=$cookie',
           },
@@ -481,14 +477,12 @@ class ChannelResourcesSession {
       }
     } on Object catch (diagnosticError, diagnosticStack) {
       AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
-      // Local sign-out must not be blocked by a network failure.
+      // The local owner was already removed. A remote failure cannot restore it.
     }
-    _checkFence(generation);
-    await clear();
   }
 
-  Future<void> clear() async {
-    ++_generation;
+  int _clearMemory() {
+    final generation = ++_generation;
     _accessToken = null;
     _refreshCookie = null;
     _user = null;
@@ -496,12 +490,12 @@ class ChannelResourcesSession {
     _status = ChannelResourcesSessionStatus.signedOut;
     _errorType = null;
     _emitState();
-    try {
-      await _storage.delete(key: _refreshStorageKey);
-    } on Object catch (diagnosticError, diagnosticStack) {
-      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
-      // A failed secure-storage cleanup is not exposed as credential data.
-    }
+    return generation;
+  }
+
+  Future<void> clear() async {
+    final generation = _clearMemory();
+    await _replaceRefreshCredential(generation, null, restoreOnFailure: false);
   }
 
   Future<int> _ensureAuthenticated(int generation) async {
@@ -653,13 +647,26 @@ class ChannelResourcesSession {
     Map<String, String> headers = const {},
     List<int>? body,
   }) async {
+    final privacyRevision = PrivacyAgreementService.revision.value;
+    if (!await PrivacyAgreementService.isAccepted()) {
+      throw const ChannelResourcesSessionException(
+        ChannelResourcesSessionErrorType.notAuthenticated,
+      );
+    }
     try {
-      return await _transport(
+      final response = await _transport(
         method: method,
         uri: uri,
         headers: Map<String, String>.unmodifiable(headers),
         body: body,
       );
+      if (privacyRevision != PrivacyAgreementService.revision.value ||
+          !await PrivacyAgreementService.isAccepted()) {
+        throw const ChannelResourcesSessionException(
+          ChannelResourcesSessionErrorType.stale,
+        );
+      }
+      return response;
     } on ChannelResourcesSessionException catch (
       diagnosticError,
       diagnosticStack
@@ -693,13 +700,20 @@ class ChannelResourcesSession {
     _emitState();
   }
 
-  void _setLoginFailure(int generation, ChannelResourcesSessionErrorType type) {
-    if (!_isGenerationCurrent(generation)) return;
-    _accessToken = null;
-    _user = null;
-    _status = ChannelResourcesSessionStatus.signedOut;
-    _errorType = type;
-    _emitState();
+  ChannelResourcesAuthState _loginFailure(
+    int generation,
+    ChannelResourcesSessionErrorType type,
+  ) {
+    _checkFence(generation);
+    if (_accessToken == null || _user == null) {
+      _status = ChannelResourcesSessionStatus.signedOut;
+      _errorType = type;
+      _emitState();
+    }
+    return ChannelResourcesAuthState(
+      ChannelResourcesSessionStatus.signedOut,
+      errorType: type,
+    );
   }
 
   Future<void> _expireIfCurrent(int generation) async {
@@ -711,7 +725,11 @@ class ChannelResourcesSession {
     _errorType = ChannelResourcesSessionErrorType.expired;
     _emitState();
     try {
-      await _storage.delete(key: _refreshStorageKey);
+      await _replaceRefreshCredential(
+        generation,
+        null,
+        restoreOnFailure: false,
+      );
     } on Object catch (diagnosticError, diagnosticStack) {
       AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       // Do not expose storage details to the feature layer.
@@ -726,27 +744,55 @@ class ChannelResourcesSession {
         ChannelResourcesSessionErrorType.malformed,
       );
     }
-    try {
-      await _storage.write(key: _refreshStorageKey, value: cookie);
-    } on Object catch (diagnosticError, diagnosticStack) {
-      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
-      throw const ChannelResourcesSessionException(
-        ChannelResourcesSessionErrorType.network,
-      );
-    }
+    await _replaceRefreshCredential(generation, cookie);
   }
 
-  Future<void> _deletePersistedRefreshCookie(int generation) async {
+  /// Every durable change shares a queue, including logout and credential
+  /// rotation. A stale write can therefore never finish after its cleanup.
+  Future<String?> _replaceRefreshCredential(
+    int generation,
+    String? value, {
+    bool restoreOnFailure = true,
+  }) => AccountSessionStorageQueue.run(_refreshStorageKey, () async {
     _checkFence(generation);
+    String? previous;
     try {
-      await _storage.delete(key: _refreshStorageKey);
+      previous = await _storage.read(key: _refreshStorageKey);
     } on Object catch (diagnosticError, diagnosticStack) {
       AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
       throw const ChannelResourcesSessionException(
         ChannelResourcesSessionErrorType.network,
       );
     }
-  }
+    _checkFence(generation);
+    try {
+      if (value == null) {
+        await _storage.delete(key: _refreshStorageKey);
+      } else {
+        await _storage.write(key: _refreshStorageKey, value: value);
+      }
+      _checkFence(generation);
+      return previous;
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+      if (_isGenerationCurrent(generation) && restoreOnFailure) {
+        try {
+          if (previous == null) {
+            await _storage.delete(key: _refreshStorageKey);
+          } else {
+            await _storage.write(key: _refreshStorageKey, value: previous);
+          }
+        } on Object catch (diagnosticError, diagnosticStack) {
+          AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+          /* Preserve the original failure category. */
+        }
+      }
+      _checkFence(generation);
+      throw const ChannelResourcesSessionException(
+        ChannelResourcesSessionErrorType.network,
+      );
+    }
+  });
 
   void _emitState() {
     _stateNotifier.value = ChannelResourcesAuthState(

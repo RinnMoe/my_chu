@@ -255,12 +255,13 @@ class _FeatureGrid extends StatelessWidget {
         const maxLines = 2;
         final betaBadgeHeight =
             plugins.any((plugin) => plugin.metadata.isBeta)
-                ? textScaler.scale(
+                ? (textScaler.scale(
                           Theme.of(context).textTheme.labelSmall?.fontSize ??
                               11,
                         ) *
                         1.25 +
-                    6
+                    8)
+                    .ceilToDouble()
                 : 0.0;
         final tileExtent =
             math
