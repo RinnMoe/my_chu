@@ -236,6 +236,7 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
     }
     return switch (failure) {
       '蓝牙未开启' => '请开启手机蓝牙后重试',
+      '插座正在使用中' => '请等待当前使用结束后重试',
       '配对失败' || '配对超时' => '请在系统弹出配对请求时点击确认后重试',
       '此手机无法连接该插座' || '无法识别此插座' => null,
       _ => '请检查手机蓝牙和设备状态后重试',

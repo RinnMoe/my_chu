@@ -141,7 +141,12 @@ class SmartSocketProtocolService {
       _verifyMac(qr, device);
 
       BleStoredOrder? clearedOrder;
-      if (!device.isIdle) {
+      if (device.isInUse) {
+        throw SmartSocketFailure(
+          '设备正在使用中（charge=${device.charge}）',
+          userMessage: '插座正在使用中',
+        );
+      } else if (device.hasStoredOrder) {
         onUpdate?.call(SmartSocketPhase.readingOrder);
         clearedOrder = BleStoredOrder.fromFrame(
           await _exchange(0x85, const [0]),
@@ -151,7 +156,8 @@ class SmartSocketProtocolService {
         }
         if (clearedOrder.productId != device.productId ||
             clearedOrder.deviceId != device.deviceId ||
-            clearedOrder.accountId != device.accountId) {
+            (device.accountId != 0 &&
+                clearedOrder.accountId != device.accountId)) {
           throw const SmartSocketFailure('旧记录身份字段与当前设备状态不一致');
         }
         onUpdate?.call(SmartSocketPhase.clearingOrder);
@@ -173,9 +179,13 @@ class SmartSocketProtocolService {
         // Both responses already matched the QR address, including its C0/00 alias.
         _verifyStableIdentity(device, verified);
         if (!verified.isIdle) {
-          throw const SmartSocketFailure('0x86 后设备仍不是空闲状态');
+          throw SmartSocketFailure(
+            '0x86 后设备仍不是空闲状态（charge=${verified.charge}）',
+          );
         }
         device = verified;
+      } else if (!device.isIdle) {
+        throw SmartSocketFailure('设备返回未知状态（charge=${device.charge}）');
       }
 
       final appRandom = _random.nextInt(9001) + 1000;
@@ -378,7 +388,6 @@ class SmartSocketProtocolService {
     final stable =
         before.productId == after.productId &&
         before.deviceId == after.deviceId &&
-        bytesEqual(before.tacTime, after.tacTime) &&
         before.macType == after.macType &&
         before.lType == after.lType;
     if (!stable) {

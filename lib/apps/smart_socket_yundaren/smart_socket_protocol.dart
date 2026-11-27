@@ -157,6 +157,11 @@ class BleNotificationDecoder {
 }
 
 class BleDeviceInfo {
+  static const int chargeIdle = 0;
+  static const int chargeInUse = 1;
+  static const int chargeCardInUse = 2;
+  static const int chargeHasStoredOrder = 3;
+
   final int productId;
   final int deviceId;
   final int accountId;
@@ -183,7 +188,11 @@ class BleDeviceInfo {
     required this.macTime,
   });
 
-  bool get isIdle => charge == 0 && accountId == 0 && constype == 0;
+  bool get isIdle => charge == chargeIdle;
+
+  bool get isInUse => charge == chargeInUse || charge == chargeCardInUse;
+
+  bool get hasStoredOrder => charge == chargeHasStoredOrder;
 
   static BleDeviceInfo fromFrame(BleFrame frame) {
     _expectResponse(frame, 0x23);
@@ -213,6 +222,7 @@ class BleStoredOrder {
   final int productId;
   final int deviceId;
   final int accountId;
+  final int userCount;
   final Uint8List unknownData;
   final Uint8List mac;
 
@@ -221,6 +231,7 @@ class BleStoredOrder {
     required this.productId,
     required this.deviceId,
     required this.accountId,
+    required this.userCount,
     required this.unknownData,
     required this.mac,
   });
@@ -239,6 +250,7 @@ class BleStoredOrder {
       productId: readU32(data, 7),
       deviceId: readU32(data, 11),
       accountId: readU32(data, 15),
+      userCount: readU32(data, 20),
       unknownData: Uint8List.fromList(data.sublist(19, 36)),
       mac: Uint8List.fromList(data.sublist(36, 42)),
     );
@@ -250,7 +262,7 @@ class BleStoredOrder {
       ...u32(productId),
       ...u32(deviceId),
       ...u32(accountId),
-      ...u32(2),
+      ...u32(userCount),
     ]);
   }
 }
@@ -304,7 +316,7 @@ class BleStartProtocol {
     final builder =
         BytesBuilder(copy: false)
           ..add(hexToBytes(timeId))
-          ..add(u32(6))
+          ..add(u32(device.productId != 0 ? device.productId : 6))
           ..add(u32(appRandom))
           ..addByte(2)
           ..add(u32(1))
