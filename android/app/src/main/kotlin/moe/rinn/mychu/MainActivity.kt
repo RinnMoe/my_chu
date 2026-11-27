@@ -37,6 +37,7 @@ class MainActivity : FlutterActivity() {
     private var pendingWidgetLaunchRequest: String? = null
     private var temporalChangeChannel: TemporalChangeChannel? = null
     private var courseLiveChannel: CourseLiveActivityChannel? = null
+    private var keyboardInsetChannel: KeyboardInsetChannel? = null
     private var mapboxLogMessenger: MapboxLogMessenger? = null
     private var mapboxPluginRegistered = false
     private var appUpdateChannel: AppUpdateChannel? = null
@@ -145,6 +146,8 @@ class MainActivity : FlutterActivity() {
         temporalChangeChannel = TemporalChangeChannel(this, flutterEngine)
         courseLiveChannel?.dispose()
         courseLiveChannel = CourseLiveActivityChannel(applicationContext, flutterEngine)
+        keyboardInsetChannel?.dispose()
+        keyboardInsetChannel = KeyboardInsetChannel(this, flutterEngine)
         appLaunchChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             APP_LAUNCH_CHANNEL,
@@ -356,6 +359,8 @@ class MainActivity : FlutterActivity() {
         temporalChangeChannel = null
         courseLiveChannel?.dispose()
         courseLiveChannel = null
+        keyboardInsetChannel?.dispose()
+        keyboardInsetChannel = null
         super.onDestroy()
     }
 

@@ -11,8 +11,6 @@ import '../services/ip_status_service.dart';
 import '../services/logging/logger.dart';
 import '../services/portal_identity_service.dart';
 import '../services/campus_settings_service.dart';
-import '../capabilities/chat_demo/chat_demo_brand.dart';
-import '../services/deepseek_api_settings_service.dart';
 import '../services/updates/app_update_service.dart';
 import '../widgets/adaptive_settings.dart';
 import '../widgets/app_glass_app_bar.dart';
@@ -21,7 +19,6 @@ import 'account_management_page.dart';
 import 'app_update_section.dart';
 import 'appearance_theme_page.dart';
 import 'campus_settings_sheet.dart';
-import 'deepseek_api_settings_page.dart';
 import 'notification_settings_page.dart';
 import 'page_preferences_page.dart';
 import 'profile/profile_widgets.dart';
@@ -50,41 +47,21 @@ class _ProfilePageState extends State<ProfilePage>
   bool _networkLoading = true;
   String _campusLabel = '渭水校区';
   String _versionLabel = '';
-  bool _deepSeekConfigured = false;
 
   @override
   void initState() {
     super.initState();
     CampusSettingsService.revision.addListener(_updateCampusLabel);
-    DeepSeekApiSettingsService.instance.revision.addListener(
-      _loadDeepSeekStatus,
-    );
     _load();
     _loadCampusLabel();
     _loadNetworkStatus();
     _loadVersion();
-    _loadDeepSeekStatus();
   }
 
   @override
   void dispose() {
     CampusSettingsService.revision.removeListener(_updateCampusLabel);
-    DeepSeekApiSettingsService.instance.revision.removeListener(
-      _loadDeepSeekStatus,
-    );
     super.dispose();
-  }
-
-  Future<void> _loadDeepSeekStatus() async {
-    bool configured;
-    try {
-      configured = await DeepSeekApiSettingsService.instance.read() != null;
-    } on Object catch (diagnosticError, diagnosticStack) {
-      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
-      configured = false;
-    }
-    if (!mounted || configured == _deepSeekConfigured) return;
-    setState(() => _deepSeekConfigured = configured);
   }
 
   void _updateCampusLabel() {
@@ -280,19 +257,6 @@ class _ProfilePageState extends State<ProfilePage>
                     icon: Icons.notifications_outlined,
                     title: '通知与提醒',
                     onTap: () => _push(const NotificationSettingsPage()),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              AdaptiveSettingsSection(
-                title: askYuiName,
-                margin: EdgeInsets.zero,
-                children: [
-                  ProfileSettingTile(
-                    icon: Icons.auto_awesome_outlined,
-                    title: '聊天设置',
-                    trailingValue: _deepSeekConfigured ? 'API 已配置' : 'API 未配置',
-                    onTap: () => _push(const DeepSeekApiSettingsPage()),
                   ),
                 ],
               ),

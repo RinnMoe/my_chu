@@ -1,8 +1,8 @@
 {
   "name": "chat-demo",
   "version": "0.1.2",
-  "gitSha": "3d619cbb08397bd51dc8fc854b2ec0ef2552f498",
-  "builtAt": "2026-11-26T06:23:31.806Z",
+  "gitSha": "950fdf25953b73fd47771900e83e2cfd420fd7fb",
+  "builtAt": "2026-11-27T06:56:52.536Z",
   "dirty": false,
   "bridgeProtocol": 1,
   "apiOrigin": "https://api.deepseek.com"

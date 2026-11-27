@@ -55,6 +55,7 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
   bool _requestingPermission = false;
   String _openingMessage = '正在准备开启';
 
+  // HarmonyOS entry stays gated until BLE MAC virtualization on OHOS is resolved.
   bool get _platformSupported =>
       widget.platformSupportedOverride ??
       (!kIsWeb && defaultTargetPlatform == TargetPlatform.android);
@@ -99,7 +100,7 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
         context,
         QrScanRequest<BleQrInfo>(
           title: '扫描设备码',
-          prompt: '请扫描设备码',
+          prompt: '对准插座上的二维码',
           decoder: (symbol) {
             try {
               return QrDecodeResult.success(BleQrInfo.parse(symbol.rawValue));
@@ -167,8 +168,8 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
     if (!permission.granted) {
       setState(() {
         _permanentlyDenied = permission.permanentlyDenied;
-        _failure = '需要附近设备权限';
-        _failureHint = '请允许附近设备权限后重试';
+        _failure = '需要蓝牙权限';
+        _failureHint = '请允许蓝牙权限后重试';
         _view = _SmartSocketView.error;
       });
       return;
@@ -184,9 +185,9 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
     try {
       await _service.run(
         qr,
-        onUpdate: (update) {
+        onUpdate: (phase) {
           if (!mounted) return;
-          final message = switch (update.phase) {
+          final message = switch (phase) {
             SmartSocketPhase.scanning => '正在准备蓝牙连接',
             SmartSocketPhase.connecting ||
             SmartSocketPhase.discovering => '正在连接插座',
@@ -209,15 +210,13 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
     } on SmartSocketFailure catch (error, diagnosticStack) {
       AppLogger.error(error, stackTrace: diagnosticStack);
       if (!mounted || !identical(_qr, qr)) return;
+      final failure =
+          error.uncertainDeviceState
+              ? '插座状态待确认'
+              : error.userMessage ?? '开启插座失败';
       setState(() {
-        _failure =
-            error.uncertainDeviceState
-                ? '插座状态待确认'
-                : error.userMessage ?? '开启插座失败';
-        _failureHint =
-            error.uncertainDeviceState
-                ? '请先确认插座当前状态，再决定是否重试'
-                : '请检查手机蓝牙和设备状态后重试';
+        _failure = failure;
+        _failureHint = _failureHintFor(error, failure);
         _view = _SmartSocketView.error;
       });
     } catch (diagnosticError, diagnosticStack) {
@@ -229,6 +228,18 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
         _view = _SmartSocketView.error;
       });
     }
+  }
+
+  String? _failureHintFor(SmartSocketFailure error, String failure) {
+    if (error.uncertainDeviceState) {
+      return '请先确认插座当前状态，再决定是否重试';
+    }
+    return switch (failure) {
+      '蓝牙未开启' => '请开启手机蓝牙后重试',
+      '配对失败' || '配对超时' => '请在系统弹出配对请求时点击确认后重试',
+      '此手机无法连接该插座' || '无法识别此插座' => null,
+      _ => '请检查手机蓝牙和设备状态后重试',
+    };
   }
 
   Future<void> _disconnectForBackground() async {
@@ -303,7 +314,6 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
       key: ValueKey('scanning'),
       icon: Icons.qr_code_scanner,
       title: '正在准备扫码',
-      message: '请将设备码放入取景框',
       loading: true,
     ),
     _SmartSocketView.review => _buildReview(context),
@@ -314,7 +324,7 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
       key: ValueKey('unsupported'),
       icon: Icons.phone_android_outlined,
       title: '此设备暂不支持',
-      message: '请使用支持该功能的手机重试。',
+      message: '仅支持在 Android 手机上使用',
     ),
   };
 
@@ -331,7 +341,7 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
       ),
       const SizedBox(height: 32),
       Text(
-        '仅支持下图这种扫码插座。',
+        '仅支持下图这种扫码插座',
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.titleSmall,
       ),
@@ -409,7 +419,7 @@ class _SmartSocketYundarenPageState extends State<SmartSocketYundarenPage>
         _SmartSocketState(
           icon: Icons.error_outline,
           title: failure,
-          message: _failureHint ?? '请检查手机蓝牙和设备状态后重试',
+          message: _failureHint,
           error: true,
         ),
         const SizedBox(height: 20),

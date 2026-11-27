@@ -40,13 +40,16 @@ class ClassicSppProtocolTransport implements BleProtocolTransport {
     try {
       await _invoke<void>('connect', session, {
         'address': address,
-      }).timeout(const Duration(seconds: 15));
+      }).timeout(const Duration(seconds: 75));
       if (_session != session) {
         throw const BleTransportException('蓝牙连接已关闭');
       }
     } on TimeoutException {
       await disconnect();
       throw const BleTransportException('经典蓝牙连接超时', userMessage: '连接插座超时');
+    } catch (_) {
+      if (_session == session) _session = null;
+      rethrow;
     }
   }
 
@@ -108,10 +111,12 @@ class ClassicSppProtocolTransport implements BleProtocolTransport {
         '经典蓝牙 $method 失败：$error',
         userMessage: switch (error.code) {
           'unsupported' => '此手机无法连接该插座',
-          'disabled' => '蓝牙未开启，请开启后重试',
-          'permission' => '需要附近设备权限',
-          'busy' => '已有连接正在进行，请稍后重试',
+          'disabled' => '蓝牙未开启',
+          'permission' => '需要蓝牙权限',
+          'busy' => '已有连接正在进行',
           'invalid_address' => '无法识别此插座',
+          'pair_failed' => '配对失败',
+          'bond_timeout' => '配对超时',
           'closed' || 'disconnected' => '连接中断',
           'write_failed' => '无法与插座通信',
           _ => '无法连接插座',

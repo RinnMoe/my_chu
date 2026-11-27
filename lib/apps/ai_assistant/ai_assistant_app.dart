@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app.dart';
 import '../../capabilities/chat_demo/chat_demo_brand.dart';
 import '../../capabilities/chat_demo/chat_demo_page.dart';
+import 'ai_assistant_account.dart';
 
 /// 问 Yui 的对话界面由随包 chat-demo 提供。
 final AppDefinition aiAssistantApp = AppDefinition(
@@ -10,7 +11,7 @@ final AppDefinition aiAssistantApp = AppDefinition(
   metadata: AppMetadata(
     id: aiAssistantFeatureId,
     name: askYuiName,
-    description: 'ProjectYui 的校园对话入口',
+    description: '校园问答、学习辅导与日常助手。',
     iconCodePoint: Icons.auto_awesome_outlined.codePoint,
     category: AppCategory.life,
     developmentFlag: DevelopmentFlag.beta,
@@ -19,4 +20,5 @@ final AppDefinition aiAssistantApp = AppDefinition(
     navigationLabel: 'Yui',
   ),
   builder: (_) => const ChatDemoPage(),
+  account: DeepSeekAccountProvider(),
 );

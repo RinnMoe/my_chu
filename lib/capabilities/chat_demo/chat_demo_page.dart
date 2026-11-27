@@ -24,6 +24,9 @@ const String chatDemoAssetPath =
     '/assets/flutter_assets/assets/chat_demo/index.html';
 const String chatDemoAssetUrl = '$chatDemoAssetOrigin$chatDemoAssetPath';
 const int chatDemoBridgeProtocol = 1;
+const EventChannel _keyboardInsetsChannel = EventChannel(
+  'mychu/keyboard_insets',
+);
 
 /// 仅承载 chat-demo 静态 Web 应用；Key、校园工具和文件桥由宿主提供。
 class ChatDemoPage extends StatefulWidget {
@@ -45,35 +48,136 @@ class _ChatDemoPageState extends State<ChatDemoPage> {
   bool _disposed = false;
   int _webViewGeneration = 0;
   Brightness? _lastBrightness;
+  ColorScheme? _lastColorScheme;
+  StreamSubscription<dynamic>? _keyboardInsetSubscription;
+  bool _hostKeyboardSupported = false;
+  double _keyboardInset = 0;
+  bool _keyboardAnimating = false;
+  double? _lastPushedKeyboardInset;
+  bool? _lastPushedKeyboardAnimating;
 
   @override
   void initState() {
     super.initState();
     _settingsService.revision.addListener(_onKeyRevision);
+    if (Platform.isAndroid) {
+      _keyboardInsetSubscription = _keyboardInsetsChannel
+          .receiveBroadcastStream()
+          .listen(
+            _onKeyboardInsetEvent,
+            onError: (Object error, StackTrace stackTrace) {
+              AppLogger.error(error, stackTrace: stackTrace);
+            },
+          );
+    }
     _initialize();
+  }
+
+  void _onKeyboardInsetEvent(dynamic event) {
+    if (_disposed || event is! Map) return;
+    final supported = event['supported'] == true;
+    final insetValue = event['inset'];
+    final inset =
+        insetValue is num
+            ? insetValue.toDouble().clamp(0.0, double.infinity)
+            : 0.0;
+    final animating = event['animating'] == true;
+    _hostKeyboardSupported = supported;
+    _keyboardInset = inset;
+    _keyboardAnimating = animating;
+    _pushKeyboardInset();
+  }
+
+  void _pushKeyboardInset({bool force = false}) {
+    if (_disposed || !_hostKeyboardSupported) return;
+    final controller = _controller;
+    if (controller == null || _pageLoading) return;
+    final isCurrent = mounted && (ModalRoute.of(context)?.isCurrent ?? true);
+    final targetInset = isCurrent ? _keyboardInset : 0.0;
+    final targetAnimating = isCurrent && _keyboardAnimating;
+    if (!force &&
+        _lastPushedKeyboardInset == targetInset &&
+        _lastPushedKeyboardAnimating == targetAnimating) {
+      return;
+    }
+    _lastPushedKeyboardInset = targetInset;
+    _lastPushedKeyboardAnimating = targetAnimating;
+    unawaited(
+      controller
+          .evaluateJavascript(
+            source:
+                'window.__MYCHU_KEYBOARD__?.setInset(${targetInset.toStringAsFixed(1)},${targetAnimating ? 'true' : 'false'});',
+          )
+          .catchError((Object _) => null),
+    );
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final brightness = Theme.of(context).brightness;
-    final previous = _lastBrightness;
+    final colorScheme = Theme.of(context).colorScheme;
+    final brightness = colorScheme.brightness;
+    final previousBrightness = _lastBrightness;
+    final previousScheme = _lastColorScheme;
     _lastBrightness = brightness;
-    if (previous != null && previous != brightness && _apiKey != null) {
-      _bridge?.dispose();
-      _bridge = null;
-      _controller = null;
-      setState(() {
-        _pageLoading = true;
-        _loadError = null;
-        _webViewGeneration++;
-      });
+    _lastColorScheme = colorScheme;
+    if ((previousBrightness != null && previousBrightness != brightness) ||
+        (previousScheme != null && previousScheme != colorScheme)) {
+      if (_apiKey != null) {
+        unawaited(_syncThemeToWebView(colorScheme));
+      }
     }
+    if (_apiKey != null) {
+      _pushKeyboardInset();
+    }
+  }
+
+  Future<void> _syncThemeToWebView(ColorScheme colorScheme) async {
+    final controller = _controller;
+    if (controller == null || _pageLoading) {
+      _rebuildWebView();
+      return;
+    }
+    final mode = colorScheme.brightness == Brightness.dark ? 'dark' : 'light';
+    final css = buildChatDemoThemeCss(colorScheme);
+    try {
+      final result = await controller.callAsyncJavaScript(
+        functionBody: '''
+if (typeof window.__MYCHU_THEME__?.apply !== 'function') return false;
+window.__MYCHU_THEME__.apply(mode, css);
+return true;
+''',
+        arguments: {'mode': mode, 'css': css},
+      );
+      if (result?.value == true) {
+        return;
+      }
+    } on Object catch (diagnosticError, diagnosticStack) {
+      AppLogger.error(diagnosticError, stackTrace: diagnosticStack);
+    }
+    if (mounted) {
+      _rebuildWebView();
+    }
+  }
+
+  void _rebuildWebView() {
+    _bridge?.dispose();
+    _bridge = null;
+    _controller = null;
+    _lastPushedKeyboardInset = null;
+    _lastPushedKeyboardAnimating = null;
+    setState(() {
+      _pageLoading = true;
+      _loadError = null;
+      _webViewGeneration++;
+    });
   }
 
   @override
   void dispose() {
     _disposed = true;
+    unawaited(_keyboardInsetSubscription?.cancel());
+    _keyboardInsetSubscription = null;
     _bridge?.dispose();
     _settingsService.revision.removeListener(_onKeyRevision);
     super.dispose();
@@ -122,6 +226,8 @@ class _ChatDemoPageState extends State<ChatDemoPage> {
     _bridge?.dispose();
     _bridge = null;
     _controller = null;
+    _lastPushedKeyboardInset = null;
+    _lastPushedKeyboardAnimating = null;
     setState(() {
       _apiKey = key;
       _pageLoading = true;
@@ -359,13 +465,16 @@ return await window.__MYCHU_SETTINGS__?.clearHistory();
                     if (mounted) setState(() => _pageLoading = true);
                   },
                   onLoadStop: (controller, url) {
-                    if (mounted) setState(() => _pageLoading = false);
+                    if (mounted) {
+                      setState(() => _pageLoading = false);
+                      _pushKeyboardInset(force: true);
+                    }
                   },
                   onReceivedError: (controller, request, error) {
                     if (request.isForMainFrame == true && mounted) {
                       setState(() {
                         _pageLoading = false;
-                        _loadError = '$askYuiName 加载失败，请重试。';
+                        _loadError = '页面加载失败，请重试';
                       });
                     }
                   },
@@ -373,8 +482,7 @@ return await window.__MYCHU_SETTINGS__?.clearHistory();
                     if (request.isForMainFrame == true && mounted) {
                       setState(() {
                         _pageLoading = false;
-                        _loadError =
-                            '$askYuiName 加载失败（${response.statusCode}）。';
+                        _loadError = '页面加载失败，请重试';
                       });
                     }
                   },
@@ -382,10 +490,12 @@ return await window.__MYCHU_SETTINGS__?.clearHistory();
                     _bridge?.dispose();
                     _bridge = null;
                     if (identical(_controller, controller)) _controller = null;
+                    _lastPushedKeyboardInset = null;
+                    _lastPushedKeyboardAnimating = null;
                     if (mounted) {
                       setState(() {
                         _pageLoading = false;
-                        _loadError = '$askYuiName 页面已退出，请重试。';
+                        _loadError = '页面意外中断，请重新加载';
                       });
                     }
                   },
@@ -402,12 +512,14 @@ return await window.__MYCHU_SETTINGS__?.clearHistory();
                     child: ColoredBox(
                       color: Theme.of(context).colorScheme.surface,
                       child: AdaptiveErrorState(
-                        title: askYuiName,
+                        title: '无法打开 $askYuiName',
                         message: _loadError,
                         onRetry: () {
                           _bridge?.dispose();
                           _bridge = null;
                           _controller = null;
+                          _lastPushedKeyboardInset = null;
+                          _lastPushedKeyboardAnimating = null;
                           setState(() {
                             _loadError = null;
                             _pageLoading = true;
@@ -435,38 +547,12 @@ class _MissingKeyView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text(askYuiName)),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.auto_awesome_outlined,
-                size: 48,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                '还没有配置 DeepSeek API Key',
-                style: Theme.of(context).textTheme.titleMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'DeepSeek API Key 是 MyCHU 的应用级配置，不要求登录校园账号。',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              FilledButton(
-                onPressed: onOpenSettings,
-                child: const Text('配置 DeepSeek API'),
-              ),
-            ],
-          ),
+      body: AdaptiveStatusState(
+        icon: Icons.auto_awesome_outlined,
+        message: '填写 DeepSeek API Key 后即可开始对话',
+        action: FilledButton(
+          onPressed: onOpenSettings,
+          child: const Text('去设置'),
         ),
       ),
     );

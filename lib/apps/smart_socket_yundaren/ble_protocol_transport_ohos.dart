@@ -4,11 +4,11 @@ import 'dart:math';
 
 import 'package:flutter_blue_plus_ohos/flutter_blue_plus_ohos.dart' as ohos;
 
+import '../../services/logging/logger.dart';
+import 'smart_socket_protocol.dart';
 import 'smart_socket_protocol_transport.dart';
 
-import '../../services/logging/logger.dart';
-
-/// FlutterBluePlus OHOS transport for the existing QR-address-bound BLE test.
+/// FlutterBluePlus OHOS transport for the QR-address-bound BLE transport.
 ///
 /// The transport deliberately matches the scan result address to the QR MAC.
 /// HarmonyOS versions that expose privacy-virtualized addresses therefore fail
@@ -40,17 +40,17 @@ class HarmonyBleProtocolTransport implements BleProtocolTransport {
       throw const BleTransportException('当前设备不支持 BLE');
     }
     if (await _readLiveAdapterState() != ohos.BluetoothAdapterState.on) {
-      throw const BleTransportException('蓝牙未开启，请开启后重试');
+      throw const BleTransportException('蓝牙未开启');
     }
 
     await ohos.FlutterBluePlus.stopScan();
-    final target = _normalizeMac(mac);
+    final target = normalizeMac(mac);
     final found = Completer<ohos.BluetoothDevice>();
     late final StreamSubscription<List<ohos.ScanResult>> subscription;
     subscription = ohos.FlutterBluePlus.onScanResults.listen(
       (results) {
         for (final result in results) {
-          if (_normalizeMac(result.device.remoteId.str) == target &&
+          if (normalizeMac(result.device.remoteId.str) == target &&
               !found.isCompleted) {
             found.complete(result.device);
             break;
@@ -75,7 +75,7 @@ class HarmonyBleProtocolTransport implements BleProtocolTransport {
         onTimeout:
             () =>
                 throw BleTransportException(
-                  '12 秒内未找到二维码设备 ${_formatMac(target)}',
+                  '12 秒内未找到二维码设备 ${formatMacString(target)}',
                 ),
       );
     } on BleTransportException catch (diagnosticError, diagnosticStack) {
@@ -226,7 +226,7 @@ class HarmonyBleProtocolTransport implements BleProtocolTransport {
   }
 
   void _ensureActive() {
-    if (_disposed) throw const BleTransportException('BLE 测试已关闭');
+    if (_disposed) throw const BleTransportException('BLE 连接已关闭');
   }
 
   Future<ohos.BluetoothAdapterState> _readLiveAdapterState() async {
@@ -237,12 +237,4 @@ class HarmonyBleProtocolTransport implements BleProtocolTransport {
       throw BleTransportException('读取蓝牙状态失败（${error.runtimeType}）');
     }
   }
-
-  static String _normalizeMac(String value) =>
-      value.replaceAll(RegExp(r'[^0-9a-fA-F]'), '').toUpperCase();
-
-  static String _formatMac(String value) => [
-    for (var index = 0; index < value.length; index += 2)
-      value.substring(index, min(index + 2, value.length)),
-  ].join(':');
 }

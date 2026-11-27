@@ -65,7 +65,10 @@ String buildChatDemoThemeCss(ColorScheme colors) {
     '--dsw-alias-state-error-secondary': hex(colors.error),
     '--dsw-alias-toast-bg': hex(colors.inverseSurface),
     '--dsw-alias-tooltip-bg': hex(colors.inverseSurface),
+    '--md-sys-color-on-primary-container': hex(colors.onPrimaryContainer),
+    '--md-sys-color-on-secondary-container': hex(colors.onSecondaryContainer),
     '--dsw-specific-bubble': hex(colors.primaryContainer),
+    '--dsw-specific-bubble-foreground': hex(colors.onPrimaryContainer),
     // 亮色输入区比默认 surfaceContainerHigh 更浅；深色保持高一层以拉开背景。
     '--dsw-specific-input-major': hex(
       colors.brightness == Brightness.light
@@ -78,6 +81,9 @@ String buildChatDemoThemeCss(ColorScheme colors) {
     '--dsw-specific-sidebar-fill': hex(colors.surfaceContainerLow),
     '--dsw-specific-sidebar-nav-item-active-accent': hex(
       colors.secondaryContainer,
+    ),
+    '--dsw-specific-sidebar-nav-item-active-foreground': hex(
+      colors.onSecondaryContainer,
     ),
     '--dsw-specific-sidebar-nav-item-hover': hex(colors.surfaceContainerHigh),
   };

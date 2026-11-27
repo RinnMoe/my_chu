@@ -101,26 +101,26 @@ class BleFrameCodec {
   static BleFrame parseAscii(String value) {
     final line = value.trim();
     if (!line.startsWith('#')) {
-      throw const BleProtocolException('BLE 帧缺少 # 前缀');
+      throw const BleProtocolException('协议帧缺少 # 前缀');
     }
     final encoded = line.substring(1);
     if (encoded.isEmpty || encoded.length.isOdd) {
-      throw const BleProtocolException('BLE 帧十六进制长度错误');
+      throw const BleProtocolException('协议帧十六进制长度错误');
     }
     final bytes = hexToBytes(encoded);
     if (bytes.length < 9 || bytes[0] != 0x60 || bytes[1] != 0x00) {
-      throw const BleProtocolException('BLE 帧头错误');
+      throw const BleProtocolException('协议帧头错误');
     }
     final bodyLength = bytes[2];
     if (bytes.length != bodyLength + 5 || bodyLength < 3) {
-      throw const BleProtocolException('BLE 帧长度字段错误');
+      throw const BleProtocolException('协议帧长度字段错误');
     }
     if (bytes.last != 0x16) {
-      throw const BleProtocolException('BLE 帧结束字节错误');
+      throw const BleProtocolException('协议帧结束字节错误');
     }
     final body = bytes.sublist(3, 3 + bodyLength);
     if (bytes[3 + bodyLength] != checksum8(body)) {
-      throw const BleProtocolException('BLE 帧校验和错误');
+      throw const BleProtocolException('协议帧校验和错误');
     }
     return BleFrame(
       type: body[0],
@@ -154,8 +154,6 @@ class BleNotificationDecoder {
         if (line.trim().isNotEmpty) BleFrameCodec.parseAscii(line),
     ];
   }
-
-  void clear() => _buffer.clear();
 }
 
 class BleDeviceInfo {
@@ -186,8 +184,6 @@ class BleDeviceInfo {
   });
 
   bool get isIdle => charge == 0 && accountId == 0 && constype == 0;
-
-  String get formattedMac => formatMac(mac);
 
   static BleDeviceInfo fromFrame(BleFrame frame) {
     _expectResponse(frame, 0x23);
@@ -293,7 +289,7 @@ class BleStartProtocol {
     required int appRandom,
   }) {
     if (!qr.matchesMac(device.mac)) {
-      throw const BleProtocolException('二维码 MAC 与 BLE 设备 MAC 不一致');
+      throw const BleProtocolException('二维码 MAC 与设备 MAC 不一致');
     }
     if (appRandom < 1000 || appRandom > 10000) {
       throw const BleProtocolException('APP_RANDOM 必须在 1000–10000 之间');
@@ -424,6 +420,17 @@ String bytesToHex(List<int> bytes) =>
     bytes
         .map((byte) => byte.toRadixString(16).padLeft(2, '0').toUpperCase())
         .join();
+
+String normalizeMac(String value) =>
+    value.replaceAll(RegExp(r'[^0-9a-fA-F]'), '').toUpperCase();
+
+String formatMacString(String value) => [
+  for (var index = 0; index < value.length; index += 2)
+    value.substring(
+      index,
+      index + 2 > value.length ? value.length : index + 2,
+    ),
+].join(':');
 
 String formatMac(List<int> bytes) {
   if (bytes.length != 6) {

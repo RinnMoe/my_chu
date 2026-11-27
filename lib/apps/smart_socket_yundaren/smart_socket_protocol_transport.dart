@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import '../../services/logging/logger.dart';
+import 'smart_socket_protocol.dart';
 
 class BleTransportException implements Exception {
   final String message;
@@ -86,10 +87,10 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
     }
     final adapterState = await _readLiveAdapterState();
     if (adapterState != BluetoothAdapterState.on) {
-      throw const BleTransportException('蓝牙未开启', userMessage: '蓝牙未开启，请开启后重试');
+      throw const BleTransportException('蓝牙未开启', userMessage: '蓝牙未开启');
     }
     _ensureActive();
-    _device = BluetoothDevice.fromId(_formatMac(_normalizeMac(mac)));
+    _device = BluetoothDevice.fromId(formatMacString(normalizeMac(mac)));
   }
 
   Future<BluetoothDevice> _scanForTarget(String target) async {
@@ -101,7 +102,7 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
     subscription = FlutterBluePlus.onScanResults.listen(
       (results) {
         for (final result in results) {
-          if (_normalizeMac(result.device.remoteId.str) == target &&
+          if (normalizeMac(result.device.remoteId.str) == target &&
               !found.isCompleted) {
             found.complete(result.device);
             break;
@@ -162,7 +163,7 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
       AppLogger.error(error, stackTrace: stack);
       _ensureActive();
       // FlutterBluePlus cancels timed-out GATT attempts itself.
-      device = await _scanForTarget(_normalizeMac(device.remoteId.str));
+      device = await _scanForTarget(normalizeMac(device.remoteId.str));
       _ensureActive();
       _device = device;
       try {
@@ -298,12 +299,4 @@ class FlutterBlueProtocolTransport implements BleProtocolTransport {
       throw BleTransportException('读取蓝牙状态失败（${error.runtimeType}）');
     }
   }
-
-  static String _normalizeMac(String value) =>
-      value.replaceAll(RegExp(r'[^0-9a-fA-F]'), '').toUpperCase();
-
-  static String _formatMac(String value) => [
-    for (var index = 0; index < value.length; index += 2)
-      value.substring(index, min(index + 2, value.length)),
-  ].join(':');
 }
